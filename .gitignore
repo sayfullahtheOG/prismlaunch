@@ -1,0 +1,46 @@
+# ---------------------------------------------------------------------------
+# Internal specs and planning docs — LOCAL ONLY, never committed.
+# The public repo ships the product, not the scaffolding behind it.
+# README.md, LICENSE and CONTRIBUTING.md are deliberately NOT ignored:
+# the challenge requires a public repo with a license and setup instructions.
+# ---------------------------------------------------------------------------
+context/
+CLAUDE.md
+AGENTS.md
+product.md
+hackathon.md
+design/
+.claude/
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Build output
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Deploy
+.vercel/
+
+# Test / coverage
+coverage/
+
+# Editor + OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local render scratch
+/tmp-renders/

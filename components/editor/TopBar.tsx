@@ -8,6 +8,8 @@ type Props = {
   /** Render is blocked while any scene is still a draft. */
   renderBlockedReason: string | null;
   onRender: () => void;
+  /** Last render outcome. Shown inline so failures are never silent. */
+  note?: string | null;
 };
 
 export function TopBar({
@@ -15,6 +17,7 @@ export function TopBar({
   duration,
   renderBlockedReason,
   onRender,
+  note,
 }: Props) {
   const blocked = renderBlockedReason !== null;
 
@@ -38,6 +41,12 @@ export function TopBar({
       </button>
 
       <span className="font-mono text-xs text-faint tabular-nums">{duration}</span>
+
+      {note ? (
+        <span className="max-w-[38ch] truncate text-[11.5px] text-muted" title={note}>
+          {note}
+        </span>
+      ) : null}
 
       <div className="flex-1" />
 

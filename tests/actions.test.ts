@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as actions from "@/lib/studio/actions";
+import { buildTools } from "@/lib/webmcp/tools";
 import { readProject, resetStudio } from "@/lib/studio/store";
 
 /**
@@ -19,20 +20,44 @@ const DRAFT = "scene-03" as const;
 const ACCEPTED = "scene-01" as const;
 
 describe("the approval boundary", () => {
-  it("exposes no action that sets approval directly", () => {
+  it("keeps the human-only actions available to the UI", () => {
     const surface = Object.keys(actions);
-
-    // acceptDraft/keepCurrent exist, but they are human-only and are never
-    // wrapped as WebMCP tools. Nothing else may touch approval at all.
     expect(surface).toContain("acceptDraft");
     expect(surface).toContain("keepCurrent");
+    expect(surface).toContain("approveRender");
+  });
 
-    const suspicious = surface.filter(
-      (name) =>
-        /approve|accept|publish|render|export/i.test(name) &&
-        !["acceptDraft"].includes(name),
+  /**
+   * The load-bearing assertion in this file.
+   *
+   * The claim is that an agent proposes and a human disposes. That is only
+   * true if the agent has no *tool* for accepting a draft or approving a
+   * render — the actions exist for the UI, but must never be exposed. This
+   * walks the real registered tool surface rather than trusting a comment.
+   */
+  it("registers no tool that can accept a draft or approve a render", () => {
+    const names = buildTools().map((registered) => registered.name);
+
+    expect(names).toContain("prism.revise_scene_draft");
+    expect(names).toContain("prism.request_render");
+    expect(names).toContain("prism.confirm_render");
+
+    const forbidden = names.filter((name) =>
+      /accept|approve|keep_current|publish|share/i.test(name),
     );
-    expect(suspicious).toEqual([]);
+    expect(forbidden).toEqual([]);
+  });
+
+  it("gives every tool a schema, a description, and its own validation", async () => {
+    for (const registered of buildTools()) {
+      expect(registered.description.length).toBeGreaterThan(40);
+      expect(registered.inputSchema?.type).toBe("object");
+
+      // Chrome validates nothing, so garbage must come back as a corrective
+      // message rather than an exception.
+      const result = await registered.execute({ nonsense: true } as never);
+      expect(typeof result).toBe("string");
+    }
   });
 
   it("agent revisions always land as a draft", () => {

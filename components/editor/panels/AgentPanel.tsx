@@ -6,42 +6,62 @@ import { PanelShell, PanelSection } from "./PanelShell";
 
 type Props = {
   activity: ActivityEvent[];
-  webmcpConnected: boolean;
+  /**
+   * Never collapse this to a boolean. A fallback registry is invisible to
+   * external agents, so reporting it as connected would claim reach the
+   * product does not have.
+   */
+  kind: "native" | "fallback" | "absent";
   toolCount: number;
 };
 
-export function AgentPanel({ activity, webmcpConnected, toolCount }: Props) {
+const CONNECTION: Record<
+  Props["kind"],
+  { title: string; detail: (n: number) => string; tone: string }
+> = {
+  native: {
+    title: "Agent tools available",
+    detail: (n) => `${n} WebMCP tools registered on this page`,
+    tone: "border-brand/30 bg-brand-soft",
+  },
+  fallback: {
+    title: "In-page tools only",
+    detail: (n) =>
+      `${n} tools registered, but this browser has no WebMCP — external agents cannot see them`,
+    tone: "border-draft-line bg-draft-soft",
+  },
+  absent: {
+    title: "Use direct controls",
+    detail: () => "No WebMCP in this browser — every control still works",
+    tone: "border-line bg-sunken",
+  },
+};
+
+export function AgentPanel({ activity, kind, toolCount }: Props) {
+  const connection = CONNECTION[kind];
   return (
     <PanelShell
       title="Agent"
       hint="Everything your agent has done, in the order it happened."
     >
       <PanelSection label="Connection">
-        <div
-          className={`flex items-center gap-2 rounded-card border p-3 ${
-            webmcpConnected
-              ? "border-brand/30 bg-brand-soft"
-              : "border-line bg-sunken"
-          }`}
-        >
+        <div className={`flex items-center gap-2 rounded-card border p-3 ${connection.tone}`}>
           <span
             className={`size-2 shrink-0 rounded-full ${
-              webmcpConnected ? "bg-brand" : "bg-faint"
+              kind === "native" ? "bg-brand" : kind === "fallback" ? "bg-draft" : "bg-faint"
             }`}
             aria-hidden
           />
           <span className="min-w-0 flex-1">
             <span
               className={`block text-xs font-semibold ${
-                webmcpConnected ? "text-brand" : "text-muted"
+                kind === "native" ? "text-brand" : kind === "fallback" ? "text-draft" : "text-muted"
               }`}
             >
-              {webmcpConnected ? "Agent tools available" : "Use direct controls"}
+              {connection.title}
             </span>
             <span className="block text-[11px] text-muted">
-              {webmcpConnected
-                ? `${toolCount} WebMCP tools registered on this page`
-                : "No WebMCP in this browser — every control still works"}
+              {connection.detail(toolCount)}
             </span>
           </span>
         </div>

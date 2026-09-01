@@ -30,7 +30,14 @@ class FallbackModelContext extends EventTarget implements ModelContext {
     if (options?.signal?.aborted) return;
 
     this.#tools.set(tool.name, tool);
+
     options?.signal?.addEventListener("abort", () => {
+      // Only remove the entry if it is still OURS. React invokes effects twice
+      // in development, so an older controller can abort after a newer
+      // registration has already replaced the same tool name — deleting by
+      // name alone would silently unregister the live tool and leave the page
+      // with zero tools while still reporting success.
+      if (this.#tools.get(tool.name) !== tool) return;
       this.#tools.delete(tool.name);
       this.dispatchEvent(new Event("toolchange"));
     });

@@ -139,13 +139,18 @@ export function replayCurrent(): ActionResult {
 // Scene edits
 // ---------------------------------------------------------------------------
 
-/** Fields a caller may change. Everything else is structural and fixed. */
-export type ScenePatch = Partial<
-  Pick<
-    Scene,
-    "headline" | "body" | "componentId" | "motionPreset" | "emphasis"
-  >
->;
+/**
+ * Fields a caller may change. Everything else is structural and fixed.
+ *
+ * Explicitly `| undefined` on each key: under `exactOptionalPropertyTypes`, an
+ * absent property and one set to `undefined` are different types, and a patch
+ * assembled from optional tool input always carries the latter.
+ */
+export type ScenePatch = {
+  [K in "headline" | "body" | "componentId" | "motionPreset" | "emphasis"]?:
+    | Scene[K]
+    | undefined;
+};
 
 type EditOptions = {
   origin: ActionOrigin;
@@ -153,11 +158,30 @@ type EditOptions = {
   revisionNote?: string;
 };
 
+/**
+ * Drop keys whose value is `undefined`.
+ *
+ * A tool's optional field arrives as an explicit `undefined` when the agent
+ * omitted it, and spreading that over the scene would erase a required value.
+ * Omitted means "leave it alone"; clearing an optional line is done by passing
+ * an empty string.
+ */
+type AppliedPatch = {
+  [K in keyof ScenePatch]?: Scene[K];
+};
+
+function defined(patch: ScenePatch): AppliedPatch {
+  return Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined),
+  ) as AppliedPatch;
+}
+
 function applyPatch(
   sceneId: SceneId,
-  patch: ScenePatch,
+  rawPatch: ScenePatch,
   options: EditOptions,
 ): ActionResult {
+  const patch = defined(rawPatch);
   const { project } = useStudioStore.getState();
   const scene = findScene(project, sceneId);
   if (!scene) return fail("unknown-scene", `unknown scene "${sceneId}"`);
@@ -474,4 +498,224 @@ export async function inspectSource(
   return ok(
     `Inspected ${manifest.productName}: found ${manifest.componentCandidates.length} component candidate${manifest.componentCandidates.length === 1 ? "" : "s"}${warnings > 0 ? `, ${warnings} warning${warnings === 1 ? "" : "s"}` : ""}. Storyboard regenerated.`,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Storyboard regeneration
+// ---------------------------------------------------------------------------
+
+export type RegenerateOptions = {
+  artDirection?: ArtDirection | undefined;
+  focusComponentId?: string | undefined;
+  promise?: string | undefined;
+};
+
+/**
+ * Rebuild all four scenes from the current manifest and brief.
+ *
+ * Every scene comes back `accepted`, because the generator is deterministic
+ * and authored by us — there is nothing for a human to review that they did
+ * not already ask for. An agent adjusting one shot afterwards goes through
+ * `reviseSceneDraft`, which does create a draft.
+ */
+export function regenerateStoryboard(
+  options: RegenerateOptions = {},
+): ActionResult {
+  const { project } = useStudioStore.getState();
+
+  if (options.artDirection && !ArtDirectionSchema.safeParse(options.artDirection).success) {
+    return fail(
+      "invalid-input",
+      `unknown art direction "${options.artDirection}". Available: ${Object.keys(PALETTES).join(", ")}`,
+    );
+  }
+
+  if (options.focusComponentId) {
+    const known = project.product.componentCandidates.some(
+      (candidate) => candidate.id === options.focusComponentId,
+    );
+    if (!known) {
+      const available = project.product.componentCandidates
+        .map((candidate) => candidate.id)
+        .join(", ");
+      return fail(
+        "unknown-component",
+        `unknown componentId "${options.focusComponentId}". Available: ${available || "none — inspect a source first"}`,
+      );
+    }
+  }
+
+  const brief = {
+    ...project.brief,
+    ...(options.artDirection ? { artDirection: options.artDirection } : {}),
+    ...(options.promise ? { promise: options.promise } : {}),
+    ...(options.focusComponentId
+      ? { selectedComponentIds: [options.focusComponentId] }
+      : {}),
+  };
+
+  let scenes;
+  try {
+    scenes = generateStoryboard(project.product, brief);
+  } catch (error) {
+    return fail(
+      "graph-invalid",
+      error instanceof Error ? error.message : "Could not build a storyboard.",
+    );
+  }
+
+  const next = withActivity(
+    { ...project, brief, scenes, activeSceneId: "scene-01" },
+    {
+      origin: "agent",
+      label: "prism.create_storyboard_draft",
+      detail: `Rebuilt 4 scenes · ${brief.artDirection}`,
+    },
+  );
+
+  const rejected = commit(next);
+  if (rejected) return rejected;
+
+  replay();
+  return ok(
+    `Rebuilt the storyboard in ${brief.artDirection}: ${scenes.map((s) => `${s.id} "${s.headline}"`).join(", ")}. All four scenes are accepted and ready to review.`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The render gate — two phases, and the agent can only take the first
+// ---------------------------------------------------------------------------
+
+/**
+ * Phase 1. Renders nothing.
+ *
+ * Posts the accepted board to the server, which records a snapshot and mints a
+ * short-lived confirmation. The confirm sheet then appears in the app for a
+ * human to approve. The returned message deliberately tells the agent to wait.
+ */
+export async function requestRender(reason?: string): Promise<ActionResult> {
+  const { project } = useStudioStore.getState();
+
+  const pending = project.scenes.find((scene) => scene.approval === "draft");
+  if (pending) {
+    return fail(
+      "invalid-input",
+      `${sceneLabel(pending)} still has an unreviewed draft. The person needs to accept or discard it first.`,
+    );
+  }
+
+  let body: {
+    ok: boolean;
+    confirmationId?: string;
+    summary?: string;
+    message?: string;
+    renderAvailable?: boolean;
+  };
+  try {
+    const response = await fetch("/api/render", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "propose", project, reason }),
+    });
+    body = await response.json();
+  } catch {
+    return fail("inspection-failed", "Could not reach the render service.");
+  }
+
+  if (!body.ok || !body.confirmationId) {
+    return fail("invalid-input", body.message ?? "Could not propose a render.");
+  }
+
+  useStudioStore.getState().setPendingRender({
+    confirmationId: body.confirmationId,
+    summary: body.summary ?? "Render the film.",
+    ...(reason ? { reason } : {}),
+    available: body.renderAvailable !== false,
+  });
+
+  const next = withActivity(project, {
+    origin: "agent",
+    label: "prism.request_render",
+    detail: "Proposed a render — needs your confirmation",
+    blocked: true,
+  });
+  commit(next);
+
+  return ok(
+    `Nothing has been rendered. ${body.summary} A confirmation is now waiting in PrismLaunch — ask the person to approve it, then call prism.confirm_render with confirmationId "${body.confirmationId}".`,
+  );
+}
+
+/**
+ * Phase 3. Carries only the token — no scene data — so a caller holding it can
+ * replay what was recorded but cannot change it. Fails until a human has
+ * approved that exact confirmation.
+ */
+export async function confirmRender(confirmationId: string): Promise<ActionResult> {
+  let response: Response;
+  try {
+    response = await fetch("/api/render", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "confirm", confirmationId }),
+    });
+  } catch {
+    return fail("inspection-failed", "Could not reach the render service.");
+  }
+
+  const body: { ok: boolean; message?: string; jobId?: string } =
+    await response.json().catch(() => ({ ok: false }));
+
+  if (!body.ok) {
+    return fail("invalid-input", body.message ?? "The render could not start.");
+  }
+
+  useStudioStore.getState().setPendingRender(null);
+  return ok(`Render started (job ${body.jobId}).`);
+}
+
+/**
+ * Phase 2 — HUMAN ONLY, wired to the confirm sheet's button.
+ *
+ * Deliberately not exported through any tool. This is the click the whole gate
+ * turns on.
+ */
+export async function approveRender(confirmationId: string): Promise<ActionResult> {
+  try {
+    await fetch("/api/render", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "approve", confirmationId }),
+    });
+  } catch {
+    return fail("inspection-failed", "Could not reach the render service.");
+  }
+  return ok("Render approved.");
+}
+
+export function dismissRenderRequest(): ActionResult {
+  useStudioStore.getState().setPendingRender(null);
+  return ok("Render request dismissed.");
+}
+
+/**
+ * The human's own Export button.
+ *
+ * A person clicking Export *is* the approval, so this walks all three phases
+ * in one go. It still goes through the same server gate rather than a shortcut
+ * path — the snapshot is recorded, approved, and consumed exactly as it would
+ * be for an agent-initiated render, so there is only one way a render can ever
+ * start.
+ */
+export async function startRenderAsHuman(): Promise<ActionResult> {
+  const proposed = await requestRender();
+  if (!proposed.ok) return proposed;
+
+  const pending = useStudioStore.getState().pendingRender;
+  if (!pending) return fail("invalid-input", "No render was proposed.");
+
+  const approved = await approveRender(pending.confirmationId);
+  if (!approved.ok) return approved;
+
+  return confirmRender(pending.confirmationId);
 }

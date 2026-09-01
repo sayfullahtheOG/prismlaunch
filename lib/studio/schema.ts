@@ -298,3 +298,110 @@ export function explainZodError(error: z.ZodError): string {
     })
     .join("; ");
 }
+
+// ---------------------------------------------------------------------------
+// WebMCP tool inputs
+// ---------------------------------------------------------------------------
+
+/**
+ * One schema per tool. These drive both the `inputSchema` an agent sees
+ * (via `toolInputJsonSchema`) and the runtime `.parse()` inside each executor.
+ *
+ * `.describe()` matters more than usual here: it becomes the JSON Schema
+ * description the model reads when deciding how to call the tool, so it is the
+ * cheapest place to prevent a malformed call.
+ */
+
+export const FocusSceneInput = z.object({
+  sceneId: SceneIdSchema.describe("Which of the four scenes to select."),
+});
+
+export const PreviewInput = z.object({
+  mode: z
+    .enum(["scene", "film"])
+    .default("film")
+    .describe("Play just the active scene, or the whole board."),
+  sceneId: SceneIdSchema.optional().describe(
+    "Scene to play. Required when mode is 'scene'.",
+  ),
+});
+
+export const ReviseSceneInput = z.object({
+  sceneId: SceneIdSchema.describe("Which scene to revise."),
+  headline: z
+    .string()
+    .min(1)
+    .max(HEADLINE_MAX)
+    .optional()
+    .describe(`The scene's main line. At most ${HEADLINE_MAX} characters.`),
+  body: z
+    .string()
+    .max(BODY_MAX)
+    .optional()
+    .describe(`Optional supporting line. At most ${BODY_MAX} characters.`),
+  componentId: z
+    .string()
+    .max(80)
+    .optional()
+    .describe(
+      "Component to feature. Must be an id from get_project_context. Only meaningful on the component-spotlight scene.",
+    ),
+  motionPreset: MotionPresetSchema.optional().describe(
+    "drift is slow and premium, snap is decisive, orbit is playful.",
+  ),
+  emphasis: EmphasisSchema.optional(),
+  revisionNote: z
+    .string()
+    .min(1)
+    .max(240)
+    .describe("One sentence on what you changed and why. Shown to the human."),
+});
+
+export const InspectRepoInput = z.object({
+  repositoryUrl: z
+    .string()
+    .min(1)
+    .max(300)
+    .describe(
+      "A public GitHub repository URL, e.g. https://github.com/owner/repo. Ask the person for this — never guess one.",
+    ),
+  focus: z
+    .string()
+    .max(120)
+    .optional()
+    .describe("What the person wants featured, e.g. 'command palette'."),
+});
+
+export const CreateStoryboardInput = z.object({
+  artDirection: ArtDirectionSchema.optional().describe(
+    "Visual treatment for the whole film.",
+  ),
+  focusComponentId: z
+    .string()
+    .max(80)
+    .optional()
+    .describe("Component to build the proof scene around."),
+  promise: z
+    .string()
+    .max(160)
+    .optional()
+    .describe("One sentence describing what the product does."),
+});
+
+export const RequestRenderInput = z.object({
+  reason: z
+    .string()
+    .max(200)
+    .optional()
+    .describe("Why you think the film is ready. Shown to the human."),
+});
+
+export const ConfirmRenderInput = z.object({
+  confirmationId: z
+    .string()
+    .min(1)
+    .max(120)
+    .describe(
+      "The id returned by request_render, after the person approved it in the app.",
+    ),
+});

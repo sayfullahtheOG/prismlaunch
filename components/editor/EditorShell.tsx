@@ -7,6 +7,7 @@ import {
   keepCurrent,
   replayCurrent,
   setArtDirection,
+  startRenderAsHuman,
   updateScene,
   type ScenePatch,
 } from "@/lib/studio/actions";
@@ -15,6 +16,8 @@ import { useStudioStore } from "@/lib/studio/store";
 import { elapsedThrough, timecode, totalSeconds } from "@/lib/studio/timing";
 import type { SceneId } from "@/types/prism";
 import { Canvas } from "./Canvas";
+import { RenderConfirm } from "./RenderConfirm";
+import { useWebMcp } from "./WebMcpProvider";
 import { IconRail, type RailTab } from "./IconRail";
 import { Inspector } from "./Inspector";
 import { Timeline } from "./Timeline";
@@ -40,6 +43,10 @@ export function EditorShell() {
   const playToken = useStudioStore((state) => state.playToken);
   const [tab, setTab] = useState<RailTab>("scenes");
 
+  // Registers the eight tools for the lifetime of this component, and reports
+  // which implementation backs them.
+  const webmcp = useWebMcp();
+
   const palette = PALETTES[project.brief.artDirection];
   const activeScene =
     project.scenes.find((scene) => scene.id === project.activeSceneId) ??
@@ -51,6 +58,14 @@ export function EditorShell() {
   const pendingDraft = project.scenes.find(
     (scene) => scene.approval === "draft",
   );
+  const pendingRender = useStudioStore((state) => state.pendingRender);
+  const renderNote = useStudioStore((state) => state.renderNote);
+
+  async function exportFilm() {
+    useStudioStore.getState().setRenderNote("Starting render…");
+    const result = await startRenderAsHuman();
+    useStudioStore.getState().setRenderNote(result.message);
+  }
 
   function step(direction: 1 | -1) {
     const next = activeScene.order + direction;
@@ -64,7 +79,7 @@ export function EditorShell() {
   }
 
   return (
-    <div className="chrome-select-none flex h-dvh min-h-0 flex-col bg-app">
+    <div className="chrome-select-none relative flex h-dvh min-h-0 flex-col bg-app">
       <TopBar
         productName={project.product.productName}
         duration={`${total} · 4 scenes`}
@@ -73,14 +88,15 @@ export function EditorShell() {
             ? `Scene ${String(pendingDraft.order).padStart(2, "0")} still has an unreviewed draft`
             : null
         }
-        onRender={() => undefined}
+        onRender={() => void exportFilm()}
+        note={renderNote}
       />
 
       <div className="flex min-h-0 flex-1">
         <IconRail
           active={tab}
           onChange={setTab}
-          agentPending={Boolean(pendingDraft)}
+          agentPending={Boolean(pendingDraft) || Boolean(pendingRender)}
         />
 
         <div className="flex w-[320px] shrink-0 flex-col border-r border-line bg-surface">
@@ -114,8 +130,8 @@ export function EditorShell() {
           {tab === "agent" ? (
             <AgentPanel
               activity={project.activity}
-              webmcpConnected
-              toolCount={8}
+              kind={webmcp.kind}
+              toolCount={webmcp.registered}
             />
           ) : null}
         </div>
@@ -151,6 +167,8 @@ export function EditorShell() {
           onKeepCurrent={() => keepCurrent(activeScene.id)}
         />
       </div>
+
+      <RenderConfirm />
     </div>
   );
 }

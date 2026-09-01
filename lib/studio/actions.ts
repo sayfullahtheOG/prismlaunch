@@ -1,3 +1,4 @@
+import { generateStoryboard } from "./generator";
 import { PALETTES } from "./palettes";
 import {
   ArtDirectionSchema,
@@ -11,6 +12,7 @@ import type {
   ActivityEvent,
   ArtDirection,
   FilmProject,
+  ProductManifest,
   Scene,
   SceneId,
 } from "@/types/prism";
@@ -36,6 +38,7 @@ export type ActionResult =
   | { ok: false; code: ActionErrorCode; message: string };
 
 export type ActionErrorCode =
+  | "inspection-failed"
   | "unknown-scene"
   | "invalid-input"
   | "unknown-component"
@@ -383,4 +386,92 @@ export function getProjectContext() {
       durationFrames: scene.durationFrames,
     })),
   };
+}
+
+
+// ---------------------------------------------------------------------------
+// Source inspection
+// ---------------------------------------------------------------------------
+
+export type InspectKind = "demo" | "github" | "local";
+
+/**
+ * Replace the product manifest by inspecting a source, then regenerate the
+ * board from it.
+ *
+ * This is the action `prism.inspect_public_repo` will wrap in Phase 3 — the
+ * agent gets no separate code path, so whatever a human can inspect, an agent
+ * can, with identical validation and identical visible results.
+ *
+ * Regenerating is the right call rather than keeping the old scenes: the
+ * previous board referenced components from a different product, and a
+ * spotlight pointing at a componentId that no longer exists would fail
+ * validation anyway.
+ */
+export async function inspectSource(
+  kind: InspectKind,
+  ref: string,
+  focus = "",
+): Promise<ActionResult> {
+  let response: Response;
+  try {
+    response = await fetch("/api/inspect", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind, ref, focus }),
+    });
+  } catch {
+    return fail("inspection-failed", "Could not reach the inspection service.");
+  }
+
+  const body: unknown = await response.json().catch(() => null);
+
+  if (!response.ok || !body || typeof body !== "object" || !("ok" in body)) {
+    const message =
+      body && typeof body === "object" && "message" in body
+        ? String((body as { message: unknown }).message)
+        : "Inspection failed.";
+    return fail("inspection-failed", message);
+  }
+
+  const payload = body as
+    | { ok: true; manifest: ProductManifest }
+    | { ok: false; message: string };
+
+  if (!payload.ok) return fail("inspection-failed", payload.message);
+
+  const manifest = payload.manifest;
+  const { project } = useStudioStore.getState();
+
+  const brief = {
+    ...project.brief,
+    selectedComponentIds: manifest.componentCandidates[0]
+      ? [manifest.componentCandidates[0].id]
+      : [],
+  };
+
+  const next = withActivity(
+    {
+      ...project,
+      product: manifest,
+      brief,
+      scenes: generateStoryboard(manifest, brief),
+      activeSceneId: "scene-01",
+    },
+    {
+      origin: "human",
+      label: "Inspected source",
+      detail: `${manifest.productName} · ${manifest.componentCandidates.length} candidates`,
+    },
+  );
+
+  const rejected = commit(next);
+  if (rejected) return rejected;
+
+  replay();
+
+  const warnings = manifest.inspectionWarnings.length;
+  return ok(
+    `Inspected ${manifest.productName}: found ${manifest.componentCandidates.length} component candidate${manifest.componentCandidates.length === 1 ? "" : "s"}${warnings > 0 ? `, ${warnings} warning${warnings === 1 ? "" : "s"}` : ""}. Storyboard regenerated.`,
+  );
 }

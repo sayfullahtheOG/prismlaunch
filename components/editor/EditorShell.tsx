@@ -103,6 +103,10 @@ export function EditorShell() {
           {tab === "source" ? (
             <SourcePanel
               candidates={candidates}
+              productName={project.product.productName}
+              framework={project.product.framework}
+              sourceKind={project.product.source}
+              warnings={project.product.inspectionWarnings}
               selectedId={activeScene.componentId}
               onSelect={(componentId) => patch({ componentId })}
             />

@@ -3,9 +3,14 @@
 import { FileCode2, ShieldAlert } from "lucide-react";
 import type { ComponentCandidate } from "@/types/prism";
 import { PanelShell, PanelSection } from "./PanelShell";
+import { SourceIntake } from "./SourceIntake";
 
 type Props = {
   candidates: ComponentCandidate[];
+  productName: string;
+  framework: string;
+  sourceKind: string;
+  warnings: string[];
   /**
    * Explicitly `| undefined`: under `exactOptionalPropertyTypes` an optional
    * property and a property that may be passed as `undefined` are different
@@ -15,21 +20,47 @@ type Props = {
   onSelect: (id: string) => void;
 };
 
-export function SourcePanel({ candidates, selectedId, onSelect }: Props) {
+export function SourcePanel({
+  candidates,
+  productName,
+  framework,
+  sourceKind,
+  warnings,
+  selectedId,
+  onSelect,
+}: Props) {
   return (
     <PanelShell
       title="Source"
-      hint="Read from the demo product. PrismLaunch never runs your code."
+      hint="PrismLaunch reads selected files. It never runs your code."
     >
-      <PanelSection label="Repository">
+      <PanelSection label="Source">
+        <SourceIntake />
+      </PanelSection>
+
+      <PanelSection label="Current product">
         <div className="rounded-card border border-line bg-sunken p-3">
           <p className="font-mono text-[11.5px] break-all text-ink">
-            demo · vector
+            {sourceKind} · {productName}
           </p>
           <p className="mt-1 text-[11.5px] text-muted">
-            Next.js · 4 candidates from 38 files scanned
+            {framework} · {candidates.length} candidate
+            {candidates.length === 1 ? "" : "s"}
           </p>
         </div>
+
+        {warnings.length > 0 ? (
+          <ul className="mt-2 flex flex-col gap-1">
+            {warnings.map((warning) => (
+              <li
+                key={warning}
+                className="rounded-ctl border border-draft-line bg-draft-soft px-2.5 py-1.5 text-[11px] text-draft"
+              >
+                {warning}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </PanelSection>
 
       <PanelSection label="Component candidates">

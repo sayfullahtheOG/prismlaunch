@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   PrismLaunch design tokens — light, modelled on the CapCut web editor.
+   Tailwind v4 is CSS-first: every token declared here generates utilities
+   (bg-surface, text-muted, border-line, rounded-card, …). Components must
+   never hardcode a colour, radius, or font — add a token instead.
+   See context/ui-context.md.
+--------------------------------------------------------------------------- */
+@theme {
+  /* surfaces */
+  --color-app: #eff1f4;        /* outer ground behind panels */
+  --color-surface: #ffffff;    /* panels, rails, toolbars */
+  --color-sunken: #f6f7f9;     /* inset wells, inputs */
+  --color-canvas: #e4e7ec;     /* the area behind the film frame */
+
+  /* lines */
+  --color-line: #e4e7ec;
+  --color-line-strong: #d3d8df;
+
+  /* text */
+  --color-ink: #171a1f;
+  --color-muted: #626a76;
+  --color-faint: #98a0ac;
+
+  /* brand — marks agent-originated things and primary actions */
+  --color-brand: #2b6bf3;
+  --color-brand-hover: #1e5ae0;
+  --color-brand-soft: #eaf1fe;
+
+  /* draft — marks anything awaiting a human decision */
+  --color-draft: #c97a04;
+  --color-draft-soft: #fff5e3;
+  --color-draft-line: #f0c67d;
+
+  --color-ok: #12a150;
+
+  --radius-card: 8px;
+  --radius-ctl: 6px;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-app);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Editor chrome should not feel like a document: kill text selection on
+   labels and controls, but keep it inside real inputs. */
+.chrome-select-none {
+  user-select: none;
+}
+.chrome-select-none input,
+.chrome-select-none textarea {
+  user-select: text;
+}
+
+/* Thin scrollbars in panels, matching the editor's density. */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+.thin-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 4px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

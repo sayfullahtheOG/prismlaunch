@@ -9,6 +9,7 @@ import type {
 } from "@/types/prism";
 import { framesToSeconds } from "@/lib/studio/timing";
 import { BODY_MAX, HEADLINE_MAX } from "@/lib/studio/schema";
+import type { ScenePatch } from "@/lib/studio/actions";
 
 const EMPHASIS: Emphasis[] = ["problem", "product", "feature", "outcome"];
 const MOTION: MotionPreset[] = ["drift", "snap", "orbit"];
@@ -16,7 +17,7 @@ const MOTION: MotionPreset[] = ["drift", "snap", "orbit"];
 type Props = {
   scene: Scene;
   candidates: ComponentCandidate[];
-  onPatch: (patch: Partial<Scene>) => void;
+  onPatch: (patch: ScenePatch) => void;
   onAcceptDraft: () => void;
   onKeepCurrent: () => void;
 };

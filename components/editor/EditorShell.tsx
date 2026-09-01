@@ -1,16 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { demoProject } from "@/lib/source/demo-project";
+import {
+  acceptDraft,
+  focusScene,
+  keepCurrent,
+  replayCurrent,
+  setArtDirection,
+  updateScene,
+  type ScenePatch,
+} from "@/lib/studio/actions";
 import { PALETTES } from "@/lib/studio/palettes";
+import { useStudioStore } from "@/lib/studio/store";
 import { elapsedThrough, timecode, totalSeconds } from "@/lib/studio/timing";
-import type {
-  ArtDirection,
-  FilmProject,
-  MotionPreset,
-  Scene,
-  SceneId,
-} from "@/types/prism";
+import type { SceneId } from "@/types/prism";
 import { Canvas } from "./Canvas";
 import { IconRail, type RailTab } from "./IconRail";
 import { Inspector } from "./Inspector";
@@ -23,104 +26,41 @@ import { ScenesPanel } from "./panels/ScenesPanel";
 import { SourcePanel } from "./panels/SourcePanel";
 
 /**
- * The editor shell owns all state for now.
+ * The editor shell reads from the store and writes only through actions.
  *
- * Next unit replaces this `useState` with the Zustand store, and every mutation
- * below becomes a call into lib/studio/actions.ts — the single mutation path
- * shared by human handlers and WebMCP tool executors
- * (context/architecture.md invariant 1). The shapes here are already the
- * schema-derived ones, so that swap is mechanical rather than a rewrite.
+ * There is no `setState` here and no local copy of the project — a WebMCP tool
+ * executor calling the same action produces exactly the same visible result,
+ * which is what makes the canvas genuinely shared.
+ *
+ * `tab` stays local: which panel is open is view state, not project state, and
+ * nothing outside this component needs it.
  */
 export function EditorShell() {
-  const [project, setProject] = useState<FilmProject>(demoProject);
+  const project = useStudioStore((state) => state.project);
+  const playToken = useStudioStore((state) => state.playToken);
   const [tab, setTab] = useState<RailTab>("scenes");
-  const [playToken, setPlayToken] = useState(0);
 
   const palette = PALETTES[project.brief.artDirection];
   const activeScene =
-    project.scenes.find((s) => s.id === project.activeSceneId) ??
+    project.scenes.find((scene) => scene.id === project.activeSceneId) ??
     project.scenes[0]!;
   const candidates = project.product.componentCandidates;
 
   const total = timecode(totalSeconds(project.scenes));
   const elapsed = timecode(elapsedThrough(project.scenes, activeScene.id));
-  const pendingDraft = project.scenes.find((s) => s.approval === "draft");
-
-  function replay() {
-    setPlayToken((token) => token + 1);
-  }
-
-  function selectScene(id: SceneId) {
-    setProject((prev) => ({ ...prev, activeSceneId: id }));
-    replay();
-  }
+  const pendingDraft = project.scenes.find(
+    (scene) => scene.approval === "draft",
+  );
 
   function step(direction: 1 | -1) {
     const next = activeScene.order + direction;
     const wrapped = next < 1 ? 4 : next > 4 ? 1 : next;
-    const target = project.scenes.find((s) => s.order === wrapped);
-    if (target) selectScene(target.id);
+    const target = project.scenes.find((scene) => scene.order === wrapped);
+    if (target) focusScene(target.id);
   }
 
-  function patchScene(patch: Partial<Scene>) {
-    setProject((prev) => ({
-      ...prev,
-      scenes: prev.scenes.map((scene) =>
-        scene.id === prev.activeSceneId ? { ...scene, ...patch } : scene,
-      ),
-    }));
-    replay();
-  }
-
-  /**
-   * Resolving a draft is the one action an agent can never take. It clears the
-   * amber state everywhere at once — timeline clip, scenes panel, inspector —
-   * and unlocks Export.
-   */
-  function resolveDraft(accepted: boolean) {
-    setProject((prev) => ({
-      ...prev,
-      scenes: prev.scenes.map((scene) => {
-        if (scene.id !== prev.activeSceneId) return scene;
-
-        const restored =
-          !accepted && scene.previousHeadline
-            ? scene.previousHeadline
-            : scene.headline;
-
-        return {
-          ...scene,
-          approval: "accepted" as const,
-          headline: restored,
-          revisionNote: undefined,
-          previousHeadline: undefined,
-        };
-      }),
-      activity: [
-        ...prev.activity.filter((event) => !event.blocked),
-        {
-          id: `ev-${prev.activity.length + 1}`,
-          origin: "human" as const,
-          label: accepted ? "Accepted draft" : "Kept current",
-          detail: `Scene ${String(activeScene.order).padStart(2, "0")}`,
-          at: "14:05:20",
-          sceneId: prev.activeSceneId,
-        },
-      ],
-    }));
-    replay();
-  }
-
-  function setArtDirection(artDirection: ArtDirection) {
-    setProject((prev) => ({
-      ...prev,
-      brief: { ...prev.brief, artDirection },
-    }));
-    replay();
-  }
-
-  function setMotion(motionPreset: MotionPreset) {
-    patchScene({ motionPreset });
+  function patch(next: ScenePatch) {
+    updateScene(activeScene.id, next);
   }
 
   return (
@@ -149,7 +89,7 @@ export function EditorShell() {
               scenes={project.scenes}
               activeSceneId={activeScene.id}
               palette={palette}
-              onSelect={selectScene}
+              onSelect={(id: SceneId) => focusScene(id)}
             />
           ) : null}
           {tab === "look" ? (
@@ -157,14 +97,14 @@ export function EditorShell() {
               artDirection={project.brief.artDirection}
               onArtDirection={setArtDirection}
               motion={activeScene.motionPreset}
-              onMotion={setMotion}
+              onMotion={(motionPreset) => patch({ motionPreset })}
             />
           ) : null}
           {tab === "source" ? (
             <SourcePanel
               candidates={candidates}
               selectedId={activeScene.componentId}
-              onSelect={(componentId) => patchScene({ componentId })}
+              onSelect={(componentId) => patch({ componentId })}
             />
           ) : null}
           {tab === "agent" ? (
@@ -177,11 +117,17 @@ export function EditorShell() {
         </div>
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <Canvas scene={activeScene} palette={palette} playToken={playToken} />
+          <Canvas
+            scenes={project.scenes}
+            artDirection={project.brief.artDirection}
+            candidates={candidates}
+            activeSceneId={activeScene.id}
+            playToken={playToken}
+          />
           <Transport
             elapsed={elapsed}
             total={total}
-            onPlay={replay}
+            onPlay={replayCurrent}
             onPrev={() => step(-1)}
             onNext={() => step(1)}
           />
@@ -189,16 +135,16 @@ export function EditorShell() {
             scenes={project.scenes}
             activeSceneId={activeScene.id}
             palette={palette}
-            onSelect={selectScene}
+            onSelect={(id: SceneId) => focusScene(id)}
           />
         </main>
 
         <Inspector
           scene={activeScene}
           candidates={candidates}
-          onPatch={patchScene}
-          onAcceptDraft={() => resolveDraft(true)}
-          onKeepCurrent={() => resolveDraft(false)}
+          onPatch={patch}
+          onAcceptDraft={() => acceptDraft(activeScene.id)}
+          onKeepCurrent={() => keepCurrent(activeScene.id)}
         />
       </div>
     </div>

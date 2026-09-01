@@ -1,15 +1,40 @@
 "use client";
 
-import type { Palette, Scene } from "@/types/prism";
-import { FilmFrame } from "./FilmFrame";
+import dynamic from "next/dynamic";
+import type { ArtDirection, ComponentCandidate, Scene, SceneId } from "@/types/prism";
+
+/**
+ * The Player is loaded client-only, deliberately.
+ *
+ * `remotion/fonts.ts` calls `loadFont()` at module scope, which needs a real
+ * `document`. Server-rendering this subtree runs that during SSR and throws
+ * ("the font ... does not have a style [object Object]") before the client ever
+ * gets a chance. Remotion's own bundle is never server-rendered, so this only
+ * bites when embedding `<Player>` inside a Next.js app.
+ */
+const FilmPreview = dynamic(
+  () => import("./FilmPreview").then((mod) => mod.FilmPreview),
+  {
+    ssr: false,
+    loading: () => <div className="size-full bg-ink/90" />,
+  },
+);
 
 type Props = {
-  scene: Scene;
-  palette: Palette;
+  scenes: Scene[];
+  artDirection: ArtDirection;
+  candidates: ComponentCandidate[];
+  activeSceneId: SceneId;
   playToken: number;
 };
 
-export function Canvas({ scene, palette, playToken }: Props) {
+export function Canvas({
+  scenes,
+  artDirection,
+  candidates,
+  activeSceneId,
+  playToken,
+}: Props) {
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center bg-canvas p-6">
       <div className="relative w-full max-w-[880px]">
@@ -18,20 +43,14 @@ export function Canvas({ scene, palette, playToken }: Props) {
           <span className="font-mono text-faint">960×540</span>
         </span>
 
-        <div
-          className="relative aspect-video w-full overflow-hidden rounded-card shadow-lg"
-          style={{ background: palette.background }}
-        >
-          {/* Ambient wash keyed to the art direction, so the frame reads as a
-              lit stage rather than a flat rectangle. */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background: `radial-gradient(120% 90% at 50% 0%, ${palette.accent}14, transparent 60%)`,
-            }}
+        <div className="aspect-video w-full overflow-hidden rounded-card shadow-lg">
+          <FilmPreview
+            scenes={scenes}
+            artDirection={artDirection}
+            candidates={candidates}
+            activeSceneId={activeSceneId}
+            playToken={playToken}
           />
-          <FilmFrame scene={scene} palette={palette} playToken={playToken} />
         </div>
       </div>
     </div>

@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@remotion/google-fonts": "^4.0.520",
     "@remotion/player": "^4.0.520",
     "@remotion/vercel": "^4.0.520",
     "lucide-react": "^1.39.0",

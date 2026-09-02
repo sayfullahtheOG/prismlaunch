@@ -43,14 +43,14 @@ export function LookPanel({
                 type="button"
                 onClick={() => onArtDirection(id)}
                 aria-pressed={isActive}
-                className={`flex items-center gap-3 rounded-sm border p-2 text-left transition-colors ds-focus ${
+                className={`ds-focus flex w-full items-center gap-3 rounded-sm p-2.5 text-left transition-[background-color,box-shadow,color] duration-140 ease-[var(--ease-standard)] ${
                   isActive
-                    ? "border-accent bg-accent-soft"
-                    : "border-line bg-surface hover:border-line"
+                    ? "ds-inset bg-sunken"
+                    : "ds-raised bg-raised hover:bg-strong"
                 }`}
               >
                 <span
-                  className="grid aspect-video w-20 shrink-0 place-items-center gap-1 rounded-[5px] p-2"
+                  className="grid aspect-video w-20 shrink-0 place-items-center gap-1 rounded-xs p-2"
                   style={{ background: palette.background }}
                 >
                   <span
@@ -64,7 +64,7 @@ export function LookPanel({
                 </span>
 
                 <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-semibold">
+                  <span className="block text-xs font-semibold text-ink">
                     {ART_DIRECTION_LABELS[id]}
                   </span>
                   <span className="mt-1 flex gap-1">
@@ -72,7 +72,7 @@ export function LookPanel({
                       (hex) => (
                         <span
                           key={hex}
-                          className="size-3 rounded-pill ring-1 ring-line"
+                          className="size-3.5 rounded-pill ring-1 ring-line-soft"
                           style={{ background: hex }}
                         />
                       ),
@@ -80,9 +80,12 @@ export function LookPanel({
                   </span>
                 </span>
 
-                {isActive ? (
-                  <Check size={15} strokeWidth={2.4} className="text-accent" aria-hidden />
-                ) : null}
+                <Check
+                  size={16}
+                  strokeWidth={2.4}
+                  aria-hidden
+                  className={`shrink-0 text-accent ${isActive ? "" : "invisible"}`}
+                />
               </button>
             );
           })}
@@ -99,19 +102,22 @@ export function LookPanel({
                 type="button"
                 onClick={() => onMotion(preset.id)}
                 aria-pressed={isActive}
-                className={`flex items-center justify-between rounded-sm border px-3 py-2 text-left transition-colors ds-focus ${
+                className={`ds-focus flex min-h-14 w-full items-center justify-between gap-3 rounded-sm px-3 py-2.5 text-left transition-[background-color,box-shadow,color] duration-140 ease-[var(--ease-standard)] ${
                   isActive
-                    ? "border-accent bg-accent-soft"
-                    : "border-line bg-surface hover:border-line"
+                    ? "ds-inset bg-sunken"
+                    : "ds-raised bg-raised hover:bg-strong"
                 }`}
               >
                 <span>
-                  <span className="block text-xs font-semibold">{preset.label}</span>
-                  <span className="block text-2xs text-muted">{preset.blurb}</span>
+                  <span className="block text-xs font-semibold text-ink">{preset.label}</span>
+                  <span className="mt-0.5 block text-2xs text-muted">{preset.blurb}</span>
                 </span>
-                {isActive ? (
-                  <Check size={14} strokeWidth={2.4} className="text-accent" aria-hidden />
-                ) : null}
+                <Check
+                  size={16}
+                  strokeWidth={2.4}
+                  aria-hidden
+                  className={`shrink-0 text-accent ${isActive ? "" : "invisible"}`}
+                />
               </button>
             );
           })}

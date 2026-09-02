@@ -9,6 +9,7 @@ import {
 } from "@/lib/webmcp/fallback";
 import { callTool, getModelContext, type RegisteredTool } from "@/lib/webmcp/types";
 import { explainZodError, toolInputJsonSchema } from "@/lib/studio/schema";
+import { Button } from "@/components/ui/Button";
 
 /**
  * A deliberately trivial tool, used to prove the whole WebMCP round-trip
@@ -22,15 +23,15 @@ const EchoInput = z.object({
 const BADGE: Record<ContextKind, { text: string; className: string }> = {
   native: {
     text: "native modelContext — external agents can see these tools",
-    className: "border-ok/40 bg-success/10 text-success",
+    className: "ds-level bg-success-soft text-success",
   },
   fallback: {
     text: "fallback registry — in-page only, invisible to external agents",
-    className: "border-accent/30 bg-accent-soft text-accent",
+    className: "ds-level bg-accent-soft text-accent",
   },
   absent: {
     text: "no modelContext in this browser",
-    className: "border-warning/40 bg-warning-soft text-warning",
+    className: "ds-level bg-warning-soft text-warning",
   },
 };
 
@@ -135,15 +136,15 @@ export function WebMcpProbe() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 p-8">
       <header>
-        <h1 className="text-lg font-semibold tracking-[var(--ds-tracking-tight)]">WebMCP probe</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="text-xl font-bold tracking-[var(--ds-tracking-tight)]">WebMCP probe</h1>
+        <p className="mt-1.5 text-sm leading-[var(--ds-leading-body)] text-muted">
           Proves register → discover → execute → unregister before any product
           code depends on it. Not part of the product surface.
         </p>
       </header>
 
       <span
-        className={`inline-flex w-fit items-center gap-2 rounded-pill border px-3 py-1 text-xs font-medium ${badge.className}`}
+        className={`inline-flex w-fit items-center gap-2 rounded-pill px-3 py-1.5 text-xs font-medium ${badge.className}`}
       >
         <span className="size-1.5 rounded-pill bg-current" />
         {badge.text}
@@ -160,7 +161,7 @@ export function WebMcpProbe() {
             {tools.map((tool) => (
               <li
                 key={tool.name}
-                className="rounded-sm border border-line bg-surface p-3"
+                className="ds-raised rounded-sm bg-raised p-3.5"
               >
                 <code className="font-mono text-xs text-accent">{tool.name}</code>
                 <p className="mt-1 text-xs text-muted">{tool.description}</p>
@@ -174,16 +175,12 @@ export function WebMcpProbe() {
         )}
       </section>
 
-      <button
-        type="button"
-        onClick={() => void selfTest()}
-        className="w-fit rounded-xs bg-accent px-3.5 py-2 text-sm font-semibold text-white hover:bg-accent-hover ds-focus"
-      >
+      <Button variant="primary" onClick={() => void selfTest()} className="w-fit">
         Run self-test
-      </button>
+      </Button>
 
       {log.length > 0 ? (
-        <pre className="thin-scroll overflow-x-auto rounded-sm bg-ink p-3 font-mono text-2xs leading-relaxed text-white">
+        <pre className="ds-inset thin-scroll overflow-x-auto rounded-sm bg-sunken p-3.5 font-mono text-xs leading-[var(--ds-leading-body)] text-ink">
           {log.join("\n")}
         </pre>
       ) : null}

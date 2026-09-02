@@ -39,11 +39,11 @@ export function SourcePanel({
       </PanelSection>
 
       <PanelSection label="Current product">
-        <div className="rounded-sm border border-line bg-sunken p-3">
-          <p className="font-mono text-2xs break-all text-ink">
+        <div className="ds-inset rounded-sm bg-sunken p-3.5">
+          <p className="font-mono text-xs break-all text-ink">
             {sourceKind} · {productName}
           </p>
-          <p className="mt-1 text-2xs text-muted">
+          <p className="mt-1.5 text-xs text-muted">
             {framework} · {candidates.length} candidate
             {candidates.length === 1 ? "" : "s"}
           </p>
@@ -54,7 +54,7 @@ export function SourcePanel({
             {warnings.map((warning) => (
               <li
                 key={warning}
-                className="rounded-xs border border-warning/40 bg-warning-soft px-2.5 py-1.5 text-2xs text-warning"
+                className="ds-level rounded-sm bg-warning-soft px-3 py-2 text-xs leading-[var(--ds-leading-body)] text-warning"
               >
                 {warning}
               </li>
@@ -75,10 +75,10 @@ export function SourcePanel({
                 type="button"
                 onClick={() => onSelect(candidate.id)}
                 aria-pressed={isActive}
-                className={`rounded-sm border p-3 text-left transition-colors ds-focus ${
+                className={`ds-focus w-full rounded-sm p-3 text-left transition-[background-color,box-shadow,color] duration-140 ease-[var(--ease-standard)] ${
                   isActive
-                    ? "border-accent bg-accent-soft"
-                    : "border-line bg-surface hover:border-line"
+                    ? "ds-inset bg-sunken"
+                    : "ds-raised bg-raised hover:bg-strong"
                 }`}
               >
                 <span className="flex items-center gap-2">
@@ -88,18 +88,20 @@ export function SourcePanel({
                     className={isActive ? "text-accent" : "text-subtle"}
                     aria-hidden
                   />
-                  <span className="text-xs font-semibold">{candidate.label}</span>
-                  <span className="ml-auto rounded-pill bg-sunken px-1.5 py-0.5 text-2xs text-subtle">
+                  <span className="text-xs font-semibold text-ink">
+                    {candidate.label}
+                  </span>
+                  <span className="ds-level ml-auto rounded-pill px-2 py-0.5 text-2xs text-subtle">
                     {candidate.kind}
                   </span>
                 </span>
 
                 {evidence ? (
                   <>
-                    <span className="mt-2 block font-mono text-2xs break-all text-muted">
+                    <span className="mt-2 block font-mono text-xs break-all text-muted">
                       {evidence.path}
                     </span>
-                    <span className="mt-1 block text-2xs text-muted">
+                    <span className="mt-1.5 block text-xs leading-[var(--ds-leading-body)] text-muted">
                       {evidence.reason}
                     </span>
                   </>
@@ -109,7 +111,7 @@ export function SourcePanel({
                   {candidate.visualTokens.map((token) => (
                     <span
                       key={token}
-                      className="rounded bg-sunken px-1.5 py-0.5 font-mono text-2xs text-subtle"
+                      className="ds-level rounded-xs px-2 py-0.5 font-mono text-2xs text-subtle"
                     >
                       {token}
                     </span>
@@ -123,7 +125,7 @@ export function SourcePanel({
 
       {/* Source text is untrusted by construction. Saying so in the UI is part
           of the product's safety story, not decoration. */}
-      <p className="flex items-start gap-2 rounded-sm border border-line bg-sunken p-3 text-2xs text-muted">
+      <p className="ds-level flex items-start gap-2.5 rounded-sm p-3 text-xs leading-[var(--ds-leading-body)] text-muted">
         <ShieldAlert size={14} strokeWidth={1.7} className="mt-px shrink-0 text-subtle" aria-hidden />
         Text read from source is shown escaped and never treated as instructions.
       </p>

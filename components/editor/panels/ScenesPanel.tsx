@@ -1,8 +1,8 @@
 "use client";
 
 import { Check, Sparkles } from "lucide-react";
-import type { Palette, Scene } from "@/types/prism";
 import { framesToSeconds } from "@/lib/studio/timing";
+import type { Palette, Scene } from "@/types/prism";
 import { PanelShell, PanelSection } from "./PanelShell";
 
 type Props = {
@@ -19,81 +19,99 @@ const NARRATIVE_JOB: Record<Scene["template"], string> = {
   "outcome-cta": "Land the outcome",
 };
 
-export function ScenesPanel({ scenes, activeSceneId, palette, onSelect }: Props) {
+/**
+ * The scene list.
+ *
+ * Uses the same depth vocabulary as the timeline, deliberately — these are two
+ * views of one object, so a selected scene must read identically in both:
+ * raised at rest, inset when selected, inset and warning-toned when it holds an
+ * unreviewed draft.
+ */
+export function ScenesPanel({
+  scenes,
+  activeSceneId,
+  palette,
+  onSelect,
+}: Props) {
   return (
     <PanelShell
       title="Scenes"
       hint="Four fixed scenes. Edit any of them — order and count never change."
     >
       <PanelSection label="Storyboard">
-        <div className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2">
           {scenes.map((scene) => {
-            const isActive = scene.id === activeSceneId;
-            const isDraft = scene.approval === "draft";
+            const selected = scene.id === activeSceneId;
+            const draft = scene.approval === "draft";
 
             return (
-              <button
-                key={scene.id}
-                type="button"
-                onClick={() => onSelect(scene.id)}
-                aria-current={isActive ? "true" : "false"}
-                className={`flex gap-3 rounded-sm border p-2 text-left transition-colors ds-focus ${
-                  isDraft
-                    ? "border-warning/40 bg-warning-soft"
-                    : isActive
-                      ? "border-accent bg-accent-soft"
-                      : "border-line bg-surface hover:border-line"
-                }`}
-              >
-                <span
-                  className="grid aspect-video w-20 shrink-0 place-items-center overflow-hidden rounded-[5px]"
-                  style={{ background: palette.background }}
+              <li key={scene.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(scene.id)}
+                  aria-current={selected ? "true" : "false"}
+                  className={`ds-focus flex w-full items-center gap-3 rounded-sm p-2.5 text-left transition-[background-color,box-shadow,color] duration-140 ease-[var(--ease-standard)] ${
+                    draft
+                      ? "ds-inset bg-warning-soft"
+                      : selected
+                        ? "ds-inset bg-sunken"
+                        : "ds-raised bg-raised hover:bg-strong"
+                  }`}
                 >
                   <span
-                    className="h-0.5 w-8 rounded-pill"
-                    style={{ background: palette.accent }}
-                  />
-                </span>
-
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="flex items-center gap-1.5">
+                    className="grid aspect-video w-[72px] shrink-0 place-items-center overflow-hidden rounded-xs"
+                    style={{ background: palette.background }}
+                    aria-hidden
+                  >
                     <span
-                      className={`font-mono text-2xs tabular-nums ${
-                        isDraft ? "text-warning" : "text-subtle"
-                      }`}
-                    >
-                      {String(scene.order).padStart(2, "0")}
-                    </span>
-                    <span className="truncate text-xs font-semibold">
-                      {NARRATIVE_JOB[scene.template]}
-                    </span>
-                    <span className="ml-auto shrink-0 font-mono text-2xs text-subtle tabular-nums">
-                      {framesToSeconds(scene.durationFrames).toFixed(1)}s
-                    </span>
+                      className="h-0.5 w-8 rounded-pill"
+                      style={{ background: palette.accent }}
+                    />
                   </span>
 
-                  <span className="truncate text-2xs text-muted">
-                    {scene.headline}
-                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={`tabular font-mono text-2xs ${
+                          draft
+                            ? "text-warning"
+                            : selected
+                              ? "text-accent"
+                              : "text-subtle"
+                        }`}
+                      >
+                        {String(scene.order).padStart(2, "0")}
+                      </span>
+                      <span className="truncate text-xs font-semibold text-ink">
+                        {NARRATIVE_JOB[scene.template]}
+                      </span>
+                      <span className="tabular ml-auto shrink-0 font-mono text-2xs text-subtle">
+                        {framesToSeconds(scene.durationFrames).toFixed(1)}s
+                      </span>
+                    </span>
 
-                  <span className="mt-0.5">
-                    {isDraft ? (
-                      <span className="inline-flex items-center gap-1 rounded-pill bg-warning/10 px-1.5 py-0.5 text-2xs font-semibold text-warning">
-                        <Sparkles size={9} strokeWidth={2.4} aria-hidden />
+                    <span className="truncate text-xs text-muted">
+                      {scene.headline}
+                    </span>
+
+                    {/* State is words + icon, never colour alone. */}
+                    {draft ? (
+                      <span className="flex items-center gap-1.5 text-2xs font-semibold text-warning">
+                        <Sparkles size={12} strokeWidth={2.2} aria-hidden />
                         Agent draft
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-2xs text-subtle">
-                        <Check size={9} strokeWidth={2.6} aria-hidden />
+                      <span className="flex items-center gap-1.5 text-2xs text-subtle">
+                        <Check size={12} strokeWidth={2.4} aria-hidden />
                         Accepted
                       </span>
                     )}
                   </span>
-                </span>
-              </button>
+                </button>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </PanelSection>
     </PanelShell>
   );

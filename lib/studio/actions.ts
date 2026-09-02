@@ -59,10 +59,13 @@ import { selectedClipId } from "./selection";
 import { slugForName } from "./slug";
 import { nowTimecode, useStudioStore, type RailTab } from "./store";
 import {
+  browserWorkspace,
+  deleteProjectFolder,
   linkWorkspace,
   listAssets,
   listProjects,
   loadAssets,
+  locationOf,
   modifiedAt,
   projectExists,
   readProjectFile,
@@ -72,6 +75,11 @@ import {
   type ProjectEntry,
   type Workspace,
 } from "@/lib/workspace/fs";
+import {
+  browserModeRemembered,
+  forgetBrowserMode,
+  rememberBrowserMode,
+} from "@/lib/workspace/browser-store";
 import {
   canLinkFolder,
   checkPermission,
@@ -169,7 +177,7 @@ function requireWorkspace(): Guard<Workspace> {
       ok: false,
       result: fail(
         "no-workspace",
-        "No folder is linked yet. Ask the person to click “Link project folder” in PrismLaunch and choose the folder you are working in — the browser only opens that picker for a real click, so you cannot do it for them.",
+        "Nothing is linked yet. Ask the person to click “Link project folder” in PrismLaunch and choose the folder you are working in, or “Start in the browser” if this browser cannot link a folder (ChatGPT's built-in browser, Safari, Firefox). The page only does either for a real click, so you cannot do it for them.",
       ),
     };
   }
@@ -387,6 +395,16 @@ function commit(
 export async function restoreWorkspace(): Promise<void> {
   const { setWorkspace } = useStudioStore.getState();
 
+  // A browser workspace, once chosen, is the one that comes back — no
+  // permission to re-grant, nothing to ask. Linking a folder clears it.
+  if (browserModeRemembered()) {
+    const workspace = browserWorkspace();
+    const projects = await listProjects(workspace);
+    setWorkspace({ kind: "linked", workspace, projects });
+    await land(projects);
+    return;
+  }
+
   if (!canLinkFolder()) {
     setWorkspace({ kind: "unsupported" });
     return;
@@ -438,6 +456,9 @@ export async function linkFolder(): Promise<ActionResult> {
     return fail("disk-error", linked.message);
   }
 
+  // A folder beats the browser. Whatever was kept in the page stays there
+  // for later; the folder is where the work is now.
+  forgetBrowserMode();
   const projects = await listProjects(linked.value);
   useStudioStore
     .getState()
@@ -478,11 +499,37 @@ export async function regrantWorkspace(): Promise<ActionResult> {
   return ok("Folder re-opened.");
 }
 
+/**
+ * Keep compositions in this browser instead of a folder. HUMAN ONLY, like
+ * linking — it is a choice about where someone's work lives.
+ *
+ * The way in for browsers that cannot hand over a folder: ChatGPT's built-in
+ * browser opens the picker and then refuses the handle, Safari and Firefox
+ * have no picker. Nothing is lost by choosing it: the agent's tools work the
+ * same, `get_project_context` returns the whole composition, and a person
+ * with Chrome can link a folder later.
+ */
+export async function startInBrowser(): Promise<ActionResult> {
+  rememberBrowserMode();
+  const workspace = browserWorkspace();
+  const projects = await listProjects(workspace);
+  useStudioStore.getState().setWorkspace({ kind: "linked", workspace, projects });
+  await land(projects);
+
+  const open = useStudioStore.getState().project;
+  return ok(
+    open
+      ? `Working in this browser. Opened “${open.file.name}”.`
+      : "Working in this browser, but nothing could be opened.",
+  );
+}
+
 export async function unlinkFolder(): Promise<ActionResult> {
   await forgetWorkspace();
+  forgetBrowserMode();
   useStudioStore.getState().closeProject();
-  useStudioStore.getState().setWorkspace({ kind: "unlinked" });
-  return ok("Folder unlinked. Nothing on disk was touched.");
+  useStudioStore.getState().setWorkspace(canLinkFolder() ? { kind: "unlinked" } : { kind: "unsupported" });
+  return ok("Unlinked. Nothing on disk was touched.");
 }
 
 export async function refreshProjects(): Promise<ActionResult> {
@@ -538,8 +585,8 @@ export async function openProject(slug: string): Promise<ActionResult> {
       {
         id: "ev-1",
         origin: "disk",
-        label: "Opened from folder",
-        detail: `${WORKSPACE_DIR}/${parsedSlug.data}/project.json`,
+        label: guard.value.kind === "disk" ? "Opened from folder" : "Opened from this browser",
+        detail: locationOf(guard.value, parsedSlug.data),
         at: nowTimecode(),
       },
     ],
@@ -627,7 +674,9 @@ export async function createProject(
   await openProject(slug);
 
   return ok(
-    `Created ${WORKSPACE_DIR}/${slug}/project.json — an empty canvas with one visual track and one audio track, ${checked.data.width}×${checked.data.height} at ${fps}fps. It has no runtime yet; it grows as you place clips. Add them with prism.add_text and friends, or edit the file directly — the app is watching it.`,
+    guard.value.kind === "disk"
+      ? `Created ${WORKSPACE_DIR}/${slug}/project.json — an empty canvas with one visual track and one audio track, ${checked.data.width}×${checked.data.height} at ${fps}fps. It has no runtime yet; it grows as you place clips. Add them with prism.add_text and friends, or edit the file directly — the app is watching it.`
+      : `Created “${checked.data.name}” in this browser — an empty canvas with one visual track and one audio track, ${checked.data.width}×${checked.data.height} at ${fps}fps. It has no runtime yet; it grows as you place clips. There is no file to edit here: build it with the tools, and read it back with prism.get_project_context.`,
   );
 }
 
@@ -749,14 +798,8 @@ export async function deleteProject(slug: string): Promise<ActionResult> {
   // Nothing queued may land in a folder that is about to stop existing.
   await flushWrites();
 
-  try {
-    await guard.value.dir.removeEntry(parsed.data, { recursive: true });
-  } catch {
-    return fail(
-      "disk-error",
-      `Could not delete ${WORKSPACE_DIR}/${parsed.data}/. It may be open in another program.`,
-    );
-  }
+  const removed = await deleteProjectFolder(guard.value, parsed.data);
+  if (!removed.ok) return fail("disk-error", removed.message);
 
   const open = useStudioStore.getState().project;
   if (open?.slug === parsed.data) useStudioStore.getState().closeProject();
@@ -767,7 +810,7 @@ export async function deleteProject(slug: string): Promise<ActionResult> {
   const next = remaining[0];
   if (open?.slug === parsed.data && next) await openProject(next);
 
-  return ok(`Deleted ${WORKSPACE_DIR}/${parsed.data}/ and everything in it.`);
+  return ok(`Deleted ${locationOf(guard.value, parsed.data)} and everything in it.`);
 }
 
 // ---------------------------------------------------------------------------
@@ -2144,7 +2187,13 @@ export function getProjectContext() {
     workspace.kind === "linked"
       ? {
           linked: true as const,
-          directory: WORKSPACE_DIR,
+          /**
+           * "folder": the film is a file the agent may also edit directly.
+           * "browser": it lives in the page; the tools are the only way in,
+           * and this context is the whole of it.
+           */
+          storage: workspace.workspace.kind === "disk" ? ("folder" as const) : ("browser" as const),
+          directory: workspace.workspace.kind === "disk" ? WORKSPACE_DIR : null,
           compositions: workspace.projects.map((entry) => ({
             slug: entry.slug,
             name: entry.name,
@@ -2155,10 +2204,10 @@ export function getProjectContext() {
           linked: false as const,
           reason:
             workspace.kind === "unsupported"
-              ? "This browser has no File System Access API. PrismLaunch needs Chrome or Edge."
+              ? "This browser cannot link a folder. The person must click “Start in the browser” — the composition then lives in the page and you work through these tools."
               : workspace.kind === "needs-permission"
                 ? "A folder is remembered but the browser dropped its permission. The person needs to click “Re-open folder”."
-                : "Nobody has linked a folder yet. The person must click “Link project folder” — the browser only opens that picker for a real click.",
+                : "Nothing is linked yet. The person must click “Link project folder”, or “Start in the browser” if this browser cannot hand over a folder (ChatGPT's built-in browser, Safari, Firefox). Either takes a real click; you cannot do it for them.",
         };
 
   if (!project) {
@@ -2210,7 +2259,10 @@ export function getProjectContext() {
     },
     composition: {
       slug: project.slug,
-      path: `${WORKSPACE_DIR}/${project.slug}/project.json`,
+      path:
+        workspace.kind === "linked"
+          ? locationOf(workspace.workspace, project.slug)
+          : `${WORKSPACE_DIR}/${project.slug}/project.json`,
       name: file.name,
       width: file.width,
       height: file.height,

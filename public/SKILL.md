@@ -58,6 +58,16 @@ there instead.
 you have no file access, and for the things a file cannot do: moving the
 playhead, playing the composition on the person's screen, proposing a render.
 
+**Or no folder at all.** Some browsers cannot hand the page a folder —
+ChatGPT's built-in browser opens the picker and then refuses it; Safari and
+Firefox have no picker. There the person clicks **Start in the browser**
+instead, and the composition lives in the page. Nothing changes for you
+except that the tools are the only way in: `prism.get_project_context`
+reports `workspace.storage: "browser"` and returns the whole composition, so
+if you want it in the repository, write what it returns to
+`.prismlaunch/<slug>/project.json` yourself. Assets are not available in this
+mode yet; build with text and shapes.
+
 ## Before you build anything
 
 Read **https://prismlaunch-doddlesoft.vercel.app/PRISM_METHOD.md** first.
@@ -71,8 +81,9 @@ look like every other AI-made video, which is the thing this exists to stop.
 ## Getting started
 
 1. Ask the person to open the studio and click **Link project folder**, then
-   choose the repository you are both working in. You cannot do this for them —
-   browsers only open a folder picker for a real click.
+   choose the repository you are both working in — or **Start in the browser**
+   if you are in ChatGPT's built-in browser, Safari or Firefox. You cannot do
+   either for them; both take a real click.
 2. Call `prism.get_project_context`. Read its `process` block first: it says
    which stage the film is at, what the person said about the last thing you
    submitted, and exactly what to do next.
@@ -418,8 +429,9 @@ retrying will not change that.
 
 ## When something is wrong
 
-- **"No folder is linked yet."** Ask them to click **Link project folder**. You
-  cannot open that picker.
+- **"Nothing is linked yet."** Ask them to click **Link project folder**, or
+  **Start in the browser** where a folder cannot be linked. You cannot do
+  either.
 - **"A folder is remembered but the browser dropped its permission."** Ask them
   to click **Re-open folder**. This happens on every fresh page load; it is
   normal, not a fault.

@@ -8,10 +8,11 @@ import {
   WORKSPACE_DIR,
 } from "@/lib/studio/schema";
 import type { ProjectFile } from "@/types/prism";
+import * as browser from "./browser-store";
 import { rememberWorkspace, requestPermission } from "./handle-store";
 
 /**
- * The filesystem is the database.
+ * The filesystem is the database — when there is one.
  *
  * An agent writes `.prismlaunch/<slug>/project.json` with its own file tools.
  * This module is the other half: it links the folder the person picks, reads
@@ -21,14 +22,32 @@ import { rememberWorkspace, requestPermission } from "./handle-store";
  * Nothing here is a cache. Every read goes to disk, so the file is always the
  * truth and the app is always a view of it. That is what makes it safe for the
  * agent to edit the file directly in its own editor while the page is open.
+ *
+ * ## Two kinds of workspace
+ *
+ * A folder needs the File System Access API, and that needs a browser that
+ * actually implements its permission model. Chrome does. ChatGPT's built-in
+ * browser opens the picker and then refuses the handle; Safari and Firefox
+ * have no picker. So a workspace is one of two things: a `disk` one with real
+ * handles, or a `browser` one where each composition is a `localStorage`
+ * entry (see browser-store.ts). Every function here takes either and does
+ * the same job against whichever it is given, so the rest of the app never
+ * asks which.
  */
 
-export type Workspace = {
-  /** What the person picked — the repository root, usually. */
-  root: FileSystemDirectoryHandle;
-  /** `.prismlaunch` inside it. Created on link if it is missing. */
-  dir: FileSystemDirectoryHandle;
-};
+export type Workspace =
+  | {
+      kind: "disk";
+      /** What the person picked — the repository root, usually. */
+      root: FileSystemDirectoryHandle;
+      /** `.prismlaunch` inside it. Created on link if it is missing. */
+      dir: FileSystemDirectoryHandle;
+    }
+  | { kind: "browser" };
+
+export function browserWorkspace(): Workspace {
+  return { kind: "browser" };
+}
 
 export type FsResult<T> =
   | { ok: true; value: T }
@@ -55,6 +74,13 @@ function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
+/** Where a composition is, in words a person or an agent can act on. */
+export function locationOf(workspace: Workspace, slug: string): string {
+  return workspace.kind === "disk"
+    ? `${WORKSPACE_DIR}/${slug}/${PROJECT_FILE}`
+    : `this browser (${slug})`;
+}
+
 // ---------------------------------------------------------------------------
 // Linking
 // ---------------------------------------------------------------------------
@@ -66,12 +92,17 @@ function isAbort(error: unknown): boolean {
  * use it directly; otherwise we get-or-create `.prismlaunch` inside what they
  * chose. Both are things people plausibly do, and guessing wrong would scatter
  * a second workspace one level down.
+ *
+ * An `AbortError` is reported as cancelled, which is what it means in Chrome.
+ * In an embedded Chromium it can also mean "the picker closed and the
+ * embedder refused the handle", which is why the setup dialog offers the
+ * browser workspace beside this.
  */
 export async function linkWorkspace(): Promise<FsResult<Workspace>> {
   if (typeof window.showDirectoryPicker !== "function") {
     return fail(
       "unsupported",
-      "This browser cannot open a folder. PrismLaunch needs Chrome, Edge, or another Chromium browser.",
+      "This browser cannot open a folder. Start in the browser instead, or use Chrome.",
     );
   }
 
@@ -83,14 +114,19 @@ export async function linkWorkspace(): Promise<FsResult<Workspace>> {
       id: "prismlaunch-workspace",
     });
   } catch (error) {
-    if (isAbort(error)) return fail("cancelled", "No folder chosen.");
+    if (isAbort(error)) {
+      return fail(
+        "cancelled",
+        "No folder was linked. If you did choose one, this browser refused to hand it over — start in the browser instead.",
+      );
+    }
     return fail("permission-denied", "Could not open that folder.");
   }
 
   if ((await requestPermission(root)) !== "granted") {
     return fail(
       "permission-denied",
-      "PrismLaunch needs permission to read and write that folder.",
+      "This browser would not grant read and write access to that folder. Start in the browser instead, or use Chrome.",
     );
   }
 
@@ -107,12 +143,12 @@ export async function resolveWorkspace(
   root: FileSystemDirectoryHandle,
 ): Promise<FsResult<Workspace>> {
   if (root.name === WORKSPACE_DIR) {
-    return { ok: true, value: { root, dir: root } };
+    return { ok: true, value: { kind: "disk", root, dir: root } };
   }
 
   try {
     const dir = await root.getDirectoryHandle(WORKSPACE_DIR, { create: true });
-    return { ok: true, value: { root, dir } };
+    return { ok: true, value: { kind: "disk", root, dir } };
   } catch {
     return fail(
       "permission-denied",
@@ -136,7 +172,7 @@ export type ProjectEntry = {
 };
 
 /**
- * Every folder under `.prismlaunch`, readable or not.
+ * Every composition in the workspace, readable or not.
  *
  * Broken projects are listed with their problem rather than skipped: a file
  * the agent just wrote wrong is exactly the one the person is looking for, and
@@ -145,11 +181,17 @@ export type ProjectEntry = {
 export async function listProjects(
   workspace: Workspace,
 ): Promise<ProjectEntry[]> {
+  const slugs: string[] = [];
+  if (workspace.kind === "browser") {
+    slugs.push(...browser.listSlugs());
+  } else {
+    for await (const [slug, handle] of workspace.dir.entries()) {
+      if (handle.kind === "directory") slugs.push(slug);
+    }
+  }
+
   const entries: ProjectEntry[] = [];
-
-  for await (const [slug, handle] of workspace.dir.entries()) {
-    if (handle.kind !== "directory") continue;
-
+  for (const slug of slugs) {
     const read = await readProjectFile(workspace, slug);
     if (read.ok) {
       entries.push({
@@ -184,54 +226,61 @@ export async function readProjectFile(
   workspace: Workspace,
   slug: string,
 ): Promise<FsResult<ReadProject>> {
-  let file: File;
-  try {
-    const dir = await workspace.dir.getDirectoryHandle(slug);
-    const handle = await dir.getFileHandle(PROJECT_FILE);
-    file = await handle.getFile();
-  } catch {
-    return fail(
-      "not-found",
-      `No ${WORKSPACE_DIR}/${slug}/${PROJECT_FILE} to read.`,
-    );
+  let text: string;
+  let modifiedAt: number;
+
+  if (workspace.kind === "browser") {
+    const entry = browser.readRaw(slug);
+    if (!entry) return fail("not-found", `No composition “${slug}” in this browser.`);
+    text = entry.text;
+    modifiedAt = entry.modifiedAt;
+  } else {
+    let file: File;
+    try {
+      const dir = await workspace.dir.getDirectoryHandle(slug);
+      const handle = await dir.getFileHandle(PROJECT_FILE);
+      file = await handle.getFile();
+    } catch {
+      return fail("not-found", `No ${WORKSPACE_DIR}/${slug}/${PROJECT_FILE} to read.`);
+    }
+    text = await file.text();
+    modifiedAt = file.lastModified;
   }
 
   let raw: unknown;
   try {
-    raw = JSON.parse(await file.text());
+    raw = JSON.parse(text);
   } catch {
     return fail("unreadable", `${slug}/${PROJECT_FILE} is not valid JSON.`);
   }
 
-  // Check the version before the shape, so an older file gets an explanation
-  // rather than a list of fields that moved.
+  // Check the version before the shape, so a file from the future gets an
+  // explanation rather than a list of fields that moved. Older versions the
+  // schema can read are its business.
   const version = (raw as { version?: unknown } | null)?.version;
-  if (typeof version === "number" && version !== PROJECT_FILE_VERSION) {
+  if (typeof version === "number" && version > PROJECT_FILE_VERSION) {
     return fail(
       "invalid",
-      `${slug}/${PROJECT_FILE} is version ${version}; this build reads version ${PROJECT_FILE_VERSION}.`,
+      `${slug}/${PROJECT_FILE} is version ${version}; this build reads up to version ${PROJECT_FILE_VERSION}.`,
     );
   }
 
   const parsed = ProjectFileSchema.safeParse(raw);
   if (!parsed.success) {
-    return fail(
-      "invalid",
-      `${slug}/${PROJECT_FILE} — ${explainZodError(parsed.error)}`,
-    );
+    return fail("invalid", `${slug}/${PROJECT_FILE} — ${explainZodError(parsed.error)}`);
   }
 
-  return {
-    ok: true,
-    value: { file: parsed.data, modifiedAt: file.lastModified },
-  };
+  return { ok: true, value: { file: parsed.data, modifiedAt } };
 }
 
-/** When a project.json last changed, or 0 if it is gone. Cheap enough to poll. */
+/** When a project last changed, or 0 if it is gone. Cheap enough to poll. */
 export async function modifiedAt(
   workspace: Workspace,
   slug: string,
 ): Promise<number> {
+  if (workspace.kind === "browser") {
+    return browser.readEntry(slug)?.modifiedAt ?? 0;
+  }
   try {
     const dir = await workspace.dir.getDirectoryHandle(slug);
     const handle = await dir.getFileHandle(PROJECT_FILE);
@@ -263,6 +312,15 @@ export async function writeProjectFile(
     return fail("invalid", explainZodError(parsed.error));
   }
 
+  if (workspace.kind === "browser") {
+    try {
+      browser.writeEntry(slug, parsed.data);
+      return { ok: true, value: undefined };
+    } catch {
+      return fail("write-failed", "This browser refused to store the composition (storage full or disabled).");
+    }
+  }
+
   try {
     const dir = await workspace.dir.getDirectoryHandle(slug, { create: true });
     const handle = await dir.getFileHandle(PROJECT_FILE, { create: true });
@@ -271,10 +329,7 @@ export async function writeProjectFile(
     await writable.close();
     return { ok: true, value: undefined };
   } catch {
-    return fail(
-      "write-failed",
-      `Could not write ${WORKSPACE_DIR}/${slug}/${PROJECT_FILE}.`,
-    );
+    return fail("write-failed", `Could not write ${WORKSPACE_DIR}/${slug}/${PROJECT_FILE}.`);
   }
 }
 
@@ -282,7 +337,8 @@ export async function writeProjectFile(
  * Put a finished film next to the project that produced it.
  *
  * Renders land in the folder rather than the downloads directory so the video
- * sits with its source — the same reason the project file does.
+ * sits with its source — the same reason the project file does. A browser
+ * workspace has no folder, so the caller downloads instead.
  */
 export async function writeRender(
   workspace: Workspace,
@@ -290,6 +346,9 @@ export async function writeRender(
   filename: string,
   blob: Blob,
 ): Promise<FsResult<string>> {
+  if (workspace.kind === "browser") {
+    return fail("write-failed", "No folder to save into.");
+  }
   try {
     const dir = await workspace.dir.getDirectoryHandle(slug, { create: true });
     const renders = await dir.getDirectoryHandle(RENDERS_DIR, { create: true });
@@ -297,10 +356,7 @@ export async function writeRender(
     const writable = await handle.createWritable();
     await writable.write(blob);
     await writable.close();
-    return {
-      ok: true,
-      value: `${WORKSPACE_DIR}/${slug}/${RENDERS_DIR}/${filename}`,
-    };
+    return { ok: true, value: `${WORKSPACE_DIR}/${slug}/${RENDERS_DIR}/${filename}` };
   } catch {
     return fail("write-failed", `Could not save ${filename}.`);
   }
@@ -317,6 +373,7 @@ export async function writeRender(
  *
  * Missing paths come back listed instead of thrown. A renamed image should
  * leave a hole in one frame and a line in the UI, not take the film down.
+ * A browser workspace has no files yet, so every path is missing there.
  *
  * The URLs live until the tab closes. Revoking them on reload would be tidier,
  * but a revoked URL that Remotion is still holding renders as a broken frame,
@@ -329,6 +386,7 @@ export async function loadAssets(
 ): Promise<{ urls: Record<string, string>; missing: string[] }> {
   const urls: Record<string, string> = {};
   const missing: string[] = [];
+  if (workspace.kind === "browser") return { urls, missing: [...paths] };
 
   let root: FileSystemDirectoryHandle;
   try {
@@ -366,6 +424,7 @@ export async function listAssets(
   workspace: Workspace,
   slug: string,
 ): Promise<string[]> {
+  if (workspace.kind === "browser") return [];
   try {
     const root = await workspace.dir.getDirectoryHandle(slug);
     const assets = await root.getDirectoryHandle(ASSETS_DIR);
@@ -400,6 +459,12 @@ export async function renameProjectFolder(
 ): Promise<FsResult<void>> {
   if (from === to) return { ok: true, value: undefined };
 
+  if (workspace.kind === "browser") {
+    return browser.renameEntry(from, to)
+      ? { ok: true, value: undefined }
+      : fail("invalid", `“${to}” is already taken in this browser.`);
+  }
+
   try {
     await workspace.dir.getDirectoryHandle(to);
     return fail("invalid", `${WORKSPACE_DIR}/${to}/ already exists.`);
@@ -415,9 +480,7 @@ export async function renameProjectFolder(
   }
 
   try {
-    const destination = await workspace.dir.getDirectoryHandle(to, {
-      create: true,
-    });
+    const destination = await workspace.dir.getDirectoryHandle(to, { create: true });
     await moveContents(source, destination);
 
     // Only now, and only if nothing was left behind.
@@ -449,20 +512,42 @@ async function moveContents(
       await (handle as FileSystemFileHandle).move(destination, name);
     } else {
       const sourceChild = await source.getDirectoryHandle(name);
-      const destinationChild = await destination.getDirectoryHandle(name, {
-        create: true,
-      });
+      const destinationChild = await destination.getDirectoryHandle(name, { create: true });
       await moveContents(sourceChild, destinationChild);
       await source.removeEntry(name, { recursive: true });
     }
   }
 }
 
-/** True when a folder of this name already exists, so create can refuse. */
+/**
+ * Delete a composition, permanently. Only `deleteProject` calls this, and
+ * that action is human-only for the reasons written on it.
+ */
+export async function deleteProjectFolder(
+  workspace: Workspace,
+  slug: string,
+): Promise<FsResult<void>> {
+  if (workspace.kind === "browser") {
+    browser.deleteEntry(slug);
+    return { ok: true, value: undefined };
+  }
+  try {
+    await workspace.dir.removeEntry(slug, { recursive: true });
+    return { ok: true, value: undefined };
+  } catch {
+    return fail(
+      "write-failed",
+      `Could not delete ${WORKSPACE_DIR}/${slug}/. It may be open in another program.`,
+    );
+  }
+}
+
+/** True when a composition of this name already exists, so create can refuse. */
 export async function projectExists(
   workspace: Workspace,
   slug: string,
 ): Promise<boolean> {
+  if (workspace.kind === "browser") return browser.hasEntry(slug);
   try {
     await workspace.dir.getDirectoryHandle(slug);
     return true;

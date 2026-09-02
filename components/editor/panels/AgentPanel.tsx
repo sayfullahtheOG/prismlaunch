@@ -1,9 +1,10 @@
 "use client";
 
-import { FolderOpen, Lock, Sparkles, User } from "lucide-react";
+import { FolderOpen, Globe, Lock, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { linkFolder } from "@/lib/studio/actions";
 import { WORKSPACE_DIR } from "@/lib/studio/schema";
+import { useStudioStore } from "@/lib/studio/store";
 import type { ActivityEvent } from "@/types/prism";
 import { PanelShell, PanelSection } from "./PanelShell";
 
@@ -53,19 +54,28 @@ const CONNECTION: Record<
  */
 export function AgentPanel({ activity, kind, toolCount, slug }: Props) {
   const connection = CONNECTION[kind];
+  const inBrowser = useStudioStore(
+    (state) => state.workspace.kind === "linked" && state.workspace.workspace.kind === "browser",
+  );
   return (
     <PanelShell
       title="Agent"
       hint="What your agent can reach, and everything it has done, in order."
     >
-      <PanelSection label="Folder">
+      <PanelSection label={inBrowser ? "Where the work lives" : "Folder"}>
         <div className="ds-inset rounded-sm bg-sunken p-3">
           <p className="flex items-center gap-2 font-mono text-xs break-all text-ink">
-            <FolderOpen size={13} strokeWidth={1.8} className="shrink-0 text-subtle" aria-hidden />
-            {WORKSPACE_DIR}/{slug ?? ""}
+            {inBrowser ? (
+              <Globe size={13} strokeWidth={1.8} className="shrink-0 text-subtle" aria-hidden />
+            ) : (
+              <FolderOpen size={13} strokeWidth={1.8} className="shrink-0 text-subtle" aria-hidden />
+            )}
+            {inBrowser ? `this browser · ${slug ?? ""}` : `${WORKSPACE_DIR}/${slug ?? ""}`}
           </p>
           <p className="mt-2 text-xs leading-[var(--ds-leading-body)] text-muted">
-            Read and written on this machine. Nothing here is uploaded.
+            {inBrowser
+              ? "Kept in this browser's storage. Your agent reads it back whole through the tools; nothing is uploaded."
+              : "Read and written on this machine. Nothing here is uploaded."}
           </p>
         </div>
         <Button
@@ -74,7 +84,7 @@ export function AgentPanel({ activity, kind, toolCount, slug }: Props) {
           onClick={() => void linkFolder()}
           icon={<FolderOpen size={14} strokeWidth={1.9} aria-hidden />}
         >
-          Link a different folder
+          {inBrowser ? "Link a folder instead" : "Link a different folder"}
         </Button>
       </PanelSection>
 

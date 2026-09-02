@@ -6,6 +6,7 @@ import {
   Copy,
   FolderOpen,
   FolderPlus,
+  Globe,
   Loader2,
   Plus,
   TriangleAlert,
@@ -16,6 +17,7 @@ import {
   linkFolder,
   openProject,
   regrantWorkspace,
+  startInBrowser,
 } from "@/lib/studio/actions";
 import { WORKSPACE_DIR } from "@/lib/studio/schema";
 import { useStudioStore } from "@/lib/studio/store";
@@ -120,14 +122,24 @@ export function SetupDialog() {
           </p>
         ) : null}
 
-        {workspace.kind === "unsupported" ? <Unsupported /> : null}
+        {workspace.kind === "unsupported" ? (
+          <Unsupported busy={busy} onBrowser={() => void run(startInBrowser)} />
+        ) : null}
 
         {workspace.kind === "unlinked" ? (
-          <LinkPrompt busy={busy} onLink={() => void run(linkFolder)} />
+          <LinkPrompt
+            busy={busy}
+            onLink={() => void run(linkFolder)}
+            onBrowser={() => void run(startInBrowser)}
+          />
         ) : null}
 
         {workspace.kind === "needs-permission" ? (
-          <Regrant busy={busy} onRegrant={() => void run(regrantWorkspace)} />
+          <Regrant
+            busy={busy}
+            onRegrant={() => void run(regrantWorkspace)}
+            onBrowser={() => void run(startInBrowser)}
+          />
         ) : null}
 
         {workspace.kind === "linked" ? (
@@ -204,59 +216,112 @@ function CopyCommand() {
   );
 }
 
-function Unsupported() {
+/**
+ * The second way in.
+ *
+ * A folder is the first choice — a film should live beside the code it is
+ * about — but ChatGPT's built-in browser opens the picker and then refuses
+ * the handle, and Safari and Firefox have no picker. So every state that
+ * asks for a folder also offers this, and where a folder is impossible it
+ * is the primary.
+ */
+function BrowserOption({
+  busy,
+  primary,
+  onBrowser,
+}: {
+  busy: boolean;
+  primary: boolean;
+  onBrowser: () => void;
+}) {
   return (
-    <div className="ds-level rounded-sm bg-warning-soft p-4">
-      <p className="flex items-center gap-2 text-xs font-semibold text-warning">
-        <TriangleAlert size={14} strokeWidth={2.2} aria-hidden />
-        This browser cannot open a folder
-      </p>
-      <p className="mt-2 text-xs leading-[var(--ds-leading-body)] text-muted">
-        PrismLaunch reads and writes a folder on your own machine, which needs
-        the File System Access API — Chrome, Edge, Arc, or another Chromium
-        browser. Safari and Firefox do not have it. Nothing is uploaded, so
-        there is no server-side fallback to offer you.
+    <div className="flex flex-col gap-2">
+      <Button
+        variant={primary ? "primary" : "secondary"}
+        onClick={onBrowser}
+        loading={busy}
+        icon={<Globe size={15} strokeWidth={1.9} aria-hidden />}
+      >
+        Start in the browser
+      </Button>
+      <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
+        Keeps the composition in this browser instead of a folder. Your agent
+        works through the page&rsquo;s tools and reads it back whole. Use this
+        in ChatGPT&rsquo;s browser, Safari or Firefox.
       </p>
     </div>
   );
 }
 
-function LinkPrompt({ busy, onLink }: { busy: boolean; onLink: () => void }) {
+function Unsupported({ busy, onBrowser }: { busy: boolean; onBrowser: () => void }) {
   return (
-    <div className="flex flex-col gap-3">
-      <Button
-        variant="primary"
-        onClick={onLink}
-        loading={busy}
-        icon={<FolderPlus size={15} strokeWidth={1.9} aria-hidden />}
-      >
-        Link project folder
-      </Button>
+    <div className="flex flex-col gap-4">
+      <BrowserOption busy={busy} primary onBrowser={onBrowser} />
       <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
-        Choose the repository you and your agent are working in. Compositions
-        are kept in <code className="font-mono">{WORKSPACE_DIR}/</code> inside
-        it, one folder per video. Your agent cannot open this picker — browsers
-        only show it for a real click.
+        This browser cannot link a folder: that needs the File System Access
+        API, which only Chromium browsers have. Nothing is uploaded either way.
       </p>
     </div>
   );
 }
 
-function Regrant({ busy, onRegrant }: { busy: boolean; onRegrant: () => void }) {
+function LinkPrompt({
+  busy,
+  onLink,
+  onBrowser,
+}: {
+  busy: boolean;
+  onLink: () => void;
+  onBrowser: () => void;
+}) {
   return (
-    <div className="flex flex-col gap-3">
-      <Button
-        variant="primary"
-        onClick={onRegrant}
-        loading={busy}
-        icon={<FolderOpen size={15} strokeWidth={1.9} aria-hidden />}
-      >
-        Re-open folder
-      </Button>
-      <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
-        We remember which folder you linked, but the browser drops its
-        permission every time the page loads. One click restores it.
-      </p>
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <Button
+          variant="primary"
+          onClick={onLink}
+          loading={busy}
+          icon={<FolderPlus size={15} strokeWidth={1.9} aria-hidden />}
+        >
+          Link project folder
+        </Button>
+        <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
+          Choose the repository you and your agent are working in. Compositions
+          are kept in <code className="font-mono">{WORKSPACE_DIR}/</code> inside
+          it, one folder per video. Works in Chrome.
+        </p>
+      </div>
+      <BrowserOption busy={busy} primary={false} onBrowser={onBrowser} />
+    </div>
+  );
+}
+
+function Regrant({
+  busy,
+  onRegrant,
+  onBrowser,
+}: {
+  busy: boolean;
+  onRegrant: () => void;
+  onBrowser: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <Button
+          variant="primary"
+          onClick={onRegrant}
+          loading={busy}
+          icon={<FolderOpen size={15} strokeWidth={1.9} aria-hidden />}
+        >
+          Re-open folder
+        </Button>
+        <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
+          We remember which folder you linked, but the browser drops its
+          permission every time the page loads. One click restores it.
+        </p>
+      </div>
+      <BrowserOption busy={busy} primary={false} onBrowser={onBrowser} />
     </div>
   );
 }

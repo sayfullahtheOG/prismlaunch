@@ -6,6 +6,8 @@ import {
   deleteClip,
   deleteProject,
   duplicateSelected,
+  openProject,
+  refreshProjects,
   renameProject,
   seek,
   setPlaying,
@@ -47,6 +49,7 @@ const NO_FILM_TABS: ReadonlySet<RailTab> = new Set<RailTab>(["layers", "canvas"]
  */
 export function EditorShell() {
   const project = useStudioStore((state) => state.project);
+  const workspace = useStudioStore((state) => state.workspace);
   const pendingRender = useStudioStore((state) => state.pendingRender);
   const renderNote = useStudioStore((state) => state.renderNote);
 
@@ -110,12 +113,20 @@ export function EditorShell() {
 
   const { file } = project;
   const drafts = draftCount(file.tracks);
+  const compositions = workspace.kind === "linked" ? workspace.projects : [];
 
   return (
     <div className="chrome-select-none relative flex h-dvh min-h-0 flex-col bg-app">
       <TopBar
         name={file.name}
         project={{
+          slug: project.slug,
+          compositions,
+          // The folder can gain a composition without the app doing it — an
+          // agent writing one with its own file tools. Re-reading as the menu
+          // opens is the cheapest moment to make the list true.
+          onOpenMenu: () => void refreshProjects(),
+          onOpen: (slug) => void openProject(slug),
           onRename: (next) => void renameProject(next),
           onCreate: () => void createBlankProject(),
           onDelete: () => void deleteProject(project.slug),

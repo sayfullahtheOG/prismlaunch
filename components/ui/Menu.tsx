@@ -39,17 +39,28 @@ const MenuContext = createContext<{ close: (focusTrigger?: boolean) => void } | 
   null,
 );
 
+/** Both item roles, so a list of compositions takes part in arrow-key focus. */
+const ITEM_SELECTOR =
+  '[role="menuitem"]:not([disabled]),[role="menuitemradio"]:not([disabled])';
+
 export function Menu({
   label,
   children,
   align = "start",
   width = 220,
+  onOpen,
 }: {
   /** The trigger's text. */
   label: string;
   children: ReactNode;
   align?: "start" | "end";
   width?: number;
+  /**
+   * Fired as the menu opens. For a menu whose contents describe something
+   * outside the app — a folder on disk, say — this is the moment to re-read
+   * it, so what is listed is what is actually there.
+   */
+  onOpen?: (() => void) | undefined;
 }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -115,7 +126,7 @@ export function Menu({
   useEffect(() => {
     if (!open) return;
     const first = surface.current?.querySelector<HTMLElement>(
-      '[role="menuitem"]:not([disabled])',
+      ITEM_SELECTOR,
     );
     first?.focus();
   }, [open]);
@@ -126,9 +137,7 @@ export function Menu({
     event.preventDefault();
 
     const items = [
-      ...(surface.current?.querySelectorAll<HTMLElement>(
-        '[role="menuitem"]:not([disabled])',
-      ) ?? []),
+      ...(surface.current?.querySelectorAll<HTMLElement>(ITEM_SELECTOR) ?? []),
     ];
     if (items.length === 0) return;
 
@@ -148,10 +157,14 @@ export function Menu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        onClick={() => setOpen((was) => !was)}
+        onClick={() => {
+          if (!open) onOpen?.();
+          setOpen((was) => !was);
+        }}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" && !open) {
             event.preventDefault();
+            onOpen?.();
             setOpen(true);
           }
         }}
@@ -195,6 +208,7 @@ export function MenuItem({
   disabled,
   keepOpen = false,
   ariaLabel,
+  checked,
 }: {
   icon?: ReactNode;
   children: ReactNode;
@@ -214,13 +228,20 @@ export function MenuItem({
    * "Delete permanently" without "and its renders", say.
    */
   ariaLabel?: string;
+  /**
+   * Present when this item is one of a set and one of them is current — which
+   * makes it a radio, not a command. `undefined` keeps it a plain menuitem;
+   * `false` still announces it as an unselected option.
+   */
+  checked?: boolean;
 }) {
   const menu = useContext(MenuContext);
 
   return (
     <button
       type="button"
-      role="menuitem"
+      role={checked === undefined ? "menuitem" : "menuitemradio"}
+      {...(checked === undefined ? {} : { "aria-checked": checked })}
       disabled={disabled}
       {...(ariaLabel ? { "aria-label": ariaLabel } : {})}
       onClick={() => {
@@ -241,6 +262,40 @@ export function MenuItem({
 
 export function MenuSeparator() {
   return <span role="separator" className="my-1 h-px bg-line-soft" />;
+}
+
+/**
+ * A titled group of items.
+ *
+ * `role="group"` with a label rather than a bare heading, so the grouping is
+ * announced rather than being a visual convention a screen reader cannot see.
+ */
+export function MenuGroup({
+  label,
+  children,
+  scroll = false,
+}: {
+  label: string;
+  children: ReactNode;
+  /** For a group whose length is not bounded by the design — a folder listing. */
+  scroll?: boolean;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-col">
+      <span className="px-2.5 pt-1.5 pb-1 text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase">
+        {label}
+      </span>
+      <div
+        className={
+          scroll
+            ? "thin-scroll flex max-h-56 flex-col gap-0.5 overflow-y-auto"
+            : "flex flex-col gap-0.5"
+        }
+      >
+        {children}
+      </div>
+    </div>
+  );
 }
 
 /**

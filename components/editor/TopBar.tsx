@@ -1,9 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FilePlus2, Pencil, Trash2 } from "lucide-react";
+import {
+  Check,
+  Download,
+  FilePlus2,
+  Film,
+  Pencil,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Menu, MenuItem, MenuNote, MenuSeparator } from "@/components/ui/Menu";
+import {
+  Menu,
+  MenuGroup,
+  MenuItem,
+  MenuNote,
+  MenuSeparator,
+} from "@/components/ui/Menu";
 
 /**
  * The top bar: what the composition is called, what you can do to it, and
@@ -19,12 +33,24 @@ import { Menu, MenuItem, MenuNote, MenuSeparator } from "@/components/ui/Menu";
  * editor uses because the name is what you are acting on.
  */
 
+export type CompositionEntry = {
+  slug: string;
+  /** Null when the folder holds no readable project.json. */
+  name: string | null;
+  problem: string | null;
+};
+
 type Props = {
   /** The composition's name, or a standing-in phrase when none is open. */
   name: string;
   /** Absent when nothing is open — and then there is no project to act on. */
   project?:
     | {
+        slug: string;
+        /** Everything in the linked folder, so the menu can switch between them. */
+        compositions: readonly CompositionEntry[];
+        onOpenMenu: () => void;
+        onOpen: (slug: string) => void;
         onRename: (name: string) => void;
         onCreate: () => void;
         onDelete: () => void;
@@ -98,11 +124,19 @@ export function TopBar({
 
 function ProjectMenu({
   name,
+  slug,
+  compositions,
+  onOpenMenu,
+  onOpen,
   onRename,
   onCreate,
   onDelete,
 }: {
   name: string;
+  slug: string;
+  compositions: readonly CompositionEntry[];
+  onOpenMenu: () => void;
+  onOpen: (slug: string) => void;
   onRename: (name: string) => void;
   onCreate: () => void;
   onDelete: () => void;
@@ -144,9 +178,12 @@ function ProjectMenu({
   }
 
   return (
-    <Menu label={name} width={240}>
+    <Menu label={name} width={268} onOpen={onOpenMenu}>
       <ProjectMenuItems
         name={name}
+        slug={slug}
+        compositions={compositions}
+        onOpen={onOpen}
         onStartRename={() => setDraft(name)}
         onCreate={onCreate}
         onDelete={onDelete}
@@ -167,11 +204,17 @@ function ProjectMenu({
  */
 function ProjectMenuItems({
   name,
+  slug,
+  compositions,
+  onOpen,
   onStartRename,
   onCreate,
   onDelete,
 }: {
   name: string;
+  slug: string;
+  compositions: readonly CompositionEntry[];
+  onOpen: (slug: string) => void;
   onStartRename: () => void;
   onCreate: () => void;
   onDelete: () => void;
@@ -202,6 +245,38 @@ function ProjectMenuItems({
 
   return (
     <>
+      {/*
+        Switching lives above the verbs because it is what the menu is most
+        often opened for: the name is a place you are, and the first thing you
+        want from it is somewhere else.
+      */}
+      <MenuGroup label="Compositions" scroll={compositions.length > 6}>
+        {compositions.map((entry) => (
+          <MenuItem
+            key={entry.slug}
+            checked={entry.slug === slug}
+            disabled={entry.name === null}
+            {...(entry.problem
+              ? { ariaLabel: `${entry.slug}, unreadable: ${entry.problem}` }
+              : {})}
+            icon={
+              entry.slug === slug ? (
+                <Check size={14} strokeWidth={2.4} aria-hidden />
+              ) : entry.name === null ? (
+                <TriangleAlert size={14} strokeWidth={1.9} aria-hidden />
+              ) : (
+                <Film size={14} strokeWidth={1.9} aria-hidden />
+              )
+            }
+            onSelect={() => onOpen(entry.slug)}
+          >
+            <span className="truncate">{entry.name ?? entry.slug}</span>
+          </MenuItem>
+        ))}
+      </MenuGroup>
+
+      <MenuSeparator />
+
       <MenuItem
         icon={<Pencil size={14} strokeWidth={1.9} aria-hidden />}
         onSelect={onStartRename}

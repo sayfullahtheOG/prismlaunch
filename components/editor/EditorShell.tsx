@@ -31,6 +31,7 @@ import { TopBar } from "./TopBar";
 import { useDiskSync } from "./useDiskSync";
 import { useWebMcp } from "./WebMcpProvider";
 import { AgentPanel } from "./panels/AgentPanel";
+import { ElementsPanel } from "./panels/ElementsPanel";
 import { ProcessPanel } from "./panels/ProcessPanel";
 import { StoryboardPanel } from "./panels/StoryboardPanel";
 
@@ -144,6 +145,7 @@ export function EditorShell() {
           <div className="flex w-[300px] shrink-0 flex-col border-r border-line-soft bg-surface">
             {tab === "process" ? <ProcessPanel file={file} /> : null}
             {tab === "storyboard" ? <StoryboardPanel file={file} /> : null}
+            {tab === "elements" ? <ElementsPanel file={file} /> : null}
             {tab === "agent" ? (
               <AgentPanel
                 activity={project?.activity ?? []}

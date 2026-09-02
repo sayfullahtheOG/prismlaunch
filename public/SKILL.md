@@ -33,6 +33,13 @@ There is no scene structure and no required shape. Four beats or eleven, a
 single word held for two seconds, six things stacked on a cut — it is a
 timeline, and it is yours.
 
+**Elements** are clips without a place on the timeline: a Headline type
+style, an accent rule, a device frame, the product screenshot, the music bed.
+They live in `elements` in the file, and a clip placed from one carries its
+`elementId` and follows it — change the element, and every clip placed from
+it changes. The style stage defines them; the build places them. See
+*Elements* below.
+
 ## How the two halves fit together
 
 **The folder.** A composition lives in `.prismlaunch/<slug>/project.json` inside
@@ -78,7 +85,8 @@ look like every other AI-made video, which is the thing this exists to stop.
    sends it back with a note you will find in `process`. You cannot approve a
    stage yourself; there is no tool for it.
 5. The timeline opens up once the storyboard is approved. Approving the
-   animatic locks the timing.
+   animatic locks the timing and opens the elements: define the look as
+   elements, then build by placing them.
 6. Every clip you add is a draft the person accepts or rejects.
    **You cannot accept your own work** — there is no tool for it, by design.
 7. When polish is approved, call `prism.request_render`. That renders nothing;
@@ -98,7 +106,7 @@ but because the tool says no.
 | 3 Script | `prism.submit_script` | beats with words and seconds; VO if any | lets you board |
 | 4 Storyboard | `prism.submit_storyboard` | one panel per beat: frame, action, frames, in/out, sound, words | opens the timeline |
 | 5 Animatic | `prism.lay_animatic`, then `prism.submit_animatic` | the boards on the timeline, music underneath, cut to the grid | **locks the timing** |
-| 6 Style frames | `prism.submit_style_frames` | the look, and the 2–3 clips built for real | fixes the look |
+| 6 Style frames | `prism.submit_style_frames` | the look, the elements it is made of, and the 2–3 frames built from them | fixes the look |
 | 7 Build | `prism.submit_build` | every beat built, inside its window | — |
 | 8 Sound | `prism.submit_sound` | the sound plan; effects, ducking, tone placed | — |
 | 9 Polish | `prism.submit_polish` | the §14 checklist, run, with verdicts | unblocks the render |
@@ -123,6 +131,36 @@ resubmit with the same tool.
 The person is never gated. They can approve, skip or reopen any stage. Only
 you are held to the order.
 
+## Elements
+
+PRISM_METHOD.md §7 says a style frame settles the ground, the ink, the accent,
+the one family that owns headlines, the size for each type role, the margins,
+how the product is shown, and the motif — and that everything built afterwards
+is an *application* of those decisions, not a new one. Elements are where
+they live.
+
+An element is the matching clip minus its placement: no start, no length, no
+approval, no label — plus a `name`. Five kinds, the same as clips. A `text`
+element is a type style and usually has no `text` of its own; the words
+arrive when it is placed.
+
+| Tool | What it does |
+| --- | --- |
+| `prism.add_element` | Define one. Refuses until the animatic is approved. |
+| `prism.place_element` | Put one on a track as a clip. You supply the track, the frame, the length, and the words; the element supplies the look. Lands as a draft, inside a locked beat. |
+| `prism.update_element` | Change one, and every clip placed from it. Send only what changes. Those clips become drafts again. |
+| `prism.remove_element` | Delete one. Its clips stay, unlinked. |
+
+The order the method wants: at the style stage, define the elements — the
+type roles, the accent, the device, the product, the music — then build the
+hook, the reveal and the endcard for real by placing them, and submit the
+stage naming both the elements and the clips. In the build, place; do not
+invent. `prism.add_text` and friends are for things that are genuinely
+one-off, and if you reach for one twice, it is an element.
+
+Writing the file by hand: `elements` is an array of these, each with a unique
+`id` and a `name`, and a clip's `elementId` must name one of them.
+
 ## The file
 
 ```
@@ -136,13 +174,30 @@ your-repo/
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "name": "Vector launch video",
   "width": 1920,
   "height": 1080,
   "fps": 30,
   "durationInFrames": 300,
   "background": { "kind": "gradient", "from": "#0A0A0C", "to": "#1B1B22", "angle": 160 },
+  "elements": [
+    {
+      "kind": "text",
+      "id": "el-headline",
+      "name": "Headline",
+      "role": "type",
+      "fontSize": 0.1,
+      "fontFamily": "display",
+      "fontWeight": 400,
+      "color": "#F5F5F7",
+      "align": "center",
+      "lineHeight": 1.1,
+      "letterSpacing": -0.02,
+      "box": { "x": 0.5, "y": 0.5, "width": 0.8, "height": 0.2, "rotation": 0, "opacity": 1 },
+      "animation": { "enter": "rise", "exit": "fade", "enterFrames": 14, "exitFrames": 10 }
+    }
+  ],
   "tracks": [
     {
       "id": "track-titles",
@@ -158,6 +213,7 @@ your-repo/
           "from": 0,
           "durationInFrames": 70,
           "approval": "draft",
+          "elementId": "el-headline",
           "revisionNote": "Opening on the cost, not the product.",
           "text": "Six clicks to assign an issue.",
           "fontSize": 0.1,
@@ -242,7 +298,7 @@ your-repo/
 
 These are enforced. A file that breaks one is refused with the field named.
 
-- **`version` is 2.**
+- **`version` is 3.** A file that says 2 still opens; it is written back as 3.
 - **Visual tracks come before audio tracks** in the array. That order is the
   stacking order: `tracks[0]` is nearest the viewer.
 - **Clips on one track may not overlap.** Put simultaneous things on separate
@@ -255,6 +311,8 @@ These are enforced. A file that breaks one is refused with the field named.
 - **Audio clips only on audio tracks**, and vice versa.
 - **`approval` is `draft` or `accepted`. Always write `draft`.** Only the person
   can write `accepted`, through the studio.
+- **`elementId`, when present, names an entry in `elements`.** Element ids are
+  unique alongside track and clip ids.
 
 ### Positions
 
@@ -306,6 +364,10 @@ rather than crashing the render — but it is still a hole, so check.
 | `prism.add_audio` | Music, voiceover or an effect. |
 | `prism.update_clip` | Change one clip. Send only what you are changing. |
 | `prism.remove_clip` | Delete a clip. |
+| `prism.add_element` | Define a piece of the look: a type style, a shape, a file. |
+| `prism.place_element` | Put an element on a track as a clip. The build's verb. |
+| `prism.update_element` | Change an element and everything placed from it. |
+| `prism.remove_element` | Delete an element; its clips stay. |
 | `prism.set_background` | Solid colour or two-stop gradient. |
 | `prism.set_duration` | Set the whole composition's length. |
 | `prism.seek` | Move the playhead so you are both looking at the same moment. |

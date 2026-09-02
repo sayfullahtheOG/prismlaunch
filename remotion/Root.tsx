@@ -27,6 +27,7 @@ const FIXTURE: ProjectFile = {
   durationInFrames: 150,
   background: { kind: "gradient", from: "#0A0A0C", to: "#1B1B22", angle: 160 },
   process: EMPTY_PROCESS,
+  elements: [],
   tracks: [
     {
       id: "track-1",

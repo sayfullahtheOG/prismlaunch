@@ -8,6 +8,7 @@ import {
   CircleDot,
   LayoutGrid,
   Lock,
+  Shapes,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -362,16 +363,28 @@ function Artifact({
 
     case "style": {
       const st = process.style;
-      if (!st.look && st.clipIds.length === 0) return <Empty />;
+      const defined = file.elements.length;
+      if (!st.look && st.clipIds.length === 0 && defined === 0) return <Empty />;
       return (
-        <dl className="flex flex-col gap-1.5">
-          <Row label="Look" value={st.look} strong />
-          <Row
-            label="Built for real"
-            value={st.clipIds.length > 0 ? st.clipIds.join(", ") : undefined}
-            mono
-          />
-        </dl>
+        <div className="flex flex-col gap-2">
+          <p className="text-xs leading-[var(--ds-leading-body)] text-muted">
+            {st.look ? (
+              <>
+                The <span className="font-semibold text-ink capitalize">{st.look}</span> look ·{" "}
+              </>
+            ) : null}
+            <span className="text-ink">{defined}</span> element{defined === 1 ? "" : "s"} ·{" "}
+            <span className="text-ink">{st.clipIds.length}</span> frame
+            {st.clipIds.length === 1 ? "" : "s"} built for real
+          </p>
+          <Button
+            variant="secondary"
+            onClick={() => showTab("elements")}
+            icon={<Shapes size={14} strokeWidth={1.9} aria-hidden />}
+          >
+            Open the elements
+          </Button>
+        </div>
       );
     }
 

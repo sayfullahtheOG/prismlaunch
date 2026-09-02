@@ -1,5 +1,14 @@
 import { MAX_FRAMES, MIN_CLIP_FRAMES } from "./schema";
-import type { Clip, ProjectFile, Track, TrackKind } from "@/types/prism";
+import type {
+  Animation,
+  Box,
+  Clip,
+  ClipDraft,
+  Element,
+  ProjectFile,
+  Track,
+  TrackKind,
+} from "@/types/prism";
 
 /**
  * Pure edits on a composition.
@@ -425,6 +434,164 @@ export function duplicateClip(
 }
 
 // ---------------------------------------------------------------------------
+// Elements
+// ---------------------------------------------------------------------------
+
+export function findElement(file: ProjectFile, elementId: string): Element | undefined {
+  return file.elements.find((element) => element.id === elementId);
+}
+
+export function addElement(file: ProjectFile, element: Element): ProjectFile {
+  return { ...file, elements: [...file.elements, element] };
+}
+
+/** How many clips were placed from an element. Shown beside it, and before deleting it. */
+export function elementUses(file: ProjectFile, elementId: string): number {
+  return file.tracks.reduce(
+    (total, track) =>
+      total + track.clips.filter((clip) => clip.elementId === elementId).length,
+    0,
+  );
+}
+
+/**
+ * Remove an element and detach the clips placed from it.
+ *
+ * The clips stay — they are real clips with every field filled in — and only
+ * lose their link. Deleting the Headline style should not delete the
+ * headlines; it should stop them following it.
+ */
+export function removeElement(file: ProjectFile, elementId: string): ProjectFile {
+  return {
+    ...file,
+    elements: file.elements.filter((element) => element.id !== elementId),
+    tracks: file.tracks.map((track) => ({
+      ...track,
+      clips: track.clips.map((clip) =>
+        clip.elementId === elementId ? detached(clip) : clip,
+      ),
+    })),
+  };
+}
+
+function detached(clip: Clip): Clip {
+  const { elementId, ...rest } = clip;
+  void elementId;
+  return rest as Clip;
+}
+
+/** The keys of an element that are about the element, not about what it looks like. */
+const IDENTITY = new Set(["id", "kind", "name", "role"]);
+
+/**
+ * Change an element, and every clip placed from it.
+ *
+ * This is what makes an element an element rather than a template: change
+ * the Headline style's colour and every headline in the film changes. The
+ * rule is simple on purpose — every patched key that is not the element's
+ * identity is written onto every linked clip — because the alternative,
+ * tracking per-clip overrides, is a second data model nobody asked for. A
+ * clip's own edits survive until the same property changes on its element.
+ */
+export function updateElement(
+  file: ProjectFile,
+  elementId: string,
+  patch: Partial<Element>,
+): ProjectFile {
+  const propagated = Object.fromEntries(
+    Object.entries(patch).filter(
+      ([key, value]) => !IDENTITY.has(key) && value !== undefined,
+    ),
+  );
+
+  return {
+    ...file,
+    elements: file.elements.map((element) =>
+      element.id === elementId ? ({ ...element, ...patch } as Element) : element,
+    ),
+    tracks: file.tracks.map((track) => ({
+      ...track,
+      clips: track.clips.map((clip) =>
+        clip.elementId === elementId ? ({ ...clip, ...propagated } as Clip) : clip,
+      ),
+    })),
+  };
+}
+
+export type Placement = {
+  from: number;
+  durationInFrames: number;
+  label?: string;
+  /** Words, for a text element. Required if the element has none of its own. */
+  text?: string;
+  box?: Partial<Box>;
+  animation?: Partial<Animation>;
+};
+
+/**
+ * A clip from an element and a place to put it.
+ *
+ * Everything the element knows is copied onto the clip — the clip is
+ * self-contained, so the renderer and the inspector never resolve anything —
+ * and the link is kept in `elementId` so later changes to the element reach
+ * it. The words are the one thing a text style cannot supply by itself.
+ */
+export function clipFromElement(
+  element: Element,
+  placement: Placement,
+): { ok: true; clip: ClipDraft } | { ok: false; message: string } {
+  const place = {
+    elementId: element.id,
+    from: placement.from,
+    durationInFrames: placement.durationInFrames,
+    approval: "draft" as const,
+    label: placement.label ?? element.name,
+  };
+
+  if (element.kind === "text") {
+    const { id, name, role, text: defaultWords, ...style } = element;
+    void id;
+    void role;
+    const text = placement.text?.trim() || defaultWords?.trim();
+    if (!text) {
+      return {
+        ok: false,
+        message: `“${name}” is a text style with no words of its own. Pass \`text\` when placing it.`,
+      };
+    }
+    const clip: ClipDraft = {
+      ...style,
+      ...place,
+      text,
+      box: { ...style.box, ...placement.box },
+      animation: { ...style.animation, ...placement.animation },
+    };
+    return { ok: true, clip };
+  }
+
+  if (element.kind === "audio") {
+    const { id, name, role, ...sound } = element;
+    void id;
+    void name;
+    void role;
+    const clip: ClipDraft = { ...sound, ...place };
+    return { ok: true, clip };
+  }
+
+  const { id, name, role, ...picture } = element;
+  void id;
+  void name;
+  void role;
+  const clip = {
+    ...picture,
+    ...place,
+    box: { ...picture.box, ...placement.box },
+    animation: { ...picture.animation, ...placement.animation },
+  } as ClipDraft;
+  return { ok: true, clip };
+}
+
+// ---------------------------------------------------------------------------
 // Composition
 // ---------------------------------------------------------------------------
 
@@ -458,13 +625,16 @@ export function trimToContent(file: ProjectFile): ProjectFile {
   return { ...file, durationInFrames: Math.max(1, end) };
 }
 
-/** Every asset path the composition refers to, deduplicated. */
+/** Every asset path the composition refers to — clips and elements — deduplicated. */
 export function referencedAssets(file: ProjectFile): string[] {
   const paths = new Set<string>();
   for (const track of file.tracks) {
     for (const clip of track.clips) {
       if ("src" in clip) paths.add(clip.src);
     }
+  }
+  for (const element of file.elements) {
+    if ("src" in element) paths.add(element.src);
   }
   return [...paths];
 }

@@ -1,10 +1,11 @@
 "use client";
 
-import { findClip } from "@/lib/studio/edits";
+import { findClip, findElement } from "@/lib/studio/edits";
 import { useStudioStore } from "@/lib/studio/store";
 import type { ProjectFile } from "@/types/prism";
 import { ClipInspector } from "./inspector/ClipInspector";
 import { CompositionInspector } from "./inspector/CompositionInspector";
+import { ElementInspector } from "./inspector/ElementInspector";
 import { PanelInspector } from "./inspector/PanelInspector";
 
 /**
@@ -25,6 +26,8 @@ export function Inspector({ file }: { file: ProjectFile }) {
       ? file.process.storyboard.panels.findIndex((panel) => panel.id === selection.id)
       : -1;
   const panel = panelIndex >= 0 ? file.process.storyboard.panels[panelIndex] : undefined;
+  const element =
+    selection?.kind === "element" ? findElement(file, selection.id) : undefined;
 
   return (
     <aside
@@ -37,6 +40,8 @@ export function Inspector({ file }: { file: ProjectFile }) {
         <CompositionInspector file={file} />
       ) : panel ? (
         <PanelInspector panel={panel} index={panelIndex} file={file} />
+      ) : element ? (
+        <ElementInspector element={element} file={file} />
       ) : (
         <Empty />
       )}
@@ -48,8 +53,8 @@ function Empty() {
   return (
     <div className="flex flex-1 items-center justify-center p-6">
       <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
-        Select a clip in the timeline to edit it, or the Background row for the
-        composition itself.
+        Select a clip, a board, or an element to edit it — or the Background
+        row for the composition itself.
       </p>
     </div>
   );

@@ -1,11 +1,14 @@
 import { z } from "zod";
 import {
   AnimationSchema,
+  AssetPathSchema,
   AudioClipSchema,
   BackgroundSchema,
   BoxSchema,
+  ELEMENT_KINDS,
   ImageClipSchema,
   MAX_FRAMES,
+  MAX_TEXT_LENGTH,
   ShapeClipSchema,
   SlugSchema,
   TextClipSchema,
@@ -228,6 +231,114 @@ export const RemoveClipInput = z.object({
   clipId: z.string().min(1).max(60),
 });
 
+// ---------------------------------------------------------------------------
+// Elements
+// ---------------------------------------------------------------------------
+
+/**
+ * One flat shape for every kind of element.
+ *
+ * A discriminated union would be the honest type, but a tool's input schema
+ * is read by a model choosing what to send, and one object whose fields say
+ * which kind they belong to is easier to get right than five branches. The
+ * executor builds the right element from it and validates that; a missing
+ * `src` on an image comes back as a sentence, not a schema mismatch.
+ */
+const elementIdentity = {
+  name: z
+    .string()
+    .min(1)
+    .max(40)
+    .describe("What it is for: 'Headline', 'Support', 'Label', 'Accent rule', 'Device frame', 'Product shot', 'Music bed'."),
+  role: z
+    .string()
+    .max(40)
+    .optional()
+    .describe("A grouping word, optional: 'type', 'device', 'motif', 'product', 'sound'."),
+  note: z
+    .string()
+    .max(240)
+    .optional()
+    .describe("One sentence on what this element is for. Shown to the person."),
+};
+
+const elementFields = {
+  // text
+  text: z
+    .string()
+    .max(MAX_TEXT_LENGTH)
+    .optional()
+    .describe("text only. Default words. Usually omitted for a type style — the words arrive when it is placed."),
+  fontSize: TextClipSchema.shape.fontSize
+    .optional()
+    .describe("text only. As a fraction of canvas height: 0.045 a caption, 0.09 a headline, 0.2 a hero word."),
+  fontFamily: TextClipSchema.shape.fontFamily.optional().describe("text only."),
+  fontWeight: TextClipSchema.shape.fontWeight.optional().describe("text only. Only the 'body' family has weights."),
+  color: TextClipSchema.shape.color.optional().describe("text only."),
+  align: TextClipSchema.shape.align.optional().describe("text only."),
+  lineHeight: TextClipSchema.shape.lineHeight.optional().describe("text only."),
+  letterSpacing: TextClipSchema.shape.letterSpacing.optional().describe("text only."),
+  // shape
+  shape: ShapeClipSchema.shape.shape.optional().describe("shape only. Defaults to rect."),
+  fill: ShapeClipSchema.shape.fill.optional().describe("shape only."),
+  radius: ShapeClipSchema.shape.radius
+    .optional()
+    .describe("shape, image, video. Corner radius as a fraction of the shorter side; 0.5 rounds a rect into a pill."),
+  // media
+  src: AssetPathSchema.optional().describe(
+    "image, video, audio. Path inside the project folder, e.g. 'assets/app.png'. The file must already be there.",
+  ),
+  fit: ImageClipSchema.shape.fit.optional().describe("image, video."),
+  startFrom: VideoClipSchema.shape.startFrom.optional().describe("video, audio. Frame to start at inside the file."),
+  volume: AudioClipSchema.shape.volume.optional().describe("video, audio. Video defaults to 0."),
+  playbackRate: AudioClipSchema.shape.playbackRate.optional().describe("video, audio."),
+  fadeInFrames: AudioClipSchema.shape.fadeInFrames.optional().describe("audio only."),
+  fadeOutFrames: AudioClipSchema.shape.fadeOutFrames.optional().describe("audio only."),
+  // visual
+  box: BoxSchema.partial()
+    .optional()
+    .describe("Every visual kind. The default position and size, in canvas fractions; a placement can override it."),
+  animation: AnimationSchema.partial()
+    .optional()
+    .describe("Every visual kind. The default enter and exit; a placement can override it."),
+};
+
+export const AddElementInput = z.object({
+  kind: z
+    .enum(ELEMENT_KINDS)
+    .describe("text: a type style. shape: a rule, a block, a dot. image or video: a file in the project folder. audio: a file for an audio track."),
+  ...elementIdentity,
+  ...elementFields,
+});
+
+export const UpdateElementInput = z.object({
+  elementId: z.string().min(1).max(60).describe("From get_project_context."),
+  name: elementIdentity.name.optional(),
+  role: elementIdentity.role,
+  note: z
+    .string()
+    .max(240)
+    .optional()
+    .describe("One sentence on what you changed and why. Shown on every clip that follows this element."),
+  ...elementFields,
+});
+
+export const RemoveElementInput = z.object({
+  elementId: z.string().min(1).max(60),
+});
+
+export const PlaceElementInput = z.object({
+  elementId: z.string().min(1).max(60).describe("From get_project_context."),
+  ...timing,
+  text: z
+    .string()
+    .min(1)
+    .max(MAX_TEXT_LENGTH)
+    .optional()
+    .describe("The words, for a text style. Required unless the element has default words."),
+  ...visualExtras,
+});
+
 export const SetBackgroundInput = z.object({
   background: BackgroundSchema,
 });
@@ -424,6 +535,11 @@ export const SubmitStyleFramesInput = z.object({
   look: z
     .enum(["void", "paper", "editorial", "spec", "custom"])
     .describe("Which look from PRISM_METHOD.md §7, or 'custom' if you built your own."),
+  elementIds: z
+    .array(z.string().min(1).max(60))
+    .min(1)
+    .max(60)
+    .describe("The elements the look is made of — at least the headline style. From prism.add_element."),
   clipIds: z
     .array(z.string().min(1).max(60))
     .min(1)

@@ -3,6 +3,12 @@ import type {
   AnimationSchema,
   AssetPathSchema,
   AudioClipSchema,
+  AudioElementSchema,
+  ElementSchema,
+  ImageElementSchema,
+  ShapeElementSchema,
+  TextElementSchema,
+  VideoElementSchema,
   BackgroundSchema,
   BoxSchema,
   ClipSchema,
@@ -56,6 +62,30 @@ export type AudioClip = z.infer<typeof AudioClipSchema>;
 export type VisualClip = z.infer<typeof VisualClipSchema>;
 export type Clip = z.infer<typeof ClipSchema>;
 export type ClipKind = Clip["kind"];
+
+/**
+ * A clip before it has an id — what `createClip` mints one for.
+ *
+ * Spelled out per kind rather than as `Omit<Clip, "id">`, because `Omit` on
+ * a union keeps only the keys every member shares and loses `text`, `src`
+ * and the rest. This distributes.
+ */
+export type ClipDraft = {
+  [K in ClipKind]: Omit<Extract<Clip, { kind: K }>, "id">;
+}[ClipKind];
+
+export type TextElement = z.infer<typeof TextElementSchema>;
+export type ShapeElement = z.infer<typeof ShapeElementSchema>;
+export type ImageElement = z.infer<typeof ImageElementSchema>;
+export type VideoElement = z.infer<typeof VideoElementSchema>;
+export type AudioElement = z.infer<typeof AudioElementSchema>;
+export type Element = z.infer<typeof ElementSchema>;
+export type ElementKind = Element["kind"];
+
+/** An element before it has an id. Distributive, for the same reason as `ClipDraft`. */
+export type ElementDraft = {
+  [K in ElementKind]: Omit<Extract<Element, { kind: K }>, "id">;
+}[ElementKind];
 
 export type TrackKind = z.infer<typeof TrackKindSchema>;
 export type Track = z.infer<typeof TrackSchema>;

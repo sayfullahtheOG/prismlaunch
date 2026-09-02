@@ -78,6 +78,8 @@ export type StudioState = {
   assets: Readonly<Record<string, string>>;
   /** Paths a clip refers to that are not in the folder. Reported, not fatal. */
   missingAssets: readonly string[];
+  /** Every file in the project's `assets/`, referenced or not. For the library. */
+  assetFiles: readonly string[];
 
   /** The frame the playhead is on. Shared by the timeline and the player. */
   playhead: number;
@@ -98,6 +100,7 @@ export type StudioState = {
   setAssets: (
     assets: Readonly<Record<string, string>>,
     missing: readonly string[],
+    files: readonly string[],
   ) => void;
   setPlayhead: (frame: number) => void;
   setPlaying: (playing: boolean) => void;
@@ -115,6 +118,7 @@ export const useStudioStore = create<StudioState>((set) => ({
   renderNote: null,
   assets: {},
   missingAssets: [],
+  assetFiles: [],
   playhead: 0,
   playing: false,
   pixelsPerSecond: DEFAULT_ZOOM,
@@ -140,12 +144,14 @@ export const useStudioStore = create<StudioState>((set) => ({
       renderNote: null,
       assets: {},
       missingAssets: [],
+      assetFiles: [],
       playhead: 0,
       playing: false,
     }),
   setPendingRender: (pendingRender) => set({ pendingRender }),
   setRenderNote: (renderNote) => set({ renderNote }),
-  setAssets: (assets, missingAssets) => set({ assets, missingAssets }),
+  setAssets: (assets, missingAssets, assetFiles) =>
+    set({ assets, missingAssets, assetFiles }),
   setPlayhead: (playhead) => set({ playhead: Math.max(0, Math.round(playhead)) }),
   setPlaying: (playing) => set({ playing }),
   setZoom: (pixelsPerSecond) =>

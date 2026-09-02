@@ -3,6 +3,7 @@ import { snapshotBeats } from "@/lib/studio/process";
 import { FilmProjectSchema, STAGES } from "@/lib/studio/schema";
 import type {
   Clip,
+  Element,
   FilmProject,
   Process,
   ProjectFile,
@@ -19,8 +20,9 @@ import type {
  *
  *   brief   — nothing approved; the brief just arrived.
  *   boards  — script approved; the storyboard is waiting for review.
- *   build   — timing locked; the boards are on the timeline, the agent has
- *             started replacing them, and two of its clips are unreviewed.
+ *   build   — timing locked; the look is defined as elements and the style
+ *             frames are waiting for review; two of the agent's clips are
+ *             unreviewed.
  */
 export type DevState = "brief" | "boards" | "build";
 
@@ -213,15 +215,106 @@ function boards(): Clip[] {
   });
 }
 
+const ELEMENTS: Element[] = [
+  {
+    kind: "text",
+    id: "el-headline",
+    name: "Headline",
+    role: "type",
+    fontSize: 0.09,
+    fontFamily: "display",
+    fontWeight: 400,
+    color: "#F5F5F7",
+    align: "center",
+    lineHeight: 1.1,
+    letterSpacing: -0.02,
+    box: { x: 0.5, y: 0.52, width: 0.8, height: 0.2, rotation: 0, opacity: 1 },
+    animation: { enter: "rise", exit: "fade", enterFrames: 14, exitFrames: 8 },
+  },
+  {
+    kind: "text",
+    id: "el-hero",
+    name: "Hero word",
+    role: "type",
+    fontSize: 0.24,
+    fontFamily: "display",
+    fontWeight: 400,
+    color: "#FFFFFF",
+    align: "center",
+    lineHeight: 1,
+    letterSpacing: -0.04,
+    box: { x: 0.5, y: 0.48, width: 0.9, height: 0.3, rotation: 0, opacity: 1 },
+    animation: { enter: "scale", exit: "fade", enterFrames: 14, exitFrames: 10 },
+  },
+  {
+    kind: "text",
+    id: "el-support",
+    name: "Support",
+    role: "type",
+    fontSize: 0.042,
+    fontFamily: "body",
+    fontWeight: 500,
+    color: "#F5F5F7B3",
+    align: "center",
+    lineHeight: 1.3,
+    letterSpacing: 0,
+    box: { x: 0.5, y: 0.78, width: 0.7, height: 0.1, rotation: 0, opacity: 1 },
+    animation: { enter: "fade", exit: "fade", enterFrames: 10, exitFrames: 8 },
+  },
+  {
+    kind: "shape",
+    id: "el-rule",
+    name: "Accent rule",
+    role: "motif",
+    shape: "rect",
+    fill: "#7C6CFF",
+    radius: 0.5,
+    box: { x: 0.5, y: 0.62, width: 0.08, height: 0.006, rotation: 0, opacity: 1 },
+    animation: { enter: "fade", exit: "fade", enterFrames: 10, exitFrames: 10 },
+  },
+  {
+    kind: "image",
+    id: "el-app",
+    name: "Assign shortcut",
+    role: "product",
+    src: "assets/assign.png",
+    fit: "cover",
+    radius: 0.04,
+    box: { x: 0.5, y: 0.5, width: 0.7, height: 0.6, rotation: 0, opacity: 1 },
+    animation: { enter: "slide-left", exit: "fade", enterFrames: 14, exitFrames: 10 },
+  },
+  {
+    kind: "audio",
+    id: "el-bed",
+    name: "Music bed",
+    role: "sound",
+    src: "assets/bed.mp3",
+    startFrom: 0,
+    volume: 0.7,
+    fadeInFrames: 20,
+    fadeOutFrames: 45,
+    playbackRate: 1,
+  },
+];
+
 function buildFile(): ProjectFile {
   const base = blankProjectFile("Vector launch film");
   const total = PANELS.reduce((n, panel) => n + panel.durationInFrames, 0);
+  const process = through("animatic", "style");
+  process.style = {
+    ...process.style,
+    look: "void",
+    elementIds: ELEMENTS.map((element) => element.id),
+    clipIds: ["text-hook", "text-name", "text-turn"],
+    summary: "Void look. Three type roles, one accent, the product in a soft-cornered frame. Hook, turn and reveal built for real.",
+  };
 
   const withBoards: ProjectFile = {
     ...base,
     durationInFrames: total,
     background: { kind: "gradient", from: "#0A0A0C", to: "#15151B", angle: 160 },
-    process: through("animatic"),
+    process,
+    elements: ELEMENTS,
     tracks: [
       {
         id: "track-titles",
@@ -238,6 +331,7 @@ function buildFile(): ProjectFile {
             durationInFrames: 66,
             approval: "accepted",
             label: "Hook",
+            elementId: "el-headline",
             text: "Six clicks to assign an issue.",
             fontSize: 0.09,
             fontFamily: "display",
@@ -256,6 +350,7 @@ function buildFile(): ProjectFile {
             durationInFrames: 36,
             approval: "draft",
             label: "Turn",
+            elementId: "el-hero",
             revisionNote: "The turn: one word, large, on the downbeat.",
             text: "One.",
             fontSize: 0.22,
@@ -275,6 +370,7 @@ function buildFile(): ProjectFile {
             durationInFrames: 60,
             approval: "draft",
             label: "Reveal",
+            elementId: "el-hero",
             revisionNote: "The name. Scale from 0.94, the rule follows on the Accent layer.",
             text: "Vector",
             fontSize: 0.26,
@@ -304,6 +400,7 @@ function buildFile(): ProjectFile {
             durationInFrames: 52,
             approval: "accepted",
             label: "rule",
+            elementId: "el-rule",
             shape: "rect",
             fill: "#7C6CFF",
             radius: 0.5,
@@ -336,6 +433,7 @@ function buildFile(): ProjectFile {
             durationInFrames: total,
             approval: "accepted",
             label: "bed 120bpm",
+            elementId: "el-bed",
             src: "assets/bed.mp3",
             startFrom: 0,
             volume: 0.7,

@@ -533,6 +533,14 @@ how the product is shown, and the recurring motif. If a frame does not answer
 all of those, it is not a style frame. Get them approved. Everything built
 afterwards is an *application* of these frames, not a new decision.
 
+In PrismLaunch the decisions a frame settles are **elements**: one
+`prism.add_element` per type role (Headline, Support, Label), one for the
+accent, one for the device frame, one for each product shot, one for the
+music bed. Build the two or three frames by placing them with
+`prism.place_element`, and `prism.submit_style_frames` names both the
+elements and the clips. From here on a change to the look is a change to an
+element — `prism.update_element` — and every clip placed from it follows.
+
 ---
 
 ## 8. Motion
@@ -856,6 +864,12 @@ board clip with real clips.
   more frames, that is a decision for the person, not a thing you do: "this
   needs 12 more frames, which pushes the endcard — reopen the animatic, or
   re-cut inside it?"
+- **Place, don't invent.** Every clip in the build comes from an approved
+  element: `prism.place_element` with the track, the window, and the words.
+  A clip made with `prism.add_text` is a new decision about the look, and the
+  look was decided at the style frames. Reach for it only for something
+  genuinely one-off — and if you find yourself doing it twice, it is an
+  element.
 - **One layer per role.** Name them: `Titles`, `Support`, `Accent`, `Product`,
   `Music`, `Voice`, `SFX`, `Tone`. A person reading the timeline should see
   the film's structure in the layer list.

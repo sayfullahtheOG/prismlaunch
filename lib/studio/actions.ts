@@ -1,8 +1,12 @@
 import {
   addClip,
+  addElement,
   addTrack,
+  clipFromElement,
   duplicateClip,
+  elementUses,
   findClip,
+  findElement,
   findTrack,
   fitDuration,
   mintId,
@@ -10,16 +14,21 @@ import {
   moveTrack,
   referencedAssets,
   removeClip,
+  removeElement,
   removeTrack,
   splitClip,
   trimClip,
   trimToContent,
   updateClip,
+  updateElement,
   updateTrack,
+  type Placement,
 } from "./edits";
 import { blankProjectFile } from "./blank";
 import {
   agentMayPlaceClips,
+  agentMayShapeElements,
+  beatFor,
   currentStage,
   fitsLockedBeats,
   nextInstruction,
@@ -31,6 +40,7 @@ import {
 import {
   ClipSchema,
   DEFAULT_FPS,
+  ElementSchema,
   DEFAULT_HEIGHT,
   DEFAULT_WIDTH,
   EMPTY_PROCESS,
@@ -49,6 +59,7 @@ import { slugForName } from "./slug";
 import { nowTimecode, useStudioStore, type RailTab } from "./store";
 import {
   linkWorkspace,
+  listAssets,
   listProjects,
   loadAssets,
   modifiedAt,
@@ -71,6 +82,9 @@ import type {
   ActivityEvent,
   Background,
   Clip,
+  ClipDraft,
+  Element,
+  ElementDraft,
   FilmProject,
   Process,
   ProjectFile,
@@ -192,6 +206,26 @@ function requireStageForClips(
   return fail(
     "stage-gated",
     `Clips come after the storyboard is approved. The process is at ${stage ? STAGE_LABELS[stage] : "the end"}${stage ? ` — ${nextInstruction(project.file.process).instruction}` : ""}`,
+  );
+}
+
+/**
+ * The elements gate, for agents only.
+ *
+ * Elements are the style stage's artifact, and the style stage comes after
+ * the animatic. The person can define an element whenever they like.
+ */
+function requireStageForElements(
+  project: FilmProject,
+  origin: "human" | "agent",
+): ActionResult | null {
+  if (origin === "human") return null;
+  if (agentMayShapeElements(project.file.process)) return null;
+
+  const stage = currentStage(project.file.process);
+  return fail(
+    "stage-gated",
+    `Elements come with the style frames, after the animatic is approved. The process is at ${stage ? STAGE_LABELS[stage] : "the end"}${stage ? ` — ${nextInstruction(project.file.process).instruction}` : ""}`,
   );
 }
 
@@ -464,7 +498,8 @@ export async function refreshProjects(): Promise<ActionResult> {
 async function refreshAssets(workspace: Workspace, slug: string, file: ProjectFile) {
   const wanted = referencedAssets(file);
   const { urls, missing } = await loadAssets(workspace, slug, wanted);
-  useStudioStore.getState().setAssets(urls, missing);
+  const files = await listAssets(workspace, slug);
+  useStudioStore.getState().setAssets(urls, missing, files);
 }
 
 export async function openProject(slug: string): Promise<ActionResult> {
@@ -764,6 +799,7 @@ function setSelection(project: FilmProject, selection: Selection | null): void {
 function selectionFor(file: ProjectFile, id: string): Selection | null {
   if (findClip(file, id)) return { kind: "clip", id };
   if (findTrack(file, id)) return { kind: "track", id };
+  if (findElement(file, id)) return { kind: "element", id };
   if (file.process.storyboard.panels.some((panel) => panel.id === id)) {
     return { kind: "panel", id };
   }
@@ -920,6 +956,8 @@ export function createClip(
   clip: Omit<Clip, "id">,
   origin: "human" | "agent" = "human",
   note?: string,
+  /** What the activity log calls it. Placing an element is not "add_clip". */
+  verb?: string,
 ): ActionResult {
   const guard = requireProject();
   if (!guard.ok) return guard.result;
@@ -951,7 +989,7 @@ export function createClip(
 
   const rejected = commit(project, addClip(project.file, trackId, parsed.data), {
     origin,
-    label: origin === "agent" ? "prism.add_clip" : "Added clip",
+    label: verb ?? (origin === "agent" ? "prism.add_clip" : "Added clip"),
     detail: note ?? `${parsed.data.kind} on ${track.name}`,
   });
   if (rejected) return rejected;
@@ -1141,6 +1179,218 @@ export function duplicateSelected(): ActionResult {
 
   select(result.newClipId);
   return ok("Duplicated.");
+}
+
+// ---------------------------------------------------------------------------
+// Elements — the look, as things to place
+// ---------------------------------------------------------------------------
+
+/**
+ * Define an element.
+ *
+ * Not a draft: elements are not on screen, so there is nothing to accept.
+ * They are reviewed as the style stage — the person approves the look they
+ * make up — and every clip placed from one is still a draft in its own right.
+ */
+export function createElement(
+  element: ElementDraft,
+  origin: "human" | "agent" = "human",
+  note?: string,
+): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const gated = requireStageForElements(project, origin);
+  if (gated) return gated;
+
+  const parsed = ElementSchema.safeParse({
+    ...element,
+    id: mintId(`el-${element.kind}`),
+  });
+  if (!parsed.success) {
+    return fail("invalid-input", explainZodError(parsed.error));
+  }
+
+  const rejected = commit(project, addElement(project.file, parsed.data), {
+    origin,
+    label: origin === "agent" ? "prism.add_element" : "Added element",
+    detail: note ?? `${parsed.data.kind} “${parsed.data.name}”`,
+  });
+  if (rejected) return rejected;
+
+  select(parsed.data.id);
+  return ok(
+    `Added ${parsed.data.kind} element “${parsed.data.name}” (${parsed.data.id}). Put it on the timeline with prism.place_element.`,
+  );
+}
+
+/**
+ * Change an element — and with it, every clip placed from it.
+ *
+ * The propagation is the point: adjusting the Headline style's size is one
+ * call, not one per headline. Clips that follow the element become drafts
+ * again when an agent does this, since what is on screen changed.
+ */
+export function patchElement(
+  elementId: string,
+  patch: Partial<Element>,
+  origin: "human" | "agent" = "human",
+  note?: string,
+): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const gated = requireStageForElements(project, origin);
+  if (gated) return gated;
+
+  const element = findElement(project.file, elementId);
+  if (!element) return fail("not-found", `No element "${elementId}".`);
+
+  const parsed = ElementSchema.safeParse({ ...element, ...patch, id: element.id, kind: element.kind });
+  if (!parsed.success) {
+    return fail("invalid-input", explainZodError(parsed.error));
+  }
+
+  let next = updateElement(project.file, elementId, patch);
+  const uses = elementUses(project.file, elementId);
+
+  if (origin === "agent" && uses > 0) {
+    next = {
+      ...next,
+      tracks: next.tracks.map((track) => ({
+        ...track,
+        clips: track.clips.map((clip) =>
+          clip.elementId === elementId
+            ? { ...clip, approval: "draft" as const, revisionNote: note ?? `“${element.name}” changed` }
+            : clip,
+        ),
+      })),
+    };
+  }
+
+  const rejected = commit(project, next, {
+    origin,
+    label: origin === "agent" ? "prism.update_element" : "Edited element",
+    detail: note ?? `${element.name} · ${Object.keys(patch).join(", ")}`,
+  });
+  if (rejected) return rejected;
+
+  return ok(
+    uses > 0
+      ? `Updated “${element.name}” and the ${uses} clip${uses === 1 ? "" : "s"} placed from it${origin === "agent" ? " — they are drafts again" : ""}.`
+      : `Updated “${element.name}”.`,
+  );
+}
+
+/**
+ * Remove an element. The clips placed from it stay, unlinked — deleting the
+ * Headline style should not delete the headlines.
+ */
+export function deleteElement(
+  elementId: string,
+  origin: "human" | "agent" = "human",
+): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const gated = requireStageForElements(project, origin);
+  if (gated) return gated;
+
+  const element = findElement(project.file, elementId);
+  if (!element) return fail("not-found", `No element "${elementId}".`);
+  const uses = elementUses(project.file, elementId);
+
+  const rejected = commit(project, removeElement(project.file, elementId), {
+    origin,
+    label: origin === "agent" ? "prism.remove_element" : "Removed element",
+    detail: `${element.name}${uses > 0 ? ` · ${uses} clips unlinked` : ""}`,
+  });
+  if (rejected) return rejected;
+
+  if (project.selection?.kind === "element" && project.selection.id === elementId) {
+    select(null);
+  }
+  return ok(
+    uses > 0
+      ? `Removed “${element.name}”. The ${uses} clip${uses === 1 ? "" : "s"} placed from it stay${uses === 1 ? "s" : ""}, no longer linked.`
+      : `Removed “${element.name}”.`,
+  );
+}
+
+/**
+ * Put an element on the timeline.
+ *
+ * Goes through `createClip`, so every rule a clip obeys applies: the track
+ * lock, the stage gate, the timing lock, and the draft. This only composes
+ * the clip; the element supplies everything but the place and the words.
+ */
+export function placeElement(
+  elementId: string,
+  trackId: string,
+  placement: Placement,
+  origin: "human" | "agent" = "human",
+  note?: string,
+): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const element = findElement(project.file, elementId);
+  if (!element) return fail("not-found", `No element "${elementId}".`);
+
+  const track = findTrack(project.file, trackId);
+  if (!track) return fail("not-found", `No track "${trackId}".`);
+  if ((element.kind === "audio") !== (track.kind === "audio")) {
+    return fail(
+      "invalid-input",
+      `“${element.name}” is ${element.kind}; it cannot go on the ${track.kind} track “${track.name}”.`,
+    );
+  }
+
+  const made = clipFromElement(element, placement);
+  if (!made.ok) return fail("invalid-input", made.message);
+
+  return createClip(
+    trackId,
+    made.clip as ClipDraft as Omit<Clip, "id">,
+    origin,
+    note ?? `Placed “${element.name}”`,
+    origin === "agent" ? "prism.place_element" : "Placed element",
+  );
+}
+
+/**
+ * The inspector's "Place at playhead".
+ *
+ * Picks the obvious track — the first of the right kind — and the obvious
+ * length: the rest of the locked beat the playhead is in, if the timing is
+ * locked, so a placed element fills its slot; otherwise two seconds of
+ * picture or four of sound. All of it is adjustable afterwards.
+ */
+export function placeElementHere(elementId: string): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const { file } = guard.value;
+  const { playhead } = useStudioStore.getState();
+
+  const element = findElement(file, elementId);
+  if (!element) return fail("not-found", `No element "${elementId}".`);
+
+  const audio = element.kind === "audio";
+  const track = file.tracks.find((candidate) => (candidate.kind === "audio") === audio);
+  if (!track) {
+    return fail("not-found", `There is no ${audio ? "audio" : "visual"} track to place it on.`);
+  }
+
+  const beat = audio ? undefined : beatFor(file.process, { from: playhead, durationInFrames: 1 });
+  const durationInFrames = beat
+    ? beat.from + beat.durationInFrames - playhead
+    : file.fps * (audio ? 4 : 2);
+
+  return placeElement(elementId, track.id, { from: playhead, durationInFrames });
 }
 
 // ---------------------------------------------------------------------------
@@ -1402,10 +1652,34 @@ export async function submitAnimatic(summary?: string): Promise<ActionResult> {
   return result.ok ? ok(result.message + note) : result;
 }
 
+/**
+ * The style stage names its elements and its frames by id, and a wrong id
+ * here would be a style frame nobody can find. Checked before submitting.
+ */
 export function submitStyleFrames(
   artifact: StagePatch<"style">,
   summary?: string,
 ): Promise<ActionResult> {
+  const guard = requireProject();
+  if (!guard.ok) return Promise.resolve(guard.result);
+  const { file } = guard.value;
+
+  const unknownElements = (artifact.elementIds ?? []).filter((id) => !findElement(file, id));
+  const unknownClips = (artifact.clipIds ?? []).filter((id) => !findClip(file, id));
+  if (unknownElements.length > 0 || unknownClips.length > 0) {
+    return Promise.resolve(
+      fail(
+        "invalid-input",
+        [
+          unknownElements.length > 0 ? `no such elements: ${unknownElements.join(", ")}` : "",
+          unknownClips.length > 0 ? `no such clips: ${unknownClips.join(", ")}` : "",
+        ]
+          .filter(Boolean)
+          .join("; ") + ". Ids come from prism.get_project_context.",
+      ),
+    );
+  }
+
   return submitStage("style", artifact, summary);
 }
 
@@ -1939,6 +2213,11 @@ export function getProjectContext() {
           .filter((clip) => clip.approval === "draft")
           .map((clip) => clip.id),
       ),
+      // The library, with how often each element has been placed.
+      elements: file.elements.map((element) => ({
+        ...element,
+        uses: elementUses(file, element.id),
+      })),
       // Front to back, matching the timeline read top to bottom.
       tracks: file.tracks.map((track) => ({
         id: track.id,

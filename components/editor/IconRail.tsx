@@ -1,11 +1,11 @@
 "use client";
 
-import { LayoutGrid, ListChecks, Sparkles } from "lucide-react";
+import { LayoutGrid, ListChecks, Shapes, Sparkles } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { RailTab } from "./rail-tabs";
 import { RAIL_TABS } from "./rail-tabs";
 
-const ICONS = { ListChecks, LayoutGrid, Sparkles } as const;
+const ICONS = { ListChecks, LayoutGrid, Shapes, Sparkles } as const;
 
 type Props = {
   active: RailTab;

@@ -108,6 +108,7 @@ export function projectFile(overrides: Partial<ProjectFile> = {}): ProjectFile {
     durationInFrames: 300,
     background: { kind: "solid", color: "#0A0A0C" },
     process: approvedThrough("storyboard"),
+    elements: [],
     tracks: [
       visualTrack([
         textClip({ id: "clip-a", from: 0, durationInFrames: 60 }),

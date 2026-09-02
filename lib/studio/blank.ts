@@ -25,6 +25,7 @@ export function blankProjectFile(
     durationInFrames: overrides.durationInFrames ?? 1,
     background: overrides.background ?? { kind: "solid", color: "#0A0A0C" },
     process: structuredClone(EMPTY_PROCESS),
+    elements: [],
     tracks: [
       {
         id: "track-main",

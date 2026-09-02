@@ -61,6 +61,7 @@ export const MIN_CLIP_FRAMES = 1;
 export const MAX_TRACKS = 24;
 export const MAX_CLIPS_PER_TRACK = 120;
 export const MAX_TEXT_LENGTH = 400;
+export const MAX_ELEMENTS = 60;
 
 /**
  * Bumped only when a change would make an older `project.json` unreadable.
@@ -68,8 +69,11 @@ export const MAX_TEXT_LENGTH = 400;
  * rather than parsed optimistically into something subtly wrong.
  *
  * v2 replaced the fixed four-scene graph with tracks and clips.
+ * v3 added `elements` and `elementId` on clips. A v2 file still opens — it
+ * simply has no elements — and is written back as v3.
  */
-export const PROJECT_FILE_VERSION = 2;
+export const PROJECT_FILE_VERSION = 3;
+const READABLE_VERSIONS = [2, PROJECT_FILE_VERSION] as const;
 
 /** The directory an agent writes into, at the root of whatever it is working on. */
 export const WORKSPACE_DIR = ".prismlaunch";
@@ -207,6 +211,12 @@ const ClipBase = {
   /** What the agent changed, and why. Shown next to the accept button. */
   revisionNote: z.string().max(240).optional(),
   label: z.string().max(60).optional(),
+  /**
+   * The element this clip was placed from, if any. Changing that element
+   * changes this clip too — see `updateElement`. Must name an entry in
+   * `elements`; `removeElement` clears it rather than leaving it dangling.
+   */
+  elementId: z.string().max(60).optional(),
 };
 
 const VisualBase = {
@@ -289,6 +299,66 @@ export const ClipSchema = z.discriminatedUnion("kind", [
 
 export const VISUAL_CLIP_KINDS = ["text", "shape", "image", "video"] as const;
 export const AUDIO_CLIP_KINDS = ["audio"] as const;
+
+// ---------------------------------------------------------------------------
+// Elements
+// ---------------------------------------------------------------------------
+
+/**
+ * An element is a clip without a place on the timeline.
+ *
+ * PRISM_METHOD.md §7 says a style frame must settle the ground, the ink, the
+ * accent, the one family that owns headlines, the size for each type role,
+ * the margins, how the product is shown, and the recurring motif — and that
+ * everything built afterwards is an *application* of those decisions, not a
+ * new one. Elements are where those decisions live in the file: a Headline
+ * style, a Support style, an accent rule, a device frame, the product
+ * screenshot, the music bed. Build is then placing them, not re-deciding
+ * them clip by clip, which is how a film ends up with four sizes of the same
+ * headline.
+ *
+ * Structurally each is the matching clip schema minus placement — no start,
+ * no length, no approval, no label — plus a name. A text element's `text` is
+ * optional because a type style is reused with different words; the words
+ * arrive when it is placed.
+ */
+const PLACEMENT = {
+  id: true,
+  from: true,
+  durationInFrames: true,
+  approval: true,
+  revisionNote: true,
+  label: true,
+  elementId: true,
+} as const;
+
+const ElementBase = {
+  id: z.string().min(1).max(60),
+  /** What it is for — "Headline", "Accent rule", "Device frame", "Music bed". */
+  name: z.string().min(1).max(40),
+  /** An optional grouping word: "type", "device", "motif", "product", "sound". */
+  role: z.string().max(40).optional(),
+};
+
+export const TextElementSchema = TextClipSchema.omit(PLACEMENT).extend({
+  ...ElementBase,
+  /** Default words. A type style usually has none; a logo lockup has fixed ones. */
+  text: z.string().max(MAX_TEXT_LENGTH).optional(),
+});
+export const ShapeElementSchema = ShapeClipSchema.omit(PLACEMENT).extend(ElementBase);
+export const ImageElementSchema = ImageClipSchema.omit(PLACEMENT).extend(ElementBase);
+export const VideoElementSchema = VideoClipSchema.omit(PLACEMENT).extend(ElementBase);
+export const AudioElementSchema = AudioClipSchema.omit(PLACEMENT).extend(ElementBase);
+
+export const ElementSchema = z.discriminatedUnion("kind", [
+  TextElementSchema,
+  ShapeElementSchema,
+  ImageElementSchema,
+  VideoElementSchema,
+  AudioElementSchema,
+]);
+
+export const ELEMENT_KINDS = ["text", "shape", "image", "video", "audio"] as const;
 
 // ---------------------------------------------------------------------------
 // Tracks
@@ -519,6 +589,8 @@ export const LookSchema = z.enum(["void", "paper", "editorial", "spec", "custom"
 export const StyleStageSchema = z.object({
   ...StageBase,
   look: LookSchema.optional(),
+  /** The elements the look is made of: the type roles, the accent, the device, the motif. */
+  elementIds: z.array(z.string().max(60)).max(MAX_ELEMENTS).default([]),
   /** The two or three clips built for real, as the reference for everything else. */
   clipIds: z.array(z.string().max(60)).max(12).default([]),
 });
@@ -552,7 +624,7 @@ export const ProcessSchema = z.object({
   script: ScriptStageSchema.default({ status: "pending", beats: [] }),
   storyboard: StoryboardStageSchema.default({ status: "pending", panels: [] }),
   animatic: AnimaticStageSchema.default({ status: "pending", beats: [] }),
-  style: StyleStageSchema.default({ status: "pending", clipIds: [] }),
+  style: StyleStageSchema.default({ status: "pending", elementIds: [], clipIds: [] }),
   build: BuildStageSchema.default({ status: "pending" }),
   sound: SoundStageSchema.default({ status: "pending" }),
   polish: PolishStageSchema.default({ status: "pending", checklist: [] }),
@@ -565,7 +637,7 @@ export const EMPTY_PROCESS: z.infer<typeof ProcessSchema> = {
   script: { status: "pending", beats: [] },
   storyboard: { status: "pending", panels: [] },
   animatic: { status: "pending", beats: [] },
-  style: { status: "pending", clipIds: [] },
+  style: { status: "pending", elementIds: [], clipIds: [] },
   build: { status: "pending" },
   sound: { status: "pending" },
   polish: { status: "pending", checklist: [] },
@@ -586,14 +658,19 @@ export const EMPTY_PROCESS: z.infer<typeof ProcessSchema> = {
 export const ProjectFileSchema = z
   .object({
     version: z
-      .literal(PROJECT_FILE_VERSION)
-      .describe(`File format version. Always ${PROJECT_FILE_VERSION}.`),
+      .literal(READABLE_VERSIONS)
+      .describe(`File format version. Write ${PROJECT_FILE_VERSION}.`)
+      // A v2 file is a v3 file with no elements. Reading it up rather than
+      // refusing it is what "versioned" is for; it is written back as v3.
+      .transform(() => PROJECT_FILE_VERSION),
     name: z.string().min(1).max(80).describe("Human-readable title."),
     width: z.number().int().min(64).max(4096).default(DEFAULT_WIDTH),
     height: z.number().int().min(64).max(4096).default(DEFAULT_HEIGHT),
     fps: z.number().int().min(1).max(60).default(DEFAULT_FPS),
     durationInFrames: z.number().int().min(1).max(MAX_FRAMES),
     background: BackgroundSchema.default({ kind: "solid", color: "#0A0A0C" }),
+    /** The library the film is built from. See the Elements section above. */
+    elements: z.array(ElementSchema).max(MAX_ELEMENTS).default([]),
     tracks: z.array(TrackSchema).max(MAX_TRACKS).default([]),
     /**
      * Defaulted, so a file written before this existed still opens — every
@@ -619,6 +696,18 @@ export const ProjectFileSchema = z
     });
 
     const ids = new Set<string>();
+    for (const element of project.elements) {
+      if (ids.has(element.id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["elements"],
+          message: `duplicate element id "${element.id}"`,
+        });
+      }
+      ids.add(element.id);
+    }
+    const elementIds = new Set(project.elements.map((element) => element.id));
+
     for (const track of project.tracks) {
       if (ids.has(track.id)) {
         ctx.addIssue({
@@ -638,6 +727,14 @@ export const ProjectFileSchema = z
           });
         }
         ids.add(clip.id);
+
+        if (clip.elementId !== undefined && !elementIds.has(clip.elementId)) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["tracks"],
+            message: `clip "${clip.id}" is placed from element "${clip.elementId}", which is not in elements`,
+          });
+        }
 
         if (clip.from + clip.durationInFrames > project.durationInFrames) {
           ctx.addIssue({

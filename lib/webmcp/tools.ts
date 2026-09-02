@@ -2,14 +2,18 @@ import type { z } from "zod";
 import {
   confirmRender,
   createClip,
+  createElement,
   createProject,
   createTrack,
   deleteClip,
+  deleteElement,
   flushWrites,
   getProjectContext,
   openProject,
   patchClip,
+  patchElement,
   patchTrack,
+  placeElement,
   requestRender,
   seek,
   setBackground,
@@ -36,6 +40,7 @@ import {
 } from "@/lib/studio/schema";
 import {
   AddAudioInput,
+  AddElementInput,
   AddImageInput,
   AddShapeInput,
   AddTextInput,
@@ -46,8 +51,10 @@ import {
   EmptyInput,
   MoveTrackInput,
   OpenProjectInput,
+  PlaceElementInput,
   PreviewInput,
   RemoveClipInput,
+  RemoveElementInput,
   RequestRenderInput,
   SeekInput,
   SetBackgroundInput,
@@ -64,10 +71,11 @@ import {
   LayAnimaticInput,
   TrackIdInput,
   UpdateClipInput,
+  UpdateElementInput,
   UpdateTrackInput,
 } from "@/lib/studio/tool-inputs";
 import { useStudioStore } from "@/lib/studio/store";
-import type { Animation, Box, Clip } from "@/types/prism";
+import type { Animation, Box, Clip, Element, ElementDraft } from "@/types/prism";
 import type { JsonSchema, ModelContextTool } from "./types";
 
 /**
@@ -481,6 +489,158 @@ export function buildTools(): ModelContextTool[] {
           "agent",
           input.note,
         ),
+    }),
+
+    // ---- elements ------------------------------------------------------
+
+    tool({
+      name: "prism.add_element",
+      description:
+        "Define a piece of the look, to be placed later: a type style (kind 'text' — Headline, Support, Label; leave `text` empty, the words arrive when it is placed), a shape (an accent rule, a block), an image or video from the project folder (a device frame, the product shot), or a sound. Elements are the style stage's artifact: define them, build the two or three style frames by placing them, and submit_style_frames names them. Refuses until the animatic is approved. PRISM_METHOD.md §7.",
+      schema: AddElementInput,
+      execute: (input) => {
+        const { kind, name, role, note, box, animation, ...fields } = input;
+        const identity = { name, ...defined({ role }) };
+        const media = () =>
+          fields.src
+            ? { ok: true as const, src: fields.src }
+            : {
+                ok: false as const,
+                message: `A ${kind} element needs \`src\` — the file's path inside the project folder, e.g. assets/app.png. Put the file there first.`,
+              };
+
+        let element: ElementDraft;
+        switch (kind) {
+          case "text":
+            element = {
+              kind,
+              ...identity,
+              ...defined({ text: fields.text }),
+              fontSize: fields.fontSize ?? 0.09,
+              fontFamily: fields.fontFamily ?? "display",
+              fontWeight: fields.fontWeight ?? 600,
+              color: fields.color ?? "#F7F8F8",
+              align: fields.align ?? "center",
+              lineHeight: fields.lineHeight ?? 1.1,
+              letterSpacing: fields.letterSpacing ?? -0.02,
+              ...visual({ box, animation }),
+            };
+            break;
+          case "shape":
+            element = {
+              kind,
+              ...identity,
+              shape: fields.shape ?? "rect",
+              fill: fields.fill ?? "#FFFFFF",
+              radius: fields.radius ?? 0,
+              ...visual({ box, animation }),
+            };
+            break;
+          case "image": {
+            const file = media();
+            if (!file.ok) return { ok: false, code: "invalid-input", message: file.message };
+            element = {
+              kind,
+              ...identity,
+              src: file.src,
+              fit: fields.fit ?? "cover",
+              radius: fields.radius ?? 0,
+              ...visual({ box, animation }),
+            };
+            break;
+          }
+          case "video": {
+            const file = media();
+            if (!file.ok) return { ok: false, code: "invalid-input", message: file.message };
+            element = {
+              kind,
+              ...identity,
+              src: file.src,
+              fit: fields.fit ?? "cover",
+              radius: fields.radius ?? 0,
+              startFrom: fields.startFrom ?? 0,
+              volume: fields.volume ?? 0,
+              playbackRate: fields.playbackRate ?? 1,
+              ...visual({ box, animation }),
+            };
+            break;
+          }
+          case "audio": {
+            const file = media();
+            if (!file.ok) return { ok: false, code: "invalid-input", message: file.message };
+            element = {
+              kind,
+              ...identity,
+              src: file.src,
+              startFrom: fields.startFrom ?? 0,
+              volume: fields.volume ?? 1,
+              fadeInFrames: fields.fadeInFrames ?? 0,
+              fadeOutFrames: fields.fadeOutFrames ?? 0,
+              playbackRate: fields.playbackRate ?? 1,
+            };
+            break;
+          }
+        }
+        return createElement(element, "agent", note);
+      },
+    }),
+
+    tool({
+      name: "prism.update_element",
+      description:
+        "Change an element — and every clip placed from it follows. Send only the fields you are changing. This is how the look is adjusted: the Headline's size once, not once per headline. Clips that follow the element become DRAFTS again for the person to accept.",
+      schema: UpdateElementInput,
+      execute: (input) => {
+        const { elementId, note, box, animation, ...rest } = input;
+        const patch = defined(rest) as Partial<Element>;
+
+        const current = useStudioStore
+          .getState()
+          .project?.file.elements.find((element) => element.id === elementId);
+
+        if (box && current && "box" in current) {
+          (patch as { box: typeof current.box }).box = { ...current.box, ...defined(box) };
+        }
+        if (animation && current && "animation" in current) {
+          (patch as { animation: typeof current.animation }).animation = {
+            ...current.animation,
+            ...defined(animation),
+          };
+        }
+
+        return patchElement(elementId, patch, "agent", note);
+      },
+    }),
+
+    tool({
+      name: "prism.remove_element",
+      description:
+        "Delete an element. Clips placed from it stay on the timeline, no longer linked to anything.",
+      schema: RemoveElementInput,
+      execute: (input) => deleteElement(input.elementId, "agent"),
+    }),
+
+    tool({
+      name: "prism.place_element",
+      description:
+        "Put an element on the timeline as a clip: the element supplies the look, you supply the track, the first frame, the length, and — for a text style — the words. Obeys the timing lock like add_text, and lands as a DRAFT. This is how the build should be done; add_text and friends are for things that are genuinely one-off.",
+      schema: PlaceElementInput,
+      execute: (input) => {
+        const { elementId, trackId, from, durationInFrames, label, note, text, box, animation } = input;
+        return placeElement(
+          elementId,
+          trackId,
+          {
+            from,
+            durationInFrames,
+            ...defined({ label, text }),
+            ...(box ? { box: defined(box) } : {}),
+            ...(animation ? { animation: defined(animation) } : {}),
+          },
+          "agent",
+          note,
+        );
+      },
     }),
 
     tool({

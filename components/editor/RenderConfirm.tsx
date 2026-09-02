@@ -45,8 +45,8 @@ export function RenderConfirm() {
 
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink/25 p-6">
-      <div className="w-full max-w-md rounded-card border border-line bg-surface p-5 shadow-lg">
-        <p className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.06em] text-draft uppercase">
+      <div className="w-full max-w-md rounded-sm border border-line bg-surface p-5 shadow-lg">
+        <p className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.06em] text-warning uppercase">
           <Lock size={12} strokeWidth={2.4} aria-hidden />
           Your agent is asking
         </p>
@@ -56,7 +56,7 @@ export function RenderConfirm() {
         </h2>
 
         {pending.reason ? (
-          <p className="mt-2 rounded-ctl bg-sunken p-2.5 text-[12.5px] text-muted">
+          <p className="mt-2 rounded-xs bg-sunken p-2.5 text-[12.5px] text-muted">
             “{pending.reason}”
           </p>
         ) : null}
@@ -67,7 +67,7 @@ export function RenderConfirm() {
         </p>
 
         {!pending.available ? (
-          <p className="mt-3 rounded-ctl border border-draft-line bg-draft-soft px-2.5 py-2 text-[11.5px] text-draft">
+          <p className="mt-3 rounded-xs border border-warning/40 bg-warning-soft px-2.5 py-2 text-[11.5px] text-warning">
             Rendering is not configured in this environment, so this will fail
             honestly rather than silently. The live preview still reflects every
             edit.
@@ -77,7 +77,7 @@ export function RenderConfirm() {
         {error ? (
           <p
             role="alert"
-            className="mt-3 rounded-ctl border border-draft-line bg-draft-soft px-2.5 py-2 text-[11.5px] text-draft"
+            className="mt-3 rounded-xs border border-warning/40 bg-warning-soft px-2.5 py-2 text-[11.5px] text-warning"
           >
             {error}
           </p>
@@ -88,7 +88,7 @@ export function RenderConfirm() {
             type="button"
             onClick={() => void approveAndStart()}
             disabled={busy}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-ctl bg-brand px-3 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:bg-line-strong disabled:text-faint"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xs bg-accent px-3 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-accent-hover ds-focus disabled:bg-line-strong disabled:text-subtle"
           >
             <Check size={14} strokeWidth={2.4} aria-hidden />
             {busy ? "Starting…" : "Approve and render"}
@@ -97,7 +97,7 @@ export function RenderConfirm() {
             type="button"
             onClick={() => dismissRenderRequest()}
             disabled={busy}
-            className="flex items-center justify-center gap-1.5 rounded-ctl border border-line-strong px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            className="flex items-center justify-center gap-1.5 rounded-xs border border-line px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-sunken hover:text-ink ds-focus"
           >
             <X size={14} strokeWidth={2.4} aria-hidden />
             Not yet

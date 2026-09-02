@@ -1,6 +1,7 @@
 "use client";
 
 import { Maximize2, Play, SkipBack, SkipForward } from "lucide-react";
+import { IconButton } from "@/components/ui/IconButton";
 
 type Props = {
   elapsed: string;
@@ -12,49 +13,36 @@ type Props = {
 
 export function Transport({ elapsed, total, onPlay, onPrev, onNext }: Props) {
   return (
-    <div className="flex h-12 shrink-0 items-center gap-3 border-t border-line bg-surface px-4">
-      <div className="flex flex-1 items-center gap-1">
-        <span className="font-mono text-xs text-muted tabular-nums">
-          {elapsed}
-        </span>
-        <span className="font-mono text-xs text-faint"> / {total}</span>
-      </div>
+    <div className="flex h-16 shrink-0 items-center gap-3 border-t border-line-soft bg-surface px-4">
+      <span className="tabular flex flex-1 items-baseline gap-1 font-mono text-xs">
+        <span className="text-ink">{elapsed}</span>
+        <span className="text-subtle">/ {total}</span>
+      </span>
 
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          aria-label="Previous scene"
+        <IconButton
+          label="Previous scene"
           onClick={onPrev}
-          className="grid size-8 place-items-center rounded-ctl text-muted transition-colors hover:bg-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
-        >
-          <SkipBack size={15} strokeWidth={1.8} aria-hidden />
-        </button>
-        <button
-          type="button"
-          aria-label="Play from start of scene"
+          icon={<SkipBack size={16} strokeWidth={1.8} aria-hidden />}
+        />
+        <IconButton
+          label="Play from the start of this scene"
           onClick={onPlay}
-          className="grid size-9 place-items-center rounded-full bg-ink text-surface transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        >
-          <Play size={15} strokeWidth={2} fill="currentColor" aria-hidden />
-        </button>
-        <button
-          type="button"
-          aria-label="Next scene"
+          tone="raised"
+          icon={<Play size={16} strokeWidth={2} fill="currentColor" aria-hidden />}
+        />
+        <IconButton
+          label="Next scene"
           onClick={onNext}
-          className="grid size-8 place-items-center rounded-ctl text-muted transition-colors hover:bg-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
-        >
-          <SkipForward size={15} strokeWidth={1.8} aria-hidden />
-        </button>
+          icon={<SkipForward size={16} strokeWidth={1.8} aria-hidden />}
+        />
       </div>
 
       <div className="flex flex-1 justify-end">
-        <button
-          type="button"
-          aria-label="Fit to screen"
-          className="grid size-8 place-items-center rounded-ctl text-muted transition-colors hover:bg-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
-        >
-          <Maximize2 size={15} strokeWidth={1.7} aria-hidden />
-        </button>
+        <IconButton
+          label="Fit to screen"
+          icon={<Maximize2 size={16} strokeWidth={1.7} aria-hidden />}
+        />
       </div>
     </div>
   );

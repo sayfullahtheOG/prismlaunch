@@ -37,12 +37,12 @@ export function ScenesPanel({ scenes, activeSceneId, palette, onSelect }: Props)
                 type="button"
                 onClick={() => onSelect(scene.id)}
                 aria-current={isActive ? "true" : "false"}
-                className={`flex gap-3 rounded-card border p-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                className={`flex gap-3 rounded-sm border p-2 text-left transition-colors ds-focus ${
                   isDraft
-                    ? "border-draft-line bg-draft-soft"
+                    ? "border-warning/40 bg-warning-soft"
                     : isActive
-                      ? "border-brand bg-brand-soft"
-                      : "border-line bg-surface hover:border-line-strong"
+                      ? "border-accent bg-accent-soft"
+                      : "border-line bg-surface hover:border-line"
                 }`}
               >
                 <span
@@ -50,7 +50,7 @@ export function ScenesPanel({ scenes, activeSceneId, palette, onSelect }: Props)
                   style={{ background: palette.background }}
                 >
                   <span
-                    className="h-0.5 w-8 rounded-full"
+                    className="h-0.5 w-8 rounded-pill"
                     style={{ background: palette.accent }}
                   />
                 </span>
@@ -59,7 +59,7 @@ export function ScenesPanel({ scenes, activeSceneId, palette, onSelect }: Props)
                   <span className="flex items-center gap-1.5">
                     <span
                       className={`font-mono text-[10.5px] tabular-nums ${
-                        isDraft ? "text-draft" : "text-faint"
+                        isDraft ? "text-warning" : "text-subtle"
                       }`}
                     >
                       {String(scene.order).padStart(2, "0")}
@@ -67,7 +67,7 @@ export function ScenesPanel({ scenes, activeSceneId, palette, onSelect }: Props)
                     <span className="truncate text-xs font-semibold">
                       {NARRATIVE_JOB[scene.template]}
                     </span>
-                    <span className="ml-auto shrink-0 font-mono text-[10px] text-faint tabular-nums">
+                    <span className="ml-auto shrink-0 font-mono text-[10px] text-subtle tabular-nums">
                       {framesToSeconds(scene.durationFrames).toFixed(1)}s
                     </span>
                   </span>
@@ -78,12 +78,12 @@ export function ScenesPanel({ scenes, activeSceneId, palette, onSelect }: Props)
 
                   <span className="mt-0.5">
                     {isDraft ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-draft/10 px-1.5 py-0.5 text-[10px] font-semibold text-draft">
+                      <span className="inline-flex items-center gap-1 rounded-pill bg-warning/10 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
                         <Sparkles size={9} strokeWidth={2.4} aria-hidden />
                         Agent draft
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-faint">
+                      <span className="inline-flex items-center gap-1 text-[10px] text-subtle">
                         <Check size={9} strokeWidth={2.6} aria-hidden />
                         Accepted
                       </span>

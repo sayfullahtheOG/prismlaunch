@@ -18,7 +18,8 @@ import type { SceneId } from "@/types/prism";
 import { Canvas } from "./Canvas";
 import { RenderConfirm } from "./RenderConfirm";
 import { useWebMcp } from "./WebMcpProvider";
-import { IconRail, type RailTab } from "./IconRail";
+import { IconRail } from "./IconRail";
+import type { RailTab } from "./rail-tabs";
 import { Inspector } from "./Inspector";
 import { Timeline } from "./Timeline";
 import { TopBar } from "./TopBar";
@@ -99,7 +100,7 @@ export function EditorShell() {
           agentPending={Boolean(pendingDraft) || Boolean(pendingRender)}
         />
 
-        <div className="flex w-[320px] shrink-0 flex-col border-r border-line bg-surface">
+        <div className="flex w-[336px] shrink-0 flex-col border-r border-line-soft bg-surface">
           {tab === "scenes" ? (
             <ScenesPanel
               scenes={project.scenes}
@@ -136,7 +137,7 @@ export function EditorShell() {
           ) : null}
         </div>
 
-        <main className="flex min-w-0 flex-1 flex-col">
+        <main id="studio" className="flex min-w-0 flex-1 flex-col">
           <Canvas
             scenes={project.scenes}
             artDirection={project.brief.artDirection}

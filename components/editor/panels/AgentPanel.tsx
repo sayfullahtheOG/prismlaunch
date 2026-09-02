@@ -22,13 +22,13 @@ const CONNECTION: Record<
   native: {
     title: "Agent tools available",
     detail: (n) => `${n} WebMCP tools registered on this page`,
-    tone: "border-brand/30 bg-brand-soft",
+    tone: "border-accent/30 bg-accent-soft",
   },
   fallback: {
     title: "In-page tools only",
     detail: (n) =>
       `${n} tools registered, but this browser has no WebMCP — external agents cannot see them`,
-    tone: "border-draft-line bg-draft-soft",
+    tone: "border-warning/40 bg-warning-soft",
   },
   absent: {
     title: "Use direct controls",
@@ -45,17 +45,17 @@ export function AgentPanel({ activity, kind, toolCount }: Props) {
       hint="Everything your agent has done, in the order it happened."
     >
       <PanelSection label="Connection">
-        <div className={`flex items-center gap-2 rounded-card border p-3 ${connection.tone}`}>
+        <div className={`flex items-center gap-2 rounded-sm border p-3 ${connection.tone}`}>
           <span
-            className={`size-2 shrink-0 rounded-full ${
-              kind === "native" ? "bg-brand" : kind === "fallback" ? "bg-draft" : "bg-faint"
+            className={`size-2 shrink-0 rounded-pill ${
+              kind === "native" ? "bg-accent" : kind === "fallback" ? "bg-warning" : "bg-faint"
             }`}
             aria-hidden
           />
           <span className="min-w-0 flex-1">
             <span
               className={`block text-xs font-semibold ${
-                kind === "native" ? "text-brand" : kind === "fallback" ? "text-draft" : "text-muted"
+                kind === "native" ? "text-accent" : kind === "fallback" ? "text-warning" : "text-muted"
               }`}
             >
               {connection.title}
@@ -75,12 +75,12 @@ export function AgentPanel({ activity, kind, toolCount }: Props) {
               <li key={event.id} className="flex gap-3">
                 <span className="flex w-4 shrink-0 flex-col items-center">
                   <span
-                    className={`mt-1.5 grid size-4 shrink-0 place-items-center rounded-full ${
+                    className={`mt-1.5 grid size-4 shrink-0 place-items-center rounded-pill ${
                       event.blocked
-                        ? "bg-draft/15 text-draft"
+                        ? "bg-warning/15 text-warning"
                         : event.origin === "agent"
-                          ? "bg-brand-soft text-brand"
-                          : "bg-sunken text-faint"
+                          ? "bg-accent-soft text-accent"
+                          : "bg-sunken text-subtle"
                     }`}
                   >
                     {event.blocked ? (
@@ -100,14 +100,14 @@ export function AgentPanel({ activity, kind, toolCount }: Props) {
                       event.origin === "agent"
                         ? "font-mono text-[11.5px]"
                         : "text-xs font-semibold"
-                    } ${event.blocked ? "text-draft" : event.origin === "agent" ? "text-brand" : "text-ink"}`}
+                    } ${event.blocked ? "text-warning" : event.origin === "agent" ? "text-accent" : "text-ink"}`}
                   >
                     {event.label}
                   </span>
                   <span className="mt-0.5 block text-[11.5px] text-muted">
                     {event.detail}
                   </span>
-                  <span className="mt-0.5 block font-mono text-[10px] text-faint tabular-nums">
+                  <span className="mt-0.5 block font-mono text-[10px] text-subtle tabular-nums">
                     {event.at}
                   </span>
                 </span>
@@ -118,8 +118,8 @@ export function AgentPanel({ activity, kind, toolCount }: Props) {
       </PanelSection>
 
       {/* The render gate, stated where the agent's work is reviewed. */}
-      <p className="flex items-start gap-2 rounded-card border border-line bg-sunken p-3 text-[11.5px] text-muted">
-        <Lock size={13} strokeWidth={1.8} className="mt-px shrink-0 text-faint" aria-hidden />
+      <p className="flex items-start gap-2 rounded-sm border border-line bg-sunken p-3 text-[11.5px] text-muted">
+        <Lock size={13} strokeWidth={1.8} className="mt-px shrink-0 text-subtle" aria-hidden />
         Your agent can propose a render but cannot start one. Exporting always
         takes a confirmation from you.
       </p>

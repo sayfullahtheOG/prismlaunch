@@ -1,15 +1,18 @@
 "use client";
 
 import { Check, Sparkles, X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Field, Select, TextArea, TextInput } from "@/components/ui/Field";
+import { Segmented } from "@/components/ui/Segmented";
+import type { ScenePatch } from "@/lib/studio/actions";
+import { BODY_MAX, HEADLINE_MAX } from "@/lib/studio/schema";
+import { framesToSeconds } from "@/lib/studio/timing";
 import type {
   ComponentCandidate,
   Emphasis,
   MotionPreset,
   Scene,
 } from "@/types/prism";
-import { framesToSeconds } from "@/lib/studio/timing";
-import { BODY_MAX, HEADLINE_MAX } from "@/lib/studio/schema";
-import type { ScenePatch } from "@/lib/studio/actions";
 
 const EMPHASIS: Emphasis[] = ["problem", "product", "feature", "outcome"];
 const MOTION: MotionPreset[] = ["drift", "snap", "orbit"];
@@ -34,50 +37,64 @@ export function Inspector({
   const evidence = candidate?.evidence[0];
 
   return (
-    <aside className="thin-scroll flex w-[300px] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface">
+    <aside
+      aria-label="Scene properties"
+      className="thin-scroll flex w-[320px] shrink-0 flex-col overflow-y-auto border-l border-line-soft bg-surface"
+    >
       <div className="shrink-0 px-4 pt-4 pb-3">
-        <h2 className="text-[15px] font-semibold tracking-tight">
+        <h2 className="text-lg font-bold tracking-[var(--ds-tracking-tight)]">
           Scene {String(scene.order).padStart(2, "0")}
         </h2>
-        <p className="mt-1 font-mono text-[11px] text-faint">
+        <p className="tabular mt-0.5 font-mono text-xs text-subtle">
           {scene.template} · {framesToSeconds(scene.durationFrames).toFixed(1)}s
         </p>
       </div>
 
-      {/* The approval moment. Only a human click can clear this. */}
+      {/*
+        The approval moment.
+
+        Orange is the system's "time-sensitive attention" signal, which is
+        exactly what an unreviewed draft is — not decoration. The block is
+        inset because it is a container you must resolve before moving on.
+      */}
       {isDraft ? (
-        <div className="mx-4 mb-4 rounded-card border border-draft-line bg-draft-soft p-3">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-draft">
-            <Sparkles size={12} strokeWidth={2.4} aria-hidden />
+        <div className="ds-inset mx-4 mb-4 rounded-md bg-warning-soft p-3.5">
+          <p className="flex items-center gap-1.5 text-xs font-bold text-warning">
+            <Sparkles size={13} strokeWidth={2.4} aria-hidden />
             Agent draft
           </p>
-          <p className="mt-1.5 text-[11.5px] text-muted">{scene.revisionNote}</p>
+          <p className="mt-2 text-xs leading-[var(--ds-leading-body)] text-muted">
+            {scene.revisionNote}
+          </p>
 
           {scene.previousHeadline ? (
-            <p className="mt-2 text-[11.5px]">
-              <span className="text-faint line-through">{scene.previousHeadline}</span>
-              <span className="mx-1 text-faint">→</span>
-              <span className="font-medium text-ink">{scene.headline}</span>
+            <p className="mt-2.5 text-xs">
+              <span className="text-subtle line-through">
+                {scene.previousHeadline}
+              </span>
+              <span className="mx-1.5 text-subtle" aria-label="becomes">
+                →
+              </span>
+              <span className="font-semibold text-ink">{scene.headline}</span>
             </p>
           ) : null}
 
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
+          <div className="mt-3.5 flex gap-2">
+            <Button
+              variant="attention"
               onClick={onAcceptDraft}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-ctl bg-draft px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-draft"
+              className="flex-1"
+              icon={<Check size={15} strokeWidth={2.6} aria-hidden />}
             >
-              <Check size={13} strokeWidth={2.6} aria-hidden />
               Accept
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
               onClick={onKeepCurrent}
-              className="flex items-center justify-center gap-1.5 rounded-ctl border border-line-strong px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-sunken hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              icon={<X size={15} strokeWidth={2.4} aria-hidden />}
             >
-              <X size={13} strokeWidth={2.4} aria-hidden />
               Keep current
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
@@ -85,75 +102,81 @@ export function Inspector({
       <div className="flex flex-col gap-4 px-4 pb-6">
         <Field
           label="Headline"
-          count={`${scene.headline.length} / ${HEADLINE_MAX}`}
+          htmlFor="scene-headline"
+          counter={`${scene.headline.length} / ${HEADLINE_MAX}`}
           over={scene.headline.length > HEADLINE_MAX}
         >
-          <textarea
+          <TextArea
+            id="scene-headline"
             value={scene.headline}
             onChange={(e) => onPatch({ headline: e.target.value })}
             rows={2}
-            className="w-full resize-none rounded-ctl border border-line bg-sunken px-2.5 py-2 text-[13px] text-ink focus-visible:border-brand focus-visible:outline-none"
           />
         </Field>
 
         <Field
           label="Body"
-          count={`${(scene.body ?? "").length} / ${BODY_MAX}`}
+          htmlFor="scene-body"
+          counter={`${(scene.body ?? "").length} / ${BODY_MAX}`}
           over={(scene.body ?? "").length > BODY_MAX}
         >
-          <input
+          <TextInput
+            id="scene-body"
             value={scene.body ?? ""}
             onChange={(e) => onPatch({ body: e.target.value })}
             placeholder="Optional supporting line"
-            className="w-full rounded-ctl border border-line bg-sunken px-2.5 py-2 text-[13px] text-ink placeholder:text-faint focus-visible:border-brand focus-visible:outline-none"
           />
         </Field>
 
         {scene.template === "component-spotlight" ? (
-          <Field label="Component">
-            <select
+          <Field label="Component" htmlFor="scene-component">
+            <Select
+              id="scene-component"
               value={scene.componentId ?? ""}
               onChange={(e) => onPatch({ componentId: e.target.value })}
-              className="w-full rounded-ctl border border-line bg-sunken px-2.5 py-2 text-[13px] text-ink focus-visible:border-brand focus-visible:outline-none"
             >
               {candidates.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
         ) : null}
 
         <Field label="Motion">
-          <SegmentedControl
+          <Segmented
+            label="Motion preset"
             options={MOTION}
             value={scene.motionPreset}
-            onChange={(value) => onPatch({ motionPreset: value })}
+            onChange={(motionPreset) => onPatch({ motionPreset })}
           />
         </Field>
 
         <Field label="Emphasis">
-          <SegmentedControl
+          <Segmented
+            label="Emphasis"
             options={EMPHASIS}
             value={scene.emphasis}
-            onChange={(value) => onPatch({ emphasis: value })}
+            onChange={(emphasis) => onPatch({ emphasis })}
           />
         </Field>
 
         {evidence ? (
           <Field label="Source evidence">
-            <div className="rounded-ctl border border-line bg-sunken p-2.5">
-              <p className="font-mono text-[11px] break-all text-ink">
+            <div className="ds-level rounded-sm p-3">
+              <p className="font-mono text-xs break-all text-ink">
                 {evidence.path}
               </p>
               {evidence.exportName ? (
-                <p className="mt-1 font-mono text-[11px] text-brand">
+                <p className="mt-1 font-mono text-xs text-accent">
                   {evidence.exportName}
                 </p>
               ) : null}
-              <p className="mt-1.5 text-[11.5px] text-muted">{evidence.reason}</p>
-              <p className="mt-2 inline-block rounded border border-line-strong px-1.5 py-0.5 text-[9.5px] font-semibold tracking-wide text-faint uppercase">
+              <p className="mt-2 text-xs leading-[var(--ds-leading-body)] text-muted">
+                {evidence.reason}
+              </p>
+              <p className="ds-level mt-2.5 inline-block rounded-xs px-2 py-0.5 text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase">
                 untrusted
               </p>
             </div>
@@ -161,68 +184,5 @@ export function Inspector({
         ) : null}
       </div>
     </aside>
-  );
-}
-
-function Field({
-  label,
-  count,
-  over,
-  children,
-}: {
-  label: string;
-  count?: string;
-  over?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="flex items-center text-[11px] font-semibold tracking-[0.06em] text-faint uppercase">
-        {label}
-        {count ? (
-          <span
-            className={`ml-auto font-mono text-[10.5px] tracking-normal normal-case ${
-              over ? "text-draft" : "text-faint"
-            }`}
-          >
-            {count}
-          </span>
-        ) : null}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function SegmentedControl<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: readonly T[];
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="flex gap-0.5 rounded-ctl border border-line bg-sunken p-0.5">
-      {options.map((option) => {
-        const isActive = option === value;
-        return (
-          <button
-            key={option}
-            type="button"
-            onClick={() => onChange(option)}
-            aria-pressed={isActive}
-            className={`flex-1 rounded-[4px] px-1 py-1.5 text-[11.5px] capitalize transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand ${
-              isActive
-                ? "bg-surface font-medium text-ink shadow-xs"
-                : "text-muted hover:text-ink"
-            }`}
-          >
-            {option}
-          </button>
-        );
-      })}
-    </div>
   );
 }

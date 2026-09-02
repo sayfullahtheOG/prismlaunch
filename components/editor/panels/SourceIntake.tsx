@@ -64,8 +64,8 @@ export function SourceIntake() {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card border border-line bg-sunken p-3">
-      <div className="flex gap-1 rounded-ctl border border-line bg-surface p-0.5">
+    <div className="flex flex-col gap-3 rounded-sm border border-line bg-sunken p-3">
+      <div className="flex gap-1 rounded-xs border border-line bg-surface p-0.5">
         {TABS.map((tab) => {
           const isActive = tab.id === kind;
           return (
@@ -78,9 +78,9 @@ export function SourceIntake() {
                 setDone(null);
               }}
               aria-pressed={isActive}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-[4px] px-1 py-1.5 text-[11.5px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand ${
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-[4px] px-1 py-1.5 text-[11.5px] transition-colors ds-focus ${
                 isActive
-                  ? "bg-brand-soft font-medium text-brand"
+                  ? "bg-accent-soft font-medium text-accent"
                   : "text-muted hover:text-ink"
               }`}
             >
@@ -101,17 +101,17 @@ export function SourceIntake() {
           placeholder={active.placeholder}
           spellCheck={false}
           aria-label={`${active.label} source`}
-          className="w-full rounded-ctl border border-line bg-surface px-2.5 py-2 font-mono text-[11.5px] text-ink placeholder:text-faint focus-visible:border-brand focus-visible:outline-none"
+          className="w-full rounded-xs border border-line bg-surface px-2.5 py-2 font-mono text-[11.5px] text-ink placeholder:text-subtle focus-visible:border-accent focus-visible:outline-none"
         />
       ) : null}
 
-      <p className="text-[11px] text-faint">{active.hint}</p>
+      <p className="text-[11px] text-subtle">{active.hint}</p>
 
       <button
         type="button"
         onClick={() => void run()}
         disabled={busy || (kind !== "demo" && ref.trim().length === 0)}
-        className="flex items-center justify-center gap-2 rounded-ctl bg-brand px-3 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-faint"
+        className="flex items-center justify-center gap-2 rounded-xs bg-accent px-3 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-accent-hover ds-focus disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-subtle"
       >
         {busy ? (
           <>
@@ -126,14 +126,14 @@ export function SourceIntake() {
       {error ? (
         <p
           role="alert"
-          className="rounded-ctl border border-draft-line bg-draft-soft px-2.5 py-2 text-[11.5px] text-draft"
+          className="rounded-xs border border-warning/40 bg-warning-soft px-2.5 py-2 text-[11.5px] text-warning"
         >
           {error}
         </p>
       ) : null}
 
       {done ? (
-        <p className="rounded-ctl border border-ok/30 bg-ok/10 px-2.5 py-2 text-[11.5px] text-ok">
+        <p className="rounded-xs border border-success/40 bg-success/10 px-2.5 py-2 text-[11.5px] text-success">
           {done}
         </p>
       ) : null}

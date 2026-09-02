@@ -22,15 +22,15 @@ const EchoInput = z.object({
 const BADGE: Record<ContextKind, { text: string; className: string }> = {
   native: {
     text: "native modelContext — external agents can see these tools",
-    className: "border-ok/40 bg-ok/10 text-ok",
+    className: "border-ok/40 bg-success/10 text-success",
   },
   fallback: {
     text: "fallback registry — in-page only, invisible to external agents",
-    className: "border-brand/30 bg-brand-soft text-brand",
+    className: "border-accent/30 bg-accent-soft text-accent",
   },
   absent: {
     text: "no modelContext in this browser",
-    className: "border-draft-line bg-draft-soft text-draft",
+    className: "border-warning/40 bg-warning-soft text-warning",
   },
 };
 
@@ -143,14 +143,14 @@ export function WebMcpProbe() {
       </header>
 
       <span
-        className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${badge.className}`}
+        className={`inline-flex w-fit items-center gap-2 rounded-pill border px-3 py-1 text-xs font-medium ${badge.className}`}
       >
-        <span className="size-1.5 rounded-full bg-current" />
+        <span className="size-1.5 rounded-pill bg-current" />
         {badge.text}
       </span>
 
       <section>
-        <h2 className="mb-2 text-[11px] font-semibold tracking-[0.06em] text-faint uppercase">
+        <h2 className="mb-2 text-[11px] font-semibold tracking-[0.06em] text-subtle uppercase">
           Registered tools ({tools.length})
         </h2>
         {tools.length === 0 ? (
@@ -160,11 +160,11 @@ export function WebMcpProbe() {
             {tools.map((tool) => (
               <li
                 key={tool.name}
-                className="rounded-card border border-line bg-surface p-3"
+                className="rounded-sm border border-line bg-surface p-3"
               >
-                <code className="font-mono text-xs text-brand">{tool.name}</code>
+                <code className="font-mono text-xs text-accent">{tool.name}</code>
                 <p className="mt-1 text-xs text-muted">{tool.description}</p>
-                <p className="mt-1 font-mono text-[10.5px] text-faint">
+                <p className="mt-1 font-mono text-[10.5px] text-subtle">
                   origin {tool.origin}
                   {tool.annotations?.readOnlyHint ? " · readOnlyHint" : ""}
                 </p>
@@ -177,13 +177,13 @@ export function WebMcpProbe() {
       <button
         type="button"
         onClick={() => void selfTest()}
-        className="w-fit rounded-ctl bg-brand px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        className="w-fit rounded-xs bg-accent px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-accent-hover ds-focus"
       >
         Run self-test
       </button>
 
       {log.length > 0 ? (
-        <pre className="thin-scroll overflow-x-auto rounded-card bg-ink p-3 font-mono text-[11.5px] leading-relaxed text-white">
+        <pre className="thin-scroll overflow-x-auto rounded-sm bg-ink p-3 font-mono text-[11.5px] leading-relaxed text-white">
           {log.join("\n")}
         </pre>
       ) : null}

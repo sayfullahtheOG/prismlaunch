@@ -16,7 +16,7 @@ const FilmPreview = dynamic(
   () => import("./FilmPreview").then((mod) => mod.FilmPreview),
   {
     ssr: false,
-    loading: () => <div className="size-full bg-ink/90" />,
+    loading: () => <div className="size-full bg-sunken" />,
   },
 );
 
@@ -36,14 +36,14 @@ export function Canvas({
   playToken,
 }: Props) {
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center bg-canvas p-6">
+    <div className="flex min-h-0 flex-1 items-center justify-center bg-sunken p-8">
       <div className="relative w-full max-w-[880px]">
-        <span className="absolute -top-7 left-0 flex items-center gap-2 rounded-ctl bg-surface px-2 py-1 text-[11px] font-medium text-muted shadow-xs">
+        <span className="ds-level absolute -top-8 left-0 flex items-center gap-2 rounded-xs bg-surface px-2.5 py-1 text-2xs font-medium text-muted">
           16:9
-          <span className="font-mono text-faint">960×540</span>
+          <span className="tabular font-mono text-subtle">960×540</span>
         </span>
 
-        <div className="aspect-video w-full overflow-hidden rounded-card shadow-lg">
+        <div className="ds-floating aspect-video w-full overflow-hidden rounded-md bg-sunken">
           <FilmPreview
             scenes={scenes}
             artDirection={artDirection}

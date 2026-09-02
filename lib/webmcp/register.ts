@@ -1,5 +1,6 @@
 import { ensureModelContext, detectKind, type ContextKind } from "./fallback";
 import { buildTools } from "./tools";
+import type { ModelContextTool, RegisterToolOptions } from "./types";
 
 /**
  * Register every tool, and return a teardown that removes them.
@@ -18,19 +19,52 @@ export type RegistrationResult = {
   teardown: () => void;
 };
 
+/**
+ * The canonical WebMCP registration call.
+ *
+ * Written against `document.modelContext` directly, which is the current spec
+ * location and the shape the API is documented in:
+ *
+ *     document.modelContext.registerTool({ name, description, inputSchema, execute })
+ *
+ * `navigator.modelContext` is the deprecated alias that Chrome 149 — the
+ * origin-trial floor — still ships, so it is tried second rather than being
+ * hidden behind a resolver. Keeping both branches explicit means the call site
+ * reads the way the spec does instead of dereferencing an opaque variable.
+ */
+async function registerOnModelContext(
+  tool: ModelContextTool,
+  options: RegisterToolOptions,
+): Promise<boolean> {
+  if (document.modelContext) {
+    await document.modelContext.registerTool(tool, options);
+    return true;
+  }
+
+  if (navigator.modelContext) {
+    await navigator.modelContext.registerTool(tool, options);
+    return true;
+  }
+
+  return false;
+}
+
 export async function registerPrismTools(): Promise<RegistrationResult | null> {
+  // Guarantees a context exists on `document` — the browser's own when it has
+  // one, otherwise our in-page shim for browsers that do not.
   const resolved = ensureModelContext();
   if (!resolved) return null;
 
-  const { ctx } = resolved;
   const controller = new AbortController();
   const tools = buildTools();
 
   let registered = 0;
   for (const tool of tools) {
     try {
-      await ctx.registerTool(tool, { signal: controller.signal });
-      registered += 1;
+      const ok = await registerOnModelContext(tool, {
+        signal: controller.signal,
+      });
+      if (ok) registered += 1;
     } catch (error) {
       // One bad tool must not take the rest down — a partial toolset is far
       // more useful than none.

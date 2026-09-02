@@ -11,11 +11,13 @@ import {
   renameProject,
   seek,
   setPlaying,
+  showTab,
   splitAtPlayhead,
   startRenderAsHuman,
 } from "@/lib/studio/actions";
 import { BLANK_FILE } from "@/lib/studio/blank";
 import { currentStage } from "@/lib/studio/process";
+import { selectedClipId } from "@/lib/studio/selection";
 import { useStudioStore } from "@/lib/studio/store";
 import { draftCount } from "@/lib/studio/timing";
 import { Timeline } from "@/components/timeline/Timeline";
@@ -27,11 +29,7 @@ import { SetupDialog } from "./SetupDialog";
 import { TopBar } from "./TopBar";
 import { useDiskSync } from "./useDiskSync";
 import { useWebMcp } from "./WebMcpProvider";
-import type { RailTab } from "./rail-tabs";
 import { AgentPanel } from "./panels/AgentPanel";
-import { CanvasPanel } from "./panels/CanvasPanel";
-import { FolderPanel } from "./panels/FolderPanel";
-import { LayersPanel } from "./panels/LayersPanel";
 import { ProcessPanel } from "./panels/ProcessPanel";
 
 /**
@@ -43,10 +41,11 @@ import { ProcessPanel } from "./panels/ProcessPanel";
  * itself and not a landing page standing in for it. The dialog closes the
  * moment a composition opens, and the same chrome carries on with real data.
  *
- * There used to be two pages here, a start screen and an editor, joined by an
- * early return. Two pages meant two layouts to keep in step and a hard cut
- * between them at the exact moment someone had just committed. One page, one
- * layout, one overlay.
+ * Three columns: the rail and its section on the left, the film in the
+ * middle, properties on the right. Which section is showing lives in the
+ * store rather than here, because the Process panel needs to open the
+ * storyboard or the elements from a link, and a `useState` here would be
+ * unreachable from there.
  *
  * Everything reads from the store and writes only through actions. A WebMCP
  * tool executor calling the same action produces exactly the same visible
@@ -58,14 +57,12 @@ export function EditorShell() {
   const workspace = useStudioStore((state) => state.workspace);
   const pendingRender = useStudioStore((state) => state.pendingRender);
   const renderNote = useStudioStore((state) => state.renderNote);
+  const tab = useStudioStore((state) => state.tab);
 
   useDiskSync();
   useTimelineKeys();
 
-  // The process is where a film starts, so it is where the panel starts.
-  const [tab, setTab] = useState<RailTab>("process");
   const [rendering, setRendering] = useState(false);
-
   const webmcp = useWebMcp();
 
   const setupOpen = project === null;
@@ -138,20 +135,18 @@ export function EditorShell() {
         <div className="flex min-h-0 flex-1">
           <IconRail
             active={tab}
-            onChange={setTab}
+            onChange={showTab}
             agentPending={drafts > 0 || stageWaiting || Boolean(pendingRender)}
           />
 
           <div className="flex w-[300px] shrink-0 flex-col border-r border-line-soft bg-surface">
             {tab === "process" ? <ProcessPanel file={file} /> : null}
-            {tab === "layers" ? <LayersPanel file={file} /> : null}
-            {tab === "canvas" ? <CanvasPanel file={file} /> : null}
-            {tab === "folder" ? <FolderPanel /> : null}
             {tab === "agent" ? (
               <AgentPanel
                 activity={project?.activity ?? []}
                 kind={webmcp.kind}
                 toolCount={webmcp.registered}
+                slug={project?.slug ?? null}
               />
             ) : null}
           </div>
@@ -233,12 +228,14 @@ function useTimelineKeys(): void {
           duplicateSelected();
           break;
         case "Delete":
-        case "Backspace":
-          if (store.project.selectedId) {
+        case "Backspace": {
+          const clipId = selectedClipId(store.project);
+          if (clipId) {
             event.preventDefault();
-            deleteClip(store.project.selectedId);
+            deleteClip(clipId);
           }
           break;
+        }
       }
     }
 

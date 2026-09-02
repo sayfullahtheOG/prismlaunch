@@ -44,8 +44,9 @@ import {
   STAGES,
   WORKSPACE_DIR,
 } from "./schema";
+import { selectedClipId } from "./selection";
 import { slugForName } from "./slug";
-import { nowTimecode, useStudioStore } from "./store";
+import { nowTimecode, useStudioStore, type RailTab } from "./store";
 import {
   linkWorkspace,
   listProjects,
@@ -73,6 +74,7 @@ import type {
   FilmProject,
   Process,
   ProjectFile,
+  Selection,
   StageId,
   StoryboardPanel,
   Track,
@@ -483,7 +485,7 @@ export async function openProject(slug: string): Promise<ActionResult> {
   const project: FilmProject = {
     file: read.value.file,
     slug: parsedSlug.data,
-    selectedId: null,
+    selection: null,
     activity: [
       {
         id: "ev-1",
@@ -724,14 +726,54 @@ export async function deleteProject(slug: string): Promise<ActionResult> {
 // Selection, playhead, zoom — tab state, safe for agents
 // ---------------------------------------------------------------------------
 
+/**
+ * Select by id, whatever the id is.
+ *
+ * Ids are unique across the whole file, so a caller holding one does not need
+ * to say what kind of thing it names — this looks it up. The inspector shows
+ * whichever it turns out to be.
+ */
 export function select(id: string | null): ActionResult {
   const guard = requireProject();
   if (!guard.ok) return guard.result;
 
+  const selection = id === null ? null : selectionFor(guard.value.file, id);
+  if (id !== null && selection === null) {
+    return fail("not-found", `Nothing in the composition has the id "${id}".`);
+  }
+
+  setSelection(guard.value, selection);
+  return ok(id ? `Selected ${id}.` : "Cleared the selection.");
+}
+
+/** The background is the one thing with no id: it is selected by name. */
+export function selectBackground(): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+
+  setSelection(guard.value, { kind: "background" });
+  return ok("Selected the background.");
+}
+
+function setSelection(project: FilmProject, selection: Selection | null): void {
   useStudioStore
     .getState()
-    .setProject({ ...guard.value, selectedId: id }, useStudioStore.getState().loadedAt);
-  return ok(id ? `Selected ${id}.` : "Cleared the selection.");
+    .setProject({ ...project, selection }, useStudioStore.getState().loadedAt);
+}
+
+function selectionFor(file: ProjectFile, id: string): Selection | null {
+  if (findClip(file, id)) return { kind: "clip", id };
+  if (findTrack(file, id)) return { kind: "track", id };
+  if (file.process.storyboard.panels.some((panel) => panel.id === id)) {
+    return { kind: "panel", id };
+  }
+  return null;
+}
+
+/** Which section the rail shows. Tab state, so an agent may move it too. */
+export function showTab(tab: RailTab): ActionResult {
+  useStudioStore.getState().setTab(tab);
+  return ok(`Showing ${tab}.`);
 }
 
 /** Move the playhead, which is also what the preview shows. */
@@ -808,7 +850,9 @@ export function deleteTrack(trackId: string): ActionResult {
   });
   if (rejected) return rejected;
 
-  if (project.selectedId === trackId) select(null);
+  if (project.selection?.kind === "track" && project.selection.id === trackId) {
+    select(null);
+  }
   return ok(`Deleted “${track.name}” and its ${track.clips.length} clips.`);
 }
 
@@ -936,7 +980,7 @@ export function deleteClip(clipId: string): ActionResult {
   });
   if (rejected) return rejected;
 
-  if (project.selectedId === clipId) select(null);
+  if (selectedClipId(project) === clipId) select(null);
   return ok("Deleted.");
 }
 
@@ -1047,7 +1091,7 @@ export function splitAtPlayhead(): ActionResult {
   const project = guard.value;
 
   const { playhead } = useStudioStore.getState();
-  const id = project.selectedId;
+  const id = selectedClipId(project);
   if (!id) return fail("not-found", "Select a clip to split.");
 
   const found = findClip(project.file, id);
@@ -1080,7 +1124,7 @@ export function duplicateSelected(): ActionResult {
   if (!guard.ok) return guard.result;
   const project = guard.value;
 
-  const id = project.selectedId;
+  const id = selectedClipId(project);
   if (!id) return fail("not-found", "Select a clip to duplicate.");
 
   const result = duplicateClip(project.file, id);
@@ -1838,7 +1882,7 @@ export function getProjectContext() {
       durationSeconds: Number((file.durationInFrames / file.fps).toFixed(2)),
       background: file.background,
       playheadFrame: playhead,
-      selectedId: project.selectedId,
+      selection: project.selection,
       ...(missingAssets.length > 0 ? { missingAssets } : {}),
       pendingDraftClipIds: file.tracks.flatMap((track) =>
         track.clips

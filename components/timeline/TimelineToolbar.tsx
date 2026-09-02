@@ -23,6 +23,7 @@ import {
   splitAtPlayhead,
   toggleSnap,
 } from "@/lib/studio/actions";
+import { selectedClipId } from "@/lib/studio/selection";
 import {
   MAX_ZOOM,
   MIN_ZOOM,
@@ -46,7 +47,7 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
   const playhead = useStudioStore((state) => state.playhead);
   const snap = useStudioStore((state) => state.snap);
   const zoom = useStudioStore((state) => state.pixelsPerSecond);
-  const selectedId = useStudioStore((state) => state.project?.selectedId ?? null);
+  const selectedId = useStudioStore((state) => selectedClipId(state.project));
 
   // Only a *clip* can be split or duplicated; a selected track cannot.
   const selectedClip = file.tracks

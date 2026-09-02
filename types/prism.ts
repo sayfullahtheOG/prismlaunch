@@ -14,6 +14,7 @@ import type {
   ProcessSchema,
   ProjectFileSchema,
   ScriptBeatSchema,
+  SelectionSchema,
   DirectionSchema,
   LockedBeatSchema,
   LookSchema,
@@ -74,5 +75,7 @@ export type ProjectFile = z.infer<typeof ProjectFileSchema>;
 
 /** The file, plus where it came from and what is selected. Never written to disk. */
 export type FilmProject = z.infer<typeof FilmProjectSchema>;
+
+export type Selection = z.infer<typeof SelectionSchema>;
 
 export type ActivityEvent = FilmProject["activity"][number];

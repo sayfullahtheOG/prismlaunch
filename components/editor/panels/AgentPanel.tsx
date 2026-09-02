@@ -1,6 +1,9 @@
 "use client";
 
-import { Lock, Sparkles, User } from "lucide-react";
+import { FolderOpen, Lock, Sparkles, User } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { linkFolder } from "@/lib/studio/actions";
+import { WORKSPACE_DIR } from "@/lib/studio/schema";
 import type { ActivityEvent } from "@/types/prism";
 import { PanelShell, PanelSection } from "./PanelShell";
 
@@ -13,6 +16,8 @@ type Props = {
    */
   kind: "native" | "fallback" | "absent";
   toolCount: number;
+  /** The open composition's folder under `.prismlaunch`, or null. */
+  slug: string | null;
 };
 
 const CONNECTION: Record<
@@ -37,13 +42,42 @@ const CONNECTION: Record<
   },
 };
 
-export function AgentPanel({ activity, kind, toolCount }: Props) {
+/**
+ * The two connections, and everything that came through them.
+ *
+ * A film here is made by an agent and a person over one folder, so this is
+ * the panel about how those three are joined: which folder, which agent, and
+ * the log of what each of them did. The folder used to have a section of its
+ * own; it is one path and one button, and it belongs with the other
+ * connection rather than beside the process.
+ */
+export function AgentPanel({ activity, kind, toolCount, slug }: Props) {
   const connection = CONNECTION[kind];
   return (
     <PanelShell
       title="Agent"
-      hint="Everything your agent has done, in the order it happened."
+      hint="What your agent can reach, and everything it has done, in order."
     >
+      <PanelSection label="Folder">
+        <div className="ds-inset rounded-sm bg-sunken p-3">
+          <p className="flex items-center gap-2 font-mono text-xs break-all text-ink">
+            <FolderOpen size={13} strokeWidth={1.8} className="shrink-0 text-subtle" aria-hidden />
+            {WORKSPACE_DIR}/{slug ?? ""}
+          </p>
+          <p className="mt-2 text-xs leading-[var(--ds-leading-body)] text-muted">
+            Read and written on this machine. Nothing here is uploaded.
+          </p>
+        </div>
+        <Button
+          variant="quiet"
+          className="mt-2"
+          onClick={() => void linkFolder()}
+          icon={<FolderOpen size={14} strokeWidth={1.9} aria-hidden />}
+        >
+          Link a different folder
+        </Button>
+      </PanelSection>
+
       <PanelSection label="Connection">
         <div className={`flex items-center gap-2.5 rounded-sm p-3.5 ${connection.tone}`}>
           <span

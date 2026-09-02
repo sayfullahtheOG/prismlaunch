@@ -651,6 +651,21 @@ export const ProjectFileSchema = z
   });
 
 /**
+ * What the inspector is looking at.
+ *
+ * One value, five shapes. A clip or a track in the timeline, a storyboard
+ * panel in the boards, an element in the library, or the background — which
+ * has no id because there is exactly one. Tab state, never written to disk.
+ */
+export const SelectionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("clip"), id: z.string().min(1) }),
+  z.object({ kind: z.literal("track"), id: z.string().min(1) }),
+  z.object({ kind: z.literal("panel"), id: z.string().min(1) }),
+  z.object({ kind: z.literal("element"), id: z.string().min(1) }),
+  z.object({ kind: z.literal("background") }),
+]);
+
+/**
  * A composition as the app holds it: the file, plus where it came from and what
  * is selected. The extra fields never reach disk — see `toProjectFile`.
  */
@@ -658,8 +673,7 @@ export const FilmProjectSchema = z.object({
   file: ProjectFileSchema,
   /** The folder under `.prismlaunch` this was read from. */
   slug: z.string(),
-  /** Track or clip id. Null when nothing is selected. */
-  selectedId: z.string().nullable(),
+  selection: SelectionSchema.nullable(),
   activity: z
     .array(
       z.object({

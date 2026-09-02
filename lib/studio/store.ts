@@ -53,8 +53,17 @@ export type PendingRender = {
   available: boolean;
 };
 
+/**
+ * The rail's sections. Named here rather than in the component because the
+ * Process panel opens the storyboard and the elements from a link, and an
+ * action has to be able to say which.
+ */
+export type RailTab = "process" | "storyboard" | "elements" | "agent";
+
 export type StudioState = {
   workspace: WorkspaceState;
+  /** Which section the rail is showing. The process is where a film starts. */
+  tab: RailTab;
   project: FilmProject | null;
   /** `project.json`'s mtime when we last read it, for change detection. */
   loadedAt: number;
@@ -78,6 +87,7 @@ export type StudioState = {
   /** Snap clip edges to other clips and the playhead while dragging. */
   snap: boolean;
 
+  setTab: (tab: RailTab) => void;
   setWorkspace: (workspace: WorkspaceState) => void;
   setProjects: (projects: ProjectEntry[]) => void;
   setProject: (project: FilmProject | null, loadedAt: number) => void;
@@ -97,6 +107,7 @@ export type StudioState = {
 
 export const useStudioStore = create<StudioState>((set) => ({
   workspace: { kind: "checking" },
+  tab: "process",
   project: null,
   loadedAt: 0,
   loadError: null,
@@ -109,6 +120,7 @@ export const useStudioStore = create<StudioState>((set) => ({
   pixelsPerSecond: DEFAULT_ZOOM,
   snap: true,
 
+  setTab: (tab) => set({ tab }),
   setWorkspace: (workspace) => set({ workspace }),
   setProjects: (projects) =>
     set((state) =>
@@ -162,6 +174,7 @@ export function resetStudio(): void {
   useStudioStore.getState().closeProject();
   useStudioStore.setState({
     workspace: { kind: "checking" },
+    tab: "process",
     pixelsPerSecond: DEFAULT_ZOOM,
     snap: true,
   });

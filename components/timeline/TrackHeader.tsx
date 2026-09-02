@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { IconButton } from "@/components/ui/IconButton";
 import { deleteTrack, patchTrack, select, shiftTrack } from "@/lib/studio/actions";
+import { selectedIdOf } from "@/lib/studio/selection";
 import { useStudioStore } from "@/lib/studio/store";
 import type { Track } from "@/types/prism";
 
@@ -38,7 +39,7 @@ type Props = {
 };
 
 export function TrackHeader({ track, canMoveForward, canMoveBack }: Props) {
-  const selectedId = useStudioStore((state) => state.project?.selectedId ?? null);
+  const selectedId = useStudioStore((state) => selectedIdOf(state.project, "track"));
   /** Null when nobody is editing. See the note on `Title` in TopBar.tsx. */
   const [draft, setDraft] = useState<string | null>(null);
 

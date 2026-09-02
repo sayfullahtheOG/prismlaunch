@@ -123,7 +123,7 @@ export function film(overrides: Partial<ProjectFile> = {}): FilmProject {
   return {
     file: projectFile(overrides),
     slug: "vector-launch",
-    selectedId: null,
+    selection: null,
     activity: [],
   };
 }

@@ -10,6 +10,7 @@ import {
   Video as VideoIcon,
 } from "lucide-react";
 import { dragClip, dragClipEdge, select } from "@/lib/studio/actions";
+import { selectedClipId } from "@/lib/studio/selection";
 import { useStudioStore } from "@/lib/studio/store";
 import type { Clip, ClipKind, ProjectFile } from "@/types/prism";
 import {
@@ -56,7 +57,7 @@ export function ClipChip({ clip, file, trackId, locked }: Props) {
   const pixelsPerSecond = useStudioStore((state) => state.pixelsPerSecond);
   const snap = useStudioStore((state) => state.snap);
   const playhead = useStudioStore((state) => state.playhead);
-  const selectedId = useStudioStore((state) => state.project?.selectedId ?? null);
+  const selectedId = useStudioStore((state) => selectedClipId(state.project));
 
   const dragging = useRef(false);
 

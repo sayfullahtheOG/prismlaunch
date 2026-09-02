@@ -2,8 +2,9 @@
 
 import { useRef } from "react";
 import { Layers, Lock, Music, Palette, Plus } from "lucide-react";
-import { createTrack, seek } from "@/lib/studio/actions";
+import { createTrack, seek, selectBackground } from "@/lib/studio/actions";
 import { timingLocked } from "@/lib/studio/process";
+import { backgroundSelected } from "@/lib/studio/selection";
 import { useStudioStore } from "@/lib/studio/store";
 import { shortTimecode } from "@/lib/studio/timing";
 import type { ProjectFile, Track } from "@/types/prism";
@@ -335,20 +336,40 @@ function BeatBands({
  * nothing to arrange: it is one thing, it is always there, and it always spans
  * everything. Showing it in the stack anyway is what makes the stack legible —
  * you can see that visual layers are above it and audio below.
+ *
+ * Clicking it selects the composition, and the inspector shows the ground,
+ * the duration and the size. That is the whole of what used to be a Canvas
+ * section: properties of one row, reached from the row.
  */
 function BackgroundHeader() {
+  const selected = useStudioStore((state) => backgroundSelected(state.project));
   return (
-    <div
-      className="flex items-center gap-1.5 border-b border-line-soft bg-sunken px-2.5"
+    <button
+      type="button"
+      onClick={() => selectBackground()}
+      aria-current={selected ? "true" : undefined}
+      className={`ds-focus flex w-full items-center gap-1.5 border-b border-line-soft px-2.5 text-left transition-[background-color] duration-140 ${
+        selected ? "bg-accent-soft" : "bg-sunken hover:bg-strong"
+      }`}
       style={{ height: BACKGROUND_ROW_HEIGHT }}
     >
-      <Palette size={12} strokeWidth={1.9} className="text-subtle" aria-hidden />
-      <span className="text-2xs font-semibold text-subtle">Background</span>
-    </div>
+      <Palette
+        size={12}
+        strokeWidth={1.9}
+        className={selected ? "text-accent" : "text-subtle"}
+        aria-hidden
+      />
+      <span
+        className={`text-2xs font-semibold ${selected ? "text-accent" : "text-subtle"}`}
+      >
+        Background
+      </span>
+    </button>
   );
 }
 
 function BackgroundLane({ file, width }: { file: ProjectFile; width: number }) {
+  const selected = useStudioStore((state) => backgroundSelected(state.project));
   const background = file.background;
   const fill =
     background.kind === "solid"
@@ -357,11 +378,12 @@ function BackgroundLane({ file, width }: { file: ProjectFile; width: number }) {
 
   return (
     <div
-      className="relative border-b border-line-soft bg-sunken"
+      onClick={() => selectBackground()}
+      className="relative cursor-pointer border-b border-line-soft bg-sunken"
       style={{ height: BACKGROUND_ROW_HEIGHT }}
     >
       <div
-        className="absolute inset-y-1.5 left-0 rounded-xs"
+        className={`absolute inset-y-1.5 left-0 rounded-xs ${selected ? "ring-2 ring-accent" : ""}`}
         style={{ width, background: fill }}
         aria-hidden
       />

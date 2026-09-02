@@ -1,14 +1,21 @@
-/** Shared so the rail and the shell cannot disagree about the tab set. */
-export type RailTab = "process" | "layers" | "canvas" | "folder" | "agent";
+import type { RailTab } from "@/lib/studio/store";
 
+export type { RailTab };
+
+/**
+ * The sections, in rail order.
+ *
+ * Fewer than there were. A Layers section duplicated the timeline's own
+ * header column; a Canvas section held four fields that are properties of the
+ * background and now live in the inspector when its row is selected; a Folder
+ * section listed compositions the title bar already lists. What is left is
+ * what has no other home: the process, and the agent.
+ */
 export const RAIL_TABS: ReadonlyArray<{
   id: RailTab;
   label: string;
-  icon: "ListChecks" | "Layers" | "Frame" | "FolderOpen" | "Sparkles";
+  icon: "ListChecks" | "Sparkles";
 }> = [
   { id: "process", label: "Process", icon: "ListChecks" },
-  { id: "layers", label: "Layers", icon: "Layers" },
-  { id: "canvas", label: "Canvas", icon: "Frame" },
-  { id: "folder", label: "Folder", icon: "FolderOpen" },
   { id: "agent", label: "Agent", icon: "Sparkles" },
 ];

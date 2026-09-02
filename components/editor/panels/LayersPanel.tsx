@@ -36,7 +36,7 @@ export function LayersPanel({ file }: { file: ProjectFile }) {
       fontSize: 0.09,
       fontFamily: "display",
       fontWeight: 600,
-      color: "#FFFFFF",
+      color: "#F7F8F8",
       align: "center",
       lineHeight: 1.1,
       letterSpacing: -0.02,

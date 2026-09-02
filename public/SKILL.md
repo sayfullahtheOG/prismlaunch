@@ -51,6 +51,16 @@ there instead.
 you have no file access, and for the things a file cannot do: moving the
 playhead, playing the composition on the person's screen, proposing a render.
 
+## Before you build anything
+
+Read **https://prismlaunch-doddlesoft.vercel.app/PRISM_METHOD.md** first.
+
+This file tells you how to operate the tool. That one tells you how to make
+something worth watching — how to find the one idea, write the line, time the
+cuts, choose the colour, place the sound. The tool is a timeline; the method
+is the craft. A composition built without it will be technically valid and
+look like every other AI-made video, which is the thing this exists to stop.
+
 ## Getting started
 
 1. Ask the person to open the studio and click **Link project folder**, then
@@ -62,7 +72,8 @@ playhead, playing the composition on the person's screen, proposing a render.
    makes one, because there is nothing to ask. If you want another, or a
    specific folder name, call `prism.create_project`; or write the file
    yourself and call `prism.open_project`.
-4. Build it.
+4. Build it — the way PRISM_METHOD.md says to: concept before script, script
+   before storyboard, timing before design.
 5. Ask the person to review. **You cannot accept your own work** — there is no
    tool for it, by design.
 6. Once every clip is accepted, call `prism.request_render`. That renders

@@ -226,7 +226,7 @@ export const TextClipSchema = z.object({
   fontSize: z.number().gt(0).max(1).default(0.09),
   fontFamily: FontFamilySchema.default("display"),
   fontWeight: z.number().int().min(100).max(900).default(600),
-  color: ColorSchema.default("#FFFFFF"),
+  color: ColorSchema.default("#F7F8F8"),
   align: TextAlignSchema.default("center"),
   lineHeight: z.number().min(0.6).max(3).default(1.1),
   letterSpacing: z.number().min(-0.1).max(0.5).default(-0.02),

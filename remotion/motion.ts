@@ -1,4 +1,4 @@
-import { interpolate, spring } from "remotion";
+import { Easing, interpolate, spring } from "remotion";
 import type { Animation, Box, Transition } from "@/types/prism";
 
 /**
@@ -21,8 +21,17 @@ export type ClipStyle = {
   filter?: string;
 };
 
-/** Distance travelled by the sliding transitions, as a fraction of the canvas. */
-const TRAVEL = 0.08;
+/**
+ * Distance travelled by the sliding transitions, as a fraction of the canvas.
+ *
+ * Three percent, not eight. This started at 0.08 and the research changed it:
+ * a small travel with a firm ease-out reads as an object settling into a place
+ * that was designed for it, while a large one reads as an object arriving from
+ * off-stage — attention bought with volume rather than precision. Practitioner
+ * guidance puts text at 2–4% of canvas height and calls anything over 8%
+ * cheap, which is exactly where the old value sat.
+ */
+const TRAVEL = 0.03;
 
 type Phase = {
   /** 0 at the start of the transition, 1 when it is complete. */
@@ -63,9 +72,11 @@ function styleFor(transition: Transition, phase: Phase): ClipStyle {
         transform: `translateX(${-away * TRAVEL * 100 * sign}%)`,
       };
     case "scale":
+      // From 0.94, never from zero. An element that scales from nothing looks
+      // like it came from nowhere; from ~0.9 it looks like it came into focus.
       return {
         opacity: progress,
-        transform: `scale(${1 - away * 0.12})`,
+        transform: `scale(${1 - away * 0.06})`,
       };
     case "blur":
       return {
@@ -106,6 +117,12 @@ export function clipStyle(
           config: { damping: 200 },
         });
 
+  /*
+   * Enter decelerates (the spring above), exit accelerates. The asymmetry is
+   * the point: something arriving should slow into place so the eye can land
+   * on it; something leaving should get out of the way. A linear or eased-out
+   * exit lingers, and every beat reads as being reluctantly withdrawn.
+   */
   const exitStart = durationInFrames - exitFrames;
   const exitProgress =
     animation.exit === "none" || exitFrames <= 0
@@ -113,6 +130,7 @@ export function clipStyle(
       : interpolate(frame, [exitStart, durationInFrames], [1, 0], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
+          easing: Easing.in(Easing.cubic),
         });
 
   const entering = styleFor(animation.enter, {

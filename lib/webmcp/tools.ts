@@ -268,7 +268,7 @@ export function buildTools(): ModelContextTool[] {
             fontSize: input.fontSize ?? 0.09,
             fontFamily: input.fontFamily ?? "display",
             fontWeight: input.fontWeight ?? 600,
-            color: input.color ?? "#FFFFFF",
+            color: input.color ?? "#F7F8F8",
             align: input.align ?? "center",
             lineHeight: input.lineHeight ?? 1.1,
             letterSpacing: input.letterSpacing ?? -0.02,

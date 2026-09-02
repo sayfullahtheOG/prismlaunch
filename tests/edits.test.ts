@@ -341,6 +341,35 @@ describe("duration", () => {
   });
 });
 
+describe("an empty composition", () => {
+  /**
+   * A new composition is created with a runtime of one frame and no clips, so
+   * nobody has to guess a length before they have made anything. That only
+   * works if the schema accepts it — a minimum of one frame rather than zero is
+   * the whole reason `durationInFrames` is `.min(1)`, and a future tightening
+   * would silently break every new project.
+   */
+  it("is a valid file at one frame with nothing in it", () => {
+    const blank = projectFile({
+      durationInFrames: 1,
+      tracks: [visualTrack([]), audioTrack([])],
+    });
+
+    expect(ProjectFileSchema.safeParse(blank).success).toBe(true);
+  });
+
+  it("grows to the first clip placed in it", () => {
+    const blank = projectFile({
+      durationInFrames: 1,
+      tracks: [
+        visualTrack([textClip({ id: "clip-a", from: 0, durationInFrames: 60 })]),
+      ],
+    });
+
+    expect(fitDuration(blank).durationInFrames).toBe(60);
+  });
+});
+
 describe("referencedAssets", () => {
   it("lists every path a clip points at, once", () => {
     const base = projectFile({

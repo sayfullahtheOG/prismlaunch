@@ -14,6 +14,7 @@ import {
   laneWidth,
   splitTracks,
   tickSeconds,
+  workingWidth,
   xToFrame,
 } from "./geometry";
 
@@ -43,9 +44,18 @@ export function Timeline({ file }: { file: ProjectFile }) {
   const scroller = useRef<HTMLDivElement>(null);
 
   const { visual, audio } = splitTracks(file);
+  // What the film currently runs to, and how much timeline to draw. They are
+  // different numbers for an empty composition — see `workingWidth`.
   const width = laneWidth(file, pixelsPerSecond);
+  const content = workingWidth(file, pixelsPerSecond, TAIL_PADDING);
 
-  /** Pointer x within the scrolling content, in frames. */
+  /**
+   * Pointer x within the scrolling content, in frames.
+   *
+   * Clamped to the composition, not to the drawn width: the playhead has no
+   * meaning past the end of the film, even though there is timeline there to
+   * drop clips into.
+   */
   function frameAt(clientX: number): number {
     const element = scroller.current;
     if (!element) return 0;
@@ -135,11 +145,13 @@ export function Timeline({ file }: { file: ProjectFile }) {
 
         {/* One scroller for the ruler, every lane and the playhead. */}
         <div ref={scroller} className="thin-scroll min-w-0 flex-1 overflow-auto">
-          <div style={{ width: width + TAIL_PADDING, position: "relative" }}>
+          <div style={{ width: content, position: "relative" }}>
             <Ruler
               file={file}
               pixelsPerSecond={pixelsPerSecond}
               width={width}
+              content={content}
+              playhead={playhead}
               onPointerDown={onRulerDown}
             />
 
@@ -168,17 +180,23 @@ function Ruler({
   file,
   pixelsPerSecond,
   width,
+  content,
+  playhead,
   onPointerDown,
 }: {
   file: ProjectFile;
   pixelsPerSecond: number;
   width: number;
+  content: number;
+  playhead: number;
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
 }) {
   const step = tickSeconds(pixelsPerSecond);
-  const total = file.durationInFrames / file.fps;
+  // Ticks span the drawn timeline, not the film — an empty composition still
+  // needs a readable scale over the space you are about to build in.
+  const total = content / pixelsPerSecond;
   const ticks: number[] = [];
-  for (let second = 0; second <= total + step; second += step) {
+  for (let second = 0; second <= total; second += step) {
     ticks.push(second);
   }
 
@@ -190,7 +208,7 @@ function Ruler({
       aria-label="Playhead"
       aria-valuemin={0}
       aria-valuemax={file.durationInFrames}
-      aria-valuenow={useStudioStore.getState().playhead}
+      aria-valuenow={playhead}
       className="sticky top-0 z-20 cursor-ew-resize border-b border-line-soft bg-surface select-none"
       style={{ height: 28 }}
     >

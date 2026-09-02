@@ -39,17 +39,16 @@ type Props = {
 
 export function TrackHeader({ track, canMoveForward, canMoveBack }: Props) {
   const selectedId = useStudioStore((state) => state.project?.selectedId ?? null);
-  const [renaming, setRenaming] = useState(false);
-  const [draft, setDraft] = useState(track.name);
+  /** Null when nobody is editing. See the note on `Title` in TopBar.tsx. */
+  const [draft, setDraft] = useState<string | null>(null);
 
   const selected = selectedId === track.id;
   const audio = track.kind === "audio";
 
   function commitRename() {
-    setRenaming(false);
-    const name = draft.trim();
+    const name = (draft ?? "").trim();
+    setDraft(null);
     if (name && name !== track.name) patchTrack(track.id, { name });
-    else setDraft(track.name);
   }
 
   return (
@@ -60,7 +59,7 @@ export function TrackHeader({ track, canMoveForward, canMoveBack }: Props) {
       }`}
     >
       <div className="flex items-center gap-1">
-        {renaming ? (
+        {draft !== null ? (
           <input
             value={draft}
             autoFocus
@@ -68,10 +67,7 @@ export function TrackHeader({ track, canMoveForward, canMoveBack }: Props) {
             onBlur={commitRename}
             onKeyDown={(event) => {
               if (event.key === "Enter") commitRename();
-              if (event.key === "Escape") {
-                setDraft(track.name);
-                setRenaming(false);
-              }
+              if (event.key === "Escape") setDraft(null);
             }}
             maxLength={40}
             aria-label="Layer name"
@@ -80,7 +76,7 @@ export function TrackHeader({ track, canMoveForward, canMoveBack }: Props) {
         ) : (
           <button
             type="button"
-            onDoubleClick={() => setRenaming(true)}
+            onDoubleClick={() => setDraft(track.name)}
             onClick={() => select(track.id)}
             title="Double-click to rename"
             className={`ds-focus min-w-0 flex-1 truncate rounded-xs px-0.5 text-left text-xs font-semibold ${

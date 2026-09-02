@@ -21,6 +21,31 @@ export function laneWidth(file: ProjectFile, pixelsPerSecond: number): number {
 }
 
 /**
+ * How much timeline to draw, which is not the same as how long the film is.
+ *
+ * A new composition has a runtime of one frame — it grows as clips are placed,
+ * rather than starting at some length somebody then has to trim back. That
+ * makes the composition's own extent a useless width for the scrollable area:
+ * it would be two pixels wide, with nowhere to drop the first clip.
+ *
+ * So the working area is always at least half a minute, and the composition's
+ * real extent is drawn inside it as shading. Empty reads as empty, and there is
+ * still a canvas to work on.
+ */
+export const MIN_WORKING_SECONDS = 30;
+
+export function workingWidth(
+  file: ProjectFile,
+  pixelsPerSecond: number,
+  tailPadding: number,
+): number {
+  return Math.max(
+    laneWidth(file, pixelsPerSecond) + tailPadding,
+    MIN_WORKING_SECONDS * pixelsPerSecond,
+  );
+}
+
+/**
  * How far apart to draw ruler ticks, in seconds.
  *
  * Picked from a fixed ladder rather than computed, because the alternative

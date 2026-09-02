@@ -28,7 +28,6 @@ import {
   PROJECT_FILE_VERSION,
   ProjectFileSchema,
   SlugSchema,
-  TrackSchema,
   WORKSPACE_DIR,
 } from "./schema";
 import { nowTimecode, useStudioStore } from "./store";
@@ -326,15 +325,26 @@ export async function linkFolder(): Promise<ActionResult> {
     .getState()
     .setWorkspace({ kind: "linked", workspace: linked.value, projects });
 
+  /*
+   * Land somewhere useful rather than on a menu.
+   *
+   * An empty folder gets a blank composition made for it: there is nothing to
+   * choose between and nothing we need to ask, so asking is pure friction.
+   * A folder with exactly one gets that one opened, for the same reason. Only
+   * a folder with several actually poses a question worth putting to someone.
+   */
+  if (projects.length === 0) {
+    await createBlankProject();
+    return ok(`Linked ${WORKSPACE_DIR}/ and started a blank composition.`);
+  }
+
   const only = projects.length === 1 ? projects[0] : undefined;
   if (only && only.problem === null && only.name !== null) {
     await openProject(only.slug);
   }
 
   return ok(
-    projects.length === 0
-      ? `Linked. No compositions in ${WORKSPACE_DIR}/ yet.`
-      : `Linked. Found ${projects.length} composition${projects.length === 1 ? "" : "s"}.`,
+    `Linked. Found ${projects.length} composition${projects.length === 1 ? "" : "s"}.`,
   );
 }
 
@@ -446,9 +456,9 @@ export type CreateProjectInputs = {
 /**
  * Create the folder and write an empty composition.
  *
- * Empty means empty: a background, one visual track, one audio track, and no
- * clips. The app has no model and writes no content — the tracks exist only so
- * there is somewhere obvious to drop the first thing.
+ * Empty means empty: a background, one visual track, one audio track, no clips
+ * and no runtime. The app has no model and writes no content — the two tracks
+ * exist only so there is somewhere obvious to drop the first thing.
  */
 export async function createProject(
   inputs: CreateProjectInputs,
@@ -476,7 +486,16 @@ export async function createProject(
     width: inputs.width ?? DEFAULT_WIDTH,
     height: inputs.height ?? DEFAULT_HEIGHT,
     fps,
-    durationInFrames: inputs.durationInFrames ?? fps * 15,
+    /*
+     * One frame — as close to zero as a composition can be.
+     *
+     * Not a default length someone has to trim back afterwards: `fitDuration`
+     * grows the film whenever a clip lands past the end, so the duration is
+     * always exactly as long as what is in it unless somebody sets it
+     * deliberately. Asking a person to guess how long their video will be
+     * before they have made any of it is a question with no good answer.
+     */
+    durationInFrames: inputs.durationInFrames ?? 1,
     background: inputs.background ?? { kind: "solid", color: "#0A0A0C" },
     tracks: [
       {
@@ -512,8 +531,47 @@ export async function createProject(
   await openProject(slug);
 
   return ok(
-    `Created ${WORKSPACE_DIR}/${slug}/project.json — an empty ${(checked.data.durationInFrames / fps).toFixed(0)}s canvas with one visual track and one audio track. Add clips with prism.add_clip, or edit the file directly; the app is watching it.`,
+    `Created ${WORKSPACE_DIR}/${slug}/project.json — an empty canvas with one visual track and one audio track, ${checked.data.width}×${checked.data.height} at ${fps}fps. It has no runtime yet; it grows as you place clips. Add them with prism.add_text and friends, or edit the file directly — the app is watching it.`,
   );
+}
+
+/**
+ * The next free `untitled` folder name.
+ *
+ * Compositions get made without anyone naming them, so the name has to come
+ * from somewhere. Numbering rather than a timestamp because these are folder
+ * names in someone's repository, and `untitled-2` is a thing a person can find
+ * again — `untitled-m8f2k1` is not.
+ */
+function nextUntitledSlug(taken: readonly string[]): string {
+  if (!taken.includes("untitled")) return "untitled";
+  for (let n = 2; n < 1000; n += 1) {
+    const slug = `untitled-${n}`;
+    if (!taken.includes(slug)) return slug;
+  }
+  // A thousand untitled compositions in one folder. Not worth a nicer answer.
+  return `untitled-${Date.now().toString(36)}`;
+}
+
+/**
+ * A new composition, with nothing asked of anyone.
+ *
+ * Naming a thing before making it is the wrong order — you find out what it is
+ * by building it. So this creates and opens straight away, and the name is
+ * changed in the title bar afterwards if it ever matters.
+ */
+export async function createBlankProject(): Promise<ActionResult> {
+  const guard = requireWorkspace();
+  if (!guard.ok) return guard.result;
+
+  const { workspace } = useStudioStore.getState();
+  const taken =
+    workspace.kind === "linked" ? workspace.projects.map((entry) => entry.slug) : [];
+
+  return createProject({
+    slug: nextUntitledSlug(taken),
+    name: "Untitled composition",
+  });
 }
 
 /**

@@ -49,7 +49,9 @@ export const CreateProjectInput = z.object({
     .min(0.5)
     .max(300)
     .optional()
-    .describe("How long the composition is. Defaults to 15. You can change it later."),
+    .describe(
+      "Usually omit this. A new composition starts with no runtime and grows automatically as you place clips, so you do not have to guess a length up front.",
+    ),
   width: z.number().int().min(64).max(4096).optional(),
   height: z.number().int().min(64).max(4096).optional(),
   fps: z.number().int().min(1).max(60).optional().describe("Defaults to 30."),

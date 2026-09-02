@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   deleteClip,
   duplicateSelected,
+  renameProject,
   seek,
   setPlaying,
   splitAtPlayhead,
@@ -122,6 +123,7 @@ export function EditorShell() {
         onRender={() => void exportFilm()}
         note={renderNote}
         busy={rendering}
+        onRename={(name) => renameProject(name)}
       />
 
       <div className="flex min-h-0 flex-1">

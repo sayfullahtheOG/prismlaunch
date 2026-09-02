@@ -11,9 +11,8 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { TextInput } from "@/components/ui/Field";
 import {
-  createProject,
+  createBlankProject,
   linkFolder,
   openProject,
   regrantWorkspace,
@@ -97,7 +96,7 @@ export function StartScreen() {
             busy={busy}
             projects={workspace.projects}
             onOpen={(slug) => void run(() => openProject(slug))}
-            onCreate={(inputs) => void run(() => createProject(inputs))}
+            onCreate={() => void run(createBlankProject)}
             onRelink={() => void run(linkFolder)}
           />
         ) : null}
@@ -231,11 +230,9 @@ function Linked({
   busy: boolean;
   projects: ProjectEntry[];
   onOpen: (slug: string) => void;
-  onCreate: (inputs: { slug: string; name: string }) => void;
+  onCreate: () => void;
   onRelink: () => void;
 }) {
-  const [creating, setCreating] = useState(false);
-
   return (
     <div className="flex flex-col gap-4">
       {projects.length > 0 ? (
@@ -268,29 +265,21 @@ function Linked({
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="text-center text-sm leading-[var(--ds-leading-body)] text-muted">
-          Nothing in <code className="font-mono">{WORKSPACE_DIR}/</code> yet.
-          Ask your agent to start one, or make an empty canvas and let it build
-          on that.
-        </p>
-      )}
+      ) : null}
 
-      {creating ? (
-        <NewProjectForm
-          busy={busy}
-          onCancel={() => setCreating(false)}
-          onCreate={onCreate}
-        />
-      ) : (
-        <Button
-          variant="secondary"
-          onClick={() => setCreating(true)}
-          icon={<Plus size={15} strokeWidth={2} aria-hidden />}
-        >
-          New composition
-        </Button>
-      )}
+      {/*
+        One click, no form. Naming a thing before making it is the wrong order —
+        you find out what it is by building it — so this creates and opens
+        straight away, and the title is editable in the top bar afterwards.
+      */}
+      <Button
+        variant={projects.length === 0 ? "primary" : "secondary"}
+        onClick={onCreate}
+        loading={busy}
+        icon={<Plus size={15} strokeWidth={2} aria-hidden />}
+      >
+        New composition
+      </Button>
 
       <button
         type="button"
@@ -300,69 +289,5 @@ function Linked({
         Link a different folder
       </button>
     </div>
-  );
-}
-
-/** Folder names come from the title, so nobody has to think about slugs. */
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-}
-
-function NewProjectForm({
-  busy,
-  onCancel,
-  onCreate,
-}: {
-  busy: boolean;
-  onCancel: () => void;
-  onCreate: (inputs: { slug: string; name: string }) => void;
-}) {
-  const [title, setTitle] = useState("");
-
-  const slug = slugify(title);
-  const ready = slug.length > 0;
-
-  return (
-    <form
-      className="ds-level flex flex-col gap-3 rounded-sm p-3.5"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (ready) onCreate({ slug, name: title.trim() });
-      }}
-    >
-      <TextInput
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Vector launch video"
-        aria-label="Composition name"
-        maxLength={80}
-        autoFocus
-      />
-
-      {slug ? (
-        <p className="font-mono text-2xs text-subtle">
-          {WORKSPACE_DIR}/{slug}/project.json
-        </p>
-      ) : null}
-
-      <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">
-        An empty fifteen-second canvas with one visual layer and one audio
-        layer. PrismLaunch writes no content — it has no model, and no idea what
-        your product does.
-      </p>
-
-      <div className="flex gap-2">
-        <Button type="submit" variant="primary" disabled={!ready} loading={busy}>
-          Create composition
-        </Button>
-        <Button type="button" variant="quiet" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-    </form>
   );
 }

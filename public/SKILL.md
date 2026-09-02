@@ -52,8 +52,10 @@ playhead, playing the composition on the person's screen, proposing a render.
    browsers only open a folder picker for a real click.
 2. Call `prism.get_project_context`. It tells you whether a folder is linked and
    what is already in it.
-3. Create a composition with `prism.create_project`, or write the file yourself
-   and call `prism.open_project`.
+3. There is probably already a blank composition open — linking an empty folder
+   makes one, because there is nothing to ask. If you want another, or a
+   specific folder name, call `prism.create_project`; or write the file
+   yourself and call `prism.open_project`.
 4. Build it.
 5. Ask the person to review. **You cannot accept your own work** — there is no
    tool for it, by design.
@@ -185,8 +187,9 @@ These are enforced. A file that breaks one is refused with the field named.
 - **Clips on one track may not overlap.** Put simultaneous things on separate
   tracks.
 - **Every clip must end inside `durationInFrames`.** Placing one past the end
-  through a tool grows the composition automatically; writing the file by hand,
-  set `durationInFrames` yourself.
+  through a tool grows the composition automatically — a new composition starts
+  at one frame and lengthens as you build, so you never have to pick a duration
+  up front. Writing the file by hand, set `durationInFrames` yourself.
 - **Ids are unique** across every track and clip in the file.
 - **Audio clips only on audio tracks**, and vice versa.
 - **`approval` is `draft` or `accepted`. Always write `draft`.** Only the person
@@ -227,7 +230,7 @@ rather than crashing the render — but it is still a hole, so check.
 | Tool | What it does |
 | --- | --- |
 | `prism.get_project_context` | Where things stand: the folder, the canvas, every track and clip with its id, the playhead, and which clips are unreviewed. **Call this first.** |
-| `prism.create_project` | Create an empty composition and open it. |
+| `prism.create_project` | Create an empty composition and open it. It starts with no runtime and grows as you place clips. |
 | `prism.open_project` | Show one that already exists in the folder. |
 | `prism.add_track` | Add a visual or audio layer. |
 | `prism.update_track` | Rename, hide/mute, or set a layer's volume. |

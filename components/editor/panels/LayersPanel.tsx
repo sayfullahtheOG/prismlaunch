@@ -1,6 +1,6 @@
 "use client";
 
-import { Layers, Music, Plus, Type } from "lucide-react";
+import { Layers, Music, Type } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createClip, createTrack, select } from "@/lib/studio/actions";
 import { useStudioStore } from "@/lib/studio/store";

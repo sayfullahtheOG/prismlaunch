@@ -177,7 +177,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.create_project",
       description:
-        "Create an empty composition at .prismlaunch/<slug>/project.json and open it. You get a background, one visual track and one audio track, and no clips — PrismLaunch writes no content. Needs a folder to be linked first.",
+        "Create an empty composition at .prismlaunch/<slug>/project.json and open it. You get a background, one visual track and one audio track, no clips and no runtime — it grows as you place things, so there is no length to guess. PrismLaunch writes no content. Needs a folder to be linked first.",
       schema: CreateProjectInput,
       execute: (input) =>
         createProject({

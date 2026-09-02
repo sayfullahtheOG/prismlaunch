@@ -1,34 +1,33 @@
 "use client";
 
-import { Cloud, FolderOpen, Loader2, Sparkles } from "lucide-react";
+
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { TextInput } from "@/components/ui/Field";
+import { Segmented } from "@/components/ui/Segmented";
 import { inspectSource, type InspectKind } from "@/lib/studio/actions";
 
 const TABS: ReadonlyArray<{
   id: InspectKind;
   label: string;
-  Icon: typeof Cloud;
   placeholder: string;
   hint: string;
 }> = [
   {
     id: "github",
     label: "GitHub",
-    Icon: Cloud,
     placeholder: "https://github.com/owner/repo",
     hint: "Public repositories only. Read, never run.",
   },
   {
     id: "local",
     label: "Folder",
-    Icon: FolderOpen,
     placeholder: "/Users/you/code/my-app",
     hint: "Reads from this machine. Development only.",
   },
   {
     id: "demo",
     label: "Demo",
-    Icon: Sparkles,
     placeholder: "",
     hint: "The built-in demo product. Always works offline.",
   },
@@ -64,35 +63,20 @@ export function SourceIntake() {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-sm border border-line bg-sunken p-3">
-      <div className="flex gap-1 rounded-xs border border-line bg-surface p-0.5">
-        {TABS.map((tab) => {
-          const isActive = tab.id === kind;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setKind(tab.id);
-                setError(null);
-                setDone(null);
-              }}
-              aria-pressed={isActive}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-[4px] px-1 py-1.5 text-[11.5px] transition-colors ds-focus ${
-                isActive
-                  ? "bg-accent-soft font-medium text-accent"
-                  : "text-muted hover:text-ink"
-              }`}
-            >
-              <tab.Icon size={12} strokeWidth={1.9} aria-hidden />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+    <div className="ds-level flex flex-col gap-3 rounded-sm p-3.5">
+      <Segmented
+        label="Source kind"
+        options={TABS.map((tab) => tab.id)}
+        value={kind}
+        onChange={(next) => {
+          setKind(next);
+          setError(null);
+          setDone(null);
+        }}
+      />
 
       {kind !== "demo" ? (
-        <input
+        <TextInput
           value={ref}
           onChange={(event) => setRef(event.target.value)}
           onKeyDown={(event) => {
@@ -101,39 +85,32 @@ export function SourceIntake() {
           placeholder={active.placeholder}
           spellCheck={false}
           aria-label={`${active.label} source`}
-          className="w-full rounded-xs border border-line bg-surface px-2.5 py-2 font-mono text-[11.5px] text-ink placeholder:text-subtle focus-visible:border-accent focus-visible:outline-none"
+          className="font-mono text-xs"
         />
       ) : null}
 
-      <p className="text-[11px] text-subtle">{active.hint}</p>
+      <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">{active.hint}</p>
 
-      <button
-        type="button"
+      <Button
+        variant="primary"
         onClick={() => void run()}
-        disabled={busy || (kind !== "demo" && ref.trim().length === 0)}
-        className="flex items-center justify-center gap-2 rounded-xs bg-accent px-3 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-accent-hover ds-focus disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-subtle"
+        loading={busy}
+        disabled={kind !== "demo" && ref.trim().length === 0}
       >
-        {busy ? (
-          <>
-            <Loader2 size={13} strokeWidth={2.2} className="animate-spin" aria-hidden />
-            Reading source…
-          </>
-        ) : (
-          "Inspect and rebuild board"
-        )}
-      </button>
+        {busy ? "Reading source…" : "Inspect and rebuild board"}
+      </Button>
 
       {error ? (
         <p
           role="alert"
-          className="rounded-xs border border-warning/40 bg-warning-soft px-2.5 py-2 text-[11.5px] text-warning"
+          className="ds-level rounded-sm bg-warning-soft px-3 py-2.5 text-xs leading-[var(--ds-leading-body)] text-warning"
         >
           {error}
         </p>
       ) : null}
 
       {done ? (
-        <p className="rounded-xs border border-success/40 bg-success/10 px-2.5 py-2 text-[11.5px] text-success">
+        <p className="ds-level rounded-sm bg-success-soft px-3 py-2.5 text-xs leading-[var(--ds-leading-body)] text-success">
           {done}
         </p>
       ) : null}

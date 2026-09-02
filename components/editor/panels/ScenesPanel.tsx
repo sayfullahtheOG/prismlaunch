@@ -58,7 +58,7 @@ export function ScenesPanel({ scenes, activeSceneId, palette, onSelect }: Props)
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="flex items-center gap-1.5">
                     <span
-                      className={`font-mono text-[10.5px] tabular-nums ${
+                      className={`font-mono text-2xs tabular-nums ${
                         isDraft ? "text-warning" : "text-subtle"
                       }`}
                     >
@@ -67,23 +67,23 @@ export function ScenesPanel({ scenes, activeSceneId, palette, onSelect }: Props)
                     <span className="truncate text-xs font-semibold">
                       {NARRATIVE_JOB[scene.template]}
                     </span>
-                    <span className="ml-auto shrink-0 font-mono text-[10px] text-subtle tabular-nums">
+                    <span className="ml-auto shrink-0 font-mono text-2xs text-subtle tabular-nums">
                       {framesToSeconds(scene.durationFrames).toFixed(1)}s
                     </span>
                   </span>
 
-                  <span className="truncate text-[11.5px] text-muted">
+                  <span className="truncate text-2xs text-muted">
                     {scene.headline}
                   </span>
 
                   <span className="mt-0.5">
                     {isDraft ? (
-                      <span className="inline-flex items-center gap-1 rounded-pill bg-warning/10 px-1.5 py-0.5 text-[10px] font-semibold text-warning">
+                      <span className="inline-flex items-center gap-1 rounded-pill bg-warning/10 px-1.5 py-0.5 text-2xs font-semibold text-warning">
                         <Sparkles size={9} strokeWidth={2.4} aria-hidden />
                         Agent draft
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-subtle">
+                      <span className="inline-flex items-center gap-1 text-2xs text-subtle">
                         <Check size={9} strokeWidth={2.6} aria-hidden />
                         Accepted
                       </span>

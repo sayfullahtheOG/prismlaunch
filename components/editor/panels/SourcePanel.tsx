@@ -40,10 +40,10 @@ export function SourcePanel({
 
       <PanelSection label="Current product">
         <div className="rounded-sm border border-line bg-sunken p-3">
-          <p className="font-mono text-[11.5px] break-all text-ink">
+          <p className="font-mono text-2xs break-all text-ink">
             {sourceKind} · {productName}
           </p>
-          <p className="mt-1 text-[11.5px] text-muted">
+          <p className="mt-1 text-2xs text-muted">
             {framework} · {candidates.length} candidate
             {candidates.length === 1 ? "" : "s"}
           </p>
@@ -54,7 +54,7 @@ export function SourcePanel({
             {warnings.map((warning) => (
               <li
                 key={warning}
-                className="rounded-xs border border-warning/40 bg-warning-soft px-2.5 py-1.5 text-[11px] text-warning"
+                className="rounded-xs border border-warning/40 bg-warning-soft px-2.5 py-1.5 text-2xs text-warning"
               >
                 {warning}
               </li>
@@ -89,17 +89,17 @@ export function SourcePanel({
                     aria-hidden
                   />
                   <span className="text-xs font-semibold">{candidate.label}</span>
-                  <span className="ml-auto rounded-pill bg-sunken px-1.5 py-0.5 text-[10px] text-subtle">
+                  <span className="ml-auto rounded-pill bg-sunken px-1.5 py-0.5 text-2xs text-subtle">
                     {candidate.kind}
                   </span>
                 </span>
 
                 {evidence ? (
                   <>
-                    <span className="mt-2 block font-mono text-[11px] break-all text-muted">
+                    <span className="mt-2 block font-mono text-2xs break-all text-muted">
                       {evidence.path}
                     </span>
-                    <span className="mt-1 block text-[11.5px] text-muted">
+                    <span className="mt-1 block text-2xs text-muted">
                       {evidence.reason}
                     </span>
                   </>
@@ -109,7 +109,7 @@ export function SourcePanel({
                   {candidate.visualTokens.map((token) => (
                     <span
                       key={token}
-                      className="rounded bg-sunken px-1.5 py-0.5 font-mono text-[10px] text-subtle"
+                      className="rounded bg-sunken px-1.5 py-0.5 font-mono text-2xs text-subtle"
                     >
                       {token}
                     </span>
@@ -123,7 +123,7 @@ export function SourcePanel({
 
       {/* Source text is untrusted by construction. Saying so in the UI is part
           of the product's safety story, not decoration. */}
-      <p className="flex items-start gap-2 rounded-sm border border-line bg-sunken p-3 text-[11.5px] text-muted">
+      <p className="flex items-start gap-2 rounded-sm border border-line bg-sunken p-3 text-2xs text-muted">
         <ShieldAlert size={14} strokeWidth={1.7} className="mt-px shrink-0 text-subtle" aria-hidden />
         Text read from source is shown escaped and never treated as instructions.
       </p>

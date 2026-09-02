@@ -68,9 +68,9 @@ export function TextArea({
   );
 }
 
-export function Select({
-  className = "",
-  ...rest
-}: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={`${CONTROL} min-h-11 ${className}`} {...rest} />;
-}
+/*
+ * The dropdown deliberately lives in ./Select.tsx and is NOT a native
+ * `<select>`. The OS renders that control itself — Apple's grey chrome on
+ * macOS — ignoring the system's radius, type, elevation and theme, with a
+ * popup that cannot be styled at all.
+ */

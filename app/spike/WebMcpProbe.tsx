@@ -135,7 +135,7 @@ export function WebMcpProbe() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 p-8">
       <header>
-        <h1 className="text-lg font-semibold tracking-tight">WebMCP probe</h1>
+        <h1 className="text-lg font-semibold tracking-[var(--ds-tracking-tight)]">WebMCP probe</h1>
         <p className="mt-1 text-sm text-muted">
           Proves register → discover → execute → unregister before any product
           code depends on it. Not part of the product surface.
@@ -150,7 +150,7 @@ export function WebMcpProbe() {
       </span>
 
       <section>
-        <h2 className="mb-2 text-[11px] font-semibold tracking-[0.06em] text-subtle uppercase">
+        <h2 className="mb-2 text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase">
           Registered tools ({tools.length})
         </h2>
         {tools.length === 0 ? (
@@ -164,7 +164,7 @@ export function WebMcpProbe() {
               >
                 <code className="font-mono text-xs text-accent">{tool.name}</code>
                 <p className="mt-1 text-xs text-muted">{tool.description}</p>
-                <p className="mt-1 font-mono text-[10.5px] text-subtle">
+                <p className="mt-1 font-mono text-2xs text-subtle">
                   origin {tool.origin}
                   {tool.annotations?.readOnlyHint ? " · readOnlyHint" : ""}
                 </p>
@@ -177,13 +177,13 @@ export function WebMcpProbe() {
       <button
         type="button"
         onClick={() => void selfTest()}
-        className="w-fit rounded-xs bg-accent px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-accent-hover ds-focus"
+        className="w-fit rounded-xs bg-accent px-3.5 py-2 text-sm font-semibold text-white hover:bg-accent-hover ds-focus"
       >
         Run self-test
       </button>
 
       {log.length > 0 ? (
-        <pre className="thin-scroll overflow-x-auto rounded-sm bg-ink p-3 font-mono text-[11.5px] leading-relaxed text-white">
+        <pre className="thin-scroll overflow-x-auto rounded-sm bg-ink p-3 font-mono text-2xs leading-relaxed text-white">
           {log.join("\n")}
         </pre>
       ) : null}

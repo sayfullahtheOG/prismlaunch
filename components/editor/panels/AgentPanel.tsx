@@ -60,7 +60,7 @@ export function AgentPanel({ activity, kind, toolCount }: Props) {
             >
               {connection.title}
             </span>
-            <span className="block text-[11px] text-muted">
+            <span className="block text-2xs text-muted">
               {connection.detail(toolCount)}
             </span>
           </span>
@@ -98,16 +98,16 @@ export function AgentPanel({ activity, kind, toolCount }: Props) {
                   <span
                     className={`block break-all ${
                       event.origin === "agent"
-                        ? "font-mono text-[11.5px]"
+                        ? "font-mono text-2xs"
                         : "text-xs font-semibold"
                     } ${event.blocked ? "text-warning" : event.origin === "agent" ? "text-accent" : "text-ink"}`}
                   >
                     {event.label}
                   </span>
-                  <span className="mt-0.5 block text-[11.5px] text-muted">
+                  <span className="mt-0.5 block text-2xs text-muted">
                     {event.detail}
                   </span>
-                  <span className="mt-0.5 block font-mono text-[10px] text-subtle tabular-nums">
+                  <span className="mt-0.5 block font-mono text-2xs text-subtle tabular-nums">
                     {event.at}
                   </span>
                 </span>
@@ -118,7 +118,7 @@ export function AgentPanel({ activity, kind, toolCount }: Props) {
       </PanelSection>
 
       {/* The render gate, stated where the agent's work is reviewed. */}
-      <p className="flex items-start gap-2 rounded-sm border border-line bg-sunken p-3 text-[11.5px] text-muted">
+      <p className="flex items-start gap-2 rounded-sm border border-line bg-sunken p-3 text-2xs text-muted">
         <Lock size={13} strokeWidth={1.8} className="mt-px shrink-0 text-subtle" aria-hidden />
         Your agent can propose a render but cannot start one. Exporting always
         takes a confirmation from you.

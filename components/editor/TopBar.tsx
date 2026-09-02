@@ -3,7 +3,6 @@
 import { ChevronDown, Download, Redo2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 type Props = {
   productName: string;
@@ -66,7 +65,6 @@ export function TopBar({
           label="Redo"
           icon={<Redo2 size={17} strokeWidth={1.7} aria-hidden />}
         />
-        <ThemeToggle />
       </div>
 
       <span className="h-6 w-px bg-line-soft" aria-hidden />

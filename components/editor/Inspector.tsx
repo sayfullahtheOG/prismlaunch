@@ -2,7 +2,8 @@
 
 import { Check, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Field, Select, TextArea, TextInput } from "@/components/ui/Field";
+import { Field, TextArea, TextInput } from "@/components/ui/Field";
+import { Select } from "@/components/ui/Select";
 import { Segmented } from "@/components/ui/Segmented";
 import type { ScenePatch } from "@/lib/studio/actions";
 import { BODY_MAX, HEADLINE_MAX } from "@/lib/studio/schema";
@@ -132,15 +133,19 @@ export function Inspector({
           <Field label="Component" htmlFor="scene-component">
             <Select
               id="scene-component"
+              label="Featured component"
               value={scene.componentId ?? ""}
-              onChange={(e) => onPatch({ componentId: e.target.value })}
-            >
-              {candidates.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </Select>
+              onChange={(componentId) => onPatch({ componentId })}
+              options={candidates.map((candidate) => ({
+                value: candidate.id,
+                label: candidate.label,
+                // The path is why this candidate exists — worth showing in
+                // the list, not just after you have chosen.
+                ...(candidate.evidence[0]
+                  ? { detail: candidate.evidence[0].path }
+                  : {}),
+              }))}
+            />
           </Field>
         ) : null}
 

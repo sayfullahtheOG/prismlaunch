@@ -107,7 +107,7 @@ export function LookPanel({
               >
                 <span>
                   <span className="block text-xs font-semibold">{preset.label}</span>
-                  <span className="block text-[11px] text-muted">{preset.blurb}</span>
+                  <span className="block text-2xs text-muted">{preset.blurb}</span>
                 </span>
                 {isActive ? (
                   <Check size={14} strokeWidth={2.4} className="text-accent" aria-hidden />

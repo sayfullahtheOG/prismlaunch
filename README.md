@@ -1,8 +1,8 @@
 # PrismLaunch
 
-**An agent-native launch-video studio.** Your agent writes the film; this page renders it, and you decide what ships.
+**An agent-native video editor.** Your agent builds the timeline; this page renders it, and you decide what ships.
 
-PrismLaunch has no model of its own. It does not read your source, guess what your product does, or write a word of copy — your agent already knows all of that, and it is sitting in your editor. What PrismLaunch provides is the half an agent cannot do alone: a real renderer, a shared canvas you can both see, and an approval gate the agent cannot open.
+PrismLaunch is a canvas, a layer stack and a real renderer. It has no model of its own and no opinion about what makes a good video — it does not read your source, write copy, or impose a structure. Your agent already knows the product and is sitting in your editor. What PrismLaunch provides is the half an agent cannot do alone: a renderer, a timeline you can both see, and an approval gate the agent cannot open.
 
 Agents propose. Only a human accepts.
 
@@ -17,15 +17,28 @@ your-repo/
 └── .prismlaunch/
     └── vector-launch/
         ├── project.json      ← your agent writes this
+        ├── assets/           ← images, video, audio it refers to
         └── renders/
-            └── vector-launch-launch-film.mp4
+            └── vector-launch-video.mp4
 ```
+
+A composition is a canvas, a background, and a stack of layers:
+
+```
+tracks[0]      visual   ← nearest the viewer
+tracks[1]      visual
+background              ← always there, always behind every visual layer
+tracks[2]      audio    ← music, voiceover, effects
+tracks[3]      audio
+```
+
+Each track holds clips — text, shapes, images, video, sound — with a start frame and a length. Clips on one track cannot overlap; that is what a track is. Two things on screen at once means two tracks, and the track order decides which is in front.
 
 1. You give your agent one line: `set up https://prismlaunch-doddlesoft.vercel.app/SKILL.md`
 2. You open the studio and click **Link project folder**. (Your agent cannot — browsers only open that picker for a real click.)
 3. Your agent writes `project.json`, either with its own file tools or through the WebMCP tools registered on the page. The studio picks up file changes within a second.
-4. Four drafts appear on your screen. You accept or reject each one; the studio writes `"approval": "accepted"` back to disk, where your agent can read it.
-5. When every scene is accepted, your agent proposes a render. You approve. The MP4 is encoded in your browser with WebCodecs and saved beside the project file.
+4. Its clips appear on your timeline as drafts. You accept or reject each one; the studio writes `"approval": "accepted"` back to disk, where your agent can read it.
+5. When everything is accepted, your agent proposes a render. You approve. The MP4 is encoded in your browser with WebCodecs and saved beside the project file.
 
 **Nothing is uploaded.** Not the video, not the project file, not your code. The film is encoded on your machine and written to your folder.
 
@@ -33,10 +46,10 @@ your-repo/
 
 Most "AI video" tools are a chat box that emits a finished file. PrismLaunch puts the agent and the human on one artifact:
 
-- The agent calls `prism.write_storyboard` or saves `project.json`; the storyboard visibly changes on your screen and four amber draft badges appear.
-- You click **Accept** or **Keep current**. There is no tool that clears that state — `acceptDraft` and `approveRender` exist in the code and are deliberately never registered. A test walks the live tool surface to prove it.
+- The agent adds a clip or saves `project.json`; it appears on your timeline immediately, with an amber draft badge.
+- You click **Accept** or **Reject**. There is no tool that clears that state — `acceptClip`, `rejectClip` and `approveRender` exist in the code and are deliberately never registered. A test walks the live tool surface to prove it.
 - Rendering is gated by a **two-phase confirmation token**, not a boolean the agent fills in itself. The first call proposes and writes nothing; the second takes only the token and replays what the first recorded.
-- The film is **exactly four scenes, 16–22 seconds**. That constraint is most of what the tool contributes now that the agent writes the words — an agent cannot talk its way into a nine-minute slideshow.
+- **Tools, not rules.** There is no `make_the_video` that takes a brief and returns a finished film. There is a canvas, layers, clips and a playhead. What gets built is the agent's call, and yours.
 
 ## Requirements
 
@@ -66,21 +79,11 @@ The studio is at [http://localhost:3000](http://localhost:3000).
 
 ## The tools
 
-Nine WebMCP tools are registered on the studio page. They cover what a file cannot do — opening a film on someone's screen, putting a scene in front of them, playing it, proposing a render.
+Twenty WebMCP tools are registered on the studio page: the canvas (`create_project`, `set_background`, `set_duration`), the stack (`add_track`, `update_track`, `move_track`, `remove_track`), the clips (`add_text`, `add_shape`, `add_image`, `add_video`, `add_audio`, `update_clip`, `remove_clip`), the view (`seek`, `preview`, `get_project_context`) and the gate (`request_render`, `confirm_render`).
 
-| Tool | What it does |
-| --- | --- |
-| `prism.get_project_context` | Whether a folder is linked, what films are in it, and what the open one says. |
-| `prism.create_project` | Create `.prismlaunch/<slug>/` with four empty scenes. |
-| `prism.open_project` | Show a film that already exists in the folder. |
-| `prism.write_storyboard` | Write all four scenes. They land as drafts. |
-| `prism.revise_scene` | Change one scene. It lands as a draft. |
-| `prism.focus_scene` | Put a scene in front of the person. |
-| `prism.preview_storyboard` | Play the film on their screen. |
-| `prism.request_render` | Propose the export. Renders nothing. |
-| `prism.confirm_render` | Start the render — only after a human approves. |
+The clip tools exist so an agent *without* file access is not locked out. An agent with file tools should edit `project.json` directly — it is the same composition either way, and far fewer round trips.
 
-`write_storyboard` and `revise_scene` exist so that an agent *without* file access is not locked out. An agent with file tools should edit `project.json` directly; it is the same board either way.
+`public/SKILL.md` documents all of them, and `tests/skill.test.ts` asserts the documented list matches the registered one exactly.
 
 ## Testing WebMCP
 
@@ -113,6 +116,8 @@ Your agent ──── file tools ────> .prismlaunch/<slug>/project.jso
                                    └── WebCodecs ──> MP4 ──> back into the folder
 ```
 
+`lib/studio/edits.ts` holds every timeline operation — move, trim, split, duplicate, reorder — as pure functions from one composition to another. That is what makes the hard parts testable: "does dragging a clip left past its neighbour do the right thing" is a question about data, and answering it does not require a browser.
+
 | Layer | Choice |
 | --- | --- |
 | Framework | Next.js 16 (App Router), React 19, TypeScript strict |
@@ -120,7 +125,8 @@ Your agent ──── file tools ────> .prismlaunch/<slug>/project.jso
 | Validation | Zod — one schema drives the file format, the WebMCP `inputSchema`, and the runtime guard |
 | State | Zustand — a single mutation path shared by human handlers and tool executors |
 | Storage | The user's own filesystem. No database, no accounts, no sessions, no OAuth. |
-| Film | Remotion — one composition for both the preview and the export |
+| Film | Remotion — one component for both the preview and the export |
+| Timeline | Hand-rolled. The maintained packages either fight the design tokens or model scheduling rather than video layering. |
 | Render | `@remotion/web-renderer` — WebCodecs in the browser, no server CPU |
 
 Two constraints worth stating up front:

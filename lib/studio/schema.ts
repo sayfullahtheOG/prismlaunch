@@ -1,17 +1,39 @@
 import { z } from "zod";
 
 /**
- * The scene graph — the single source of truth for the whole product.
+ * The composition — the single source of truth for the whole product.
  *
- * These schemas are now a *file format* as well as a runtime guard. An agent
- * writes `.prismlaunch/<slug>/project.json` with its own file tools;
- * `ProjectFileSchema` is exactly what it must write, and public/SKILL.md is
- * the prose version of the same thing. If the two ever disagree, this file is
- * right and SKILL.md is stale.
+ * This is a *file format* as well as a runtime guard. An agent writes
+ * `.prismlaunch/<slug>/project.json` with its own file tools;
+ * `ProjectFileSchema` is exactly what it must write, and public/SKILL.md is the
+ * prose version of the same thing. If the two disagree, this file is right and
+ * SKILL.md is stale.
  *
- * PrismLaunch has no model of its own and does not read anyone's source. The
- * agent decides what the film says; we validate the structure, render it,
- * hold the approval gate, and write the result back to disk.
+ * ## Why there is no scene structure here
+ *
+ * There used to be: four scenes, in fixed slots, each with a `headline` and an
+ * optional `body`. It was defensible on paper — constraint makes short films
+ * good — and wrong in practice. Real promo videos do not have four acts with a
+ * title slot in each. They layer type over footage, cut on a beat, hold a
+ * single word for two seconds and then stack six things at once. A schema that
+ * cannot express that is not a safety rail, it is a smaller product.
+ *
+ * So the model is a canvas and a stack of tracks, and the agent decides what
+ * goes on it. What is still enforced is only what would otherwise produce a
+ * broken file or an unrenderable frame: clips inside the composition, no
+ * overlaps within a track, bounded counts, valid colours.
+ *
+ * ## The stack
+ *
+ * Tracks are ordered front-to-back, matching every editor people already know:
+ * the first visual track renders on top. Audio tracks sort below the
+ * background, which is where they sit in the timeline UI too.
+ *
+ *     tracks[0]      visual   ← front
+ *     tracks[1]      visual
+ *     background              ← always present, always behind every visual
+ *     tracks[2]      audio
+ *     tracks[3]      audio
  *
  * Everything else derives from here: TypeScript types with `z.infer` (see
  * types/prism.ts), and the JSON Schema handed to agents with `z.toJSONSchema`
@@ -22,89 +44,425 @@ import { z } from "zod";
  * missing required fields and unexpected properties straight through to the
  * handler. Every `execute` therefore re-validates with the same schema the UI
  * uses. Deriving one from the other is what stops them drifting.
- *
- * See context/architecture.md §Invariants 8 and 9.
  */
 
-export const FPS = 24;
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
-/** Per-scene duration bounds, in frames at 24fps (3s–6s). */
-export const MIN_SCENE_FRAMES = 72;
-export const MAX_SCENE_FRAMES = 144;
+export const DEFAULT_FPS = 30;
+export const DEFAULT_WIDTH = 1920;
+export const DEFAULT_HEIGHT = 1080;
 
-/** The finished film must land in this window. */
-export const MIN_FILM_SECONDS = 16;
-export const MAX_FILM_SECONDS = 22;
+/** Five minutes at 30fps. A cap, not a target — nothing here wants a long film. */
+export const MAX_FRAMES = 9000;
+export const MIN_CLIP_FRAMES = 1;
 
-export const HEADLINE_MAX = 56;
-export const BODY_MAX = 110;
+export const MAX_TRACKS = 24;
+export const MAX_CLIPS_PER_TRACK = 120;
+export const MAX_TEXT_LENGTH = 400;
 
 /**
  * Bumped only when a change would make an older `project.json` unreadable.
  * A file carrying a version we do not know is refused with its number quoted,
  * rather than parsed optimistically into something subtly wrong.
+ *
+ * v2 replaced the fixed four-scene graph with tracks and clips.
  */
-export const PROJECT_FILE_VERSION = 1;
+export const PROJECT_FILE_VERSION = 2;
 
 /** The directory an agent writes into, at the root of whatever it is working on. */
 export const WORKSPACE_DIR = ".prismlaunch";
 
-/** The one file that defines a film. */
+/** The one file that defines a composition. */
 export const PROJECT_FILE = "project.json";
 
 /** Finished MP4s land here, beside the project that produced them. */
 export const RENDERS_DIR = "renders";
 
+/** Images, video and audio the composition refers to, beside the project. */
+export const ASSETS_DIR = "assets";
+
 // ---------------------------------------------------------------------------
-// Enums
+// Primitives
 // ---------------------------------------------------------------------------
 
-export const ArtDirectionSchema = z.enum([
-  "minimal-dark",
-  "electric-editorial",
-  "warm-playful",
-]);
+const HEX = /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/;
+
+/** Six or eight digits — the eighth pair is alpha, which saves a separate field. */
+export const ColorSchema = z
+  .string()
+  .regex(HEX, "expected a hex colour like #1B1614 or #1B1614CC");
 
 /**
- * Four templates in a fixed order. Renamed from `component-spotlight`: the app
- * no longer reads anyone's source, so a scene spotlights a *feature the agent
- * names*, not a component we found.
+ * A clip's position, as fractions of the canvas rather than pixels.
+ *
+ * Resolution-independent, so the same composition renders correctly at 720p and
+ * 4K, and an agent can say `{ x: 0.5, y: 0.5 }` for "centred" without knowing
+ * the output size. `x`/`y` are the box's CENTRE, which is what makes centring
+ * expressible at all — with a top-left anchor the agent has to subtract half
+ * the width, and it will get it wrong.
+ *
+ * Values outside 0–1 are legal: sliding a title in from off-screen means
+ * starting at x = -0.3, and clamping that would break the move.
  */
-export const SceneTemplateSchema = z.enum([
-  "kinetic-type",
-  "product-reveal",
-  "feature-spotlight",
-  "outcome-cta",
-]);
+export const DEFAULT_BOX = {
+  x: 0.5,
+  y: 0.5,
+  width: 0.8,
+  height: 0.2,
+  rotation: 0,
+  opacity: 1,
+};
 
-export const MotionPresetSchema = z.enum(["drift", "snap", "orbit"]);
-
-export const ApprovalStateSchema = z.enum(["accepted", "draft"]);
-
-export const EmphasisSchema = z.enum([
-  "problem",
-  "product",
-  "feature",
-  "outcome",
-]);
-
-export const SceneIdSchema = z.enum([
-  "scene-01",
-  "scene-02",
-  "scene-03",
-  "scene-04",
-]);
+export const BoxSchema = z.object({
+  x: z.number().min(-2).max(3).default(0.5),
+  y: z.number().min(-2).max(3).default(0.5),
+  width: z.number().gt(0).max(3).default(0.8),
+  height: z.number().gt(0).max(3).default(0.2),
+  rotation: z.number().min(-180).max(180).default(0),
+  opacity: z.number().min(0).max(1).default(1),
+});
 
 /**
- * Scene order is fixed and derivable from the id, but carried explicitly so a
- * scene is meaningful on its own in a tool result.
+ * Enter and exit animations.
+ *
+ * A closed set rather than freeform keyframes, because these are the moves that
+ * read on a short film and an agent choosing between eight named things gets it
+ * right far more often than one authoring easing curves. `none` is first so it
+ * is the honest default: a clip that should just be there does not animate.
  */
-export const SceneOrderSchema = z.union([
-  z.literal(1),
-  z.literal(2),
-  z.literal(3),
-  z.literal(4),
+export const TransitionSchema = z.enum([
+  "none",
+  "fade",
+  "rise",
+  "fall",
+  "slide-left",
+  "slide-right",
+  "scale",
+  "blur",
 ]);
+
+export const DEFAULT_ANIMATION: {
+  enter: z.infer<typeof TransitionSchema>;
+  exit: z.infer<typeof TransitionSchema>;
+  enterFrames: number;
+  exitFrames: number;
+} = {
+  enter: "none",
+  exit: "none",
+  enterFrames: 12,
+  exitFrames: 12,
+};
+
+export const AnimationSchema = z.object({
+  enter: TransitionSchema.default("none"),
+  exit: TransitionSchema.default("none"),
+  /** How long each transition runs. Clamped against the clip at render time. */
+  enterFrames: z.number().int().min(0).max(120).default(12),
+  exitFrames: z.number().int().min(0).max(120).default(12),
+});
+
+export const FontFamilySchema = z.enum(["display", "body", "mono"]);
+export const TextAlignSchema = z.enum(["left", "center", "right"]);
+export const FitSchema = z.enum(["cover", "contain", "fill"]);
+
+/**
+ * A path inside the project's own folder, e.g. `assets/logo.png`.
+ *
+ * Constrained hard because it is resolved against a `FileSystemDirectoryHandle`:
+ * no leading slash, no `..`, no backslashes. A composition can only ever refer
+ * to files inside its own directory, so opening someone's project cannot read
+ * anything else on their disk.
+ */
+export const AssetPathSchema = z
+  .string()
+  .min(1)
+  .max(200)
+  .regex(
+    /^[A-Za-z0-9][A-Za-z0-9._/-]*$/,
+    "must be a relative path inside the project folder",
+  )
+  .refine((value) => !value.includes(".."), {
+    message: "must not contain ..",
+  })
+  .refine((value) => !value.includes("//"), {
+    message: "must not contain //",
+  });
+
+// ---------------------------------------------------------------------------
+// Clips
+// ---------------------------------------------------------------------------
+
+const ClipBase = {
+  id: z.string().min(1).max(60),
+  /** First frame, relative to the composition. */
+  from: z.number().int().min(0).max(MAX_FRAMES),
+  durationInFrames: z.number().int().min(MIN_CLIP_FRAMES).max(MAX_FRAMES),
+  /**
+   * Agent work arrives as `draft` and a person clears it. The approval boundary
+   * lives per clip so a review is about one change rather than the whole film.
+   */
+  approval: z.enum(["accepted", "draft"]).default("draft"),
+  /** What the agent changed, and why. Shown next to the accept button. */
+  revisionNote: z.string().max(240).optional(),
+  label: z.string().max(60).optional(),
+};
+
+const VisualBase = {
+  ...ClipBase,
+  box: BoxSchema.default(DEFAULT_BOX),
+  animation: AnimationSchema.default(DEFAULT_ANIMATION),
+};
+
+export const TextClipSchema = z.object({
+  ...VisualBase,
+  kind: z.literal("text"),
+  text: z.string().min(1).max(MAX_TEXT_LENGTH),
+  /**
+   * Font size as a fraction of canvas HEIGHT, not pixels — the same reason the
+   * box is normalised. 0.08 is a caption, 0.16 a headline, 0.3 a hero word.
+   */
+  fontSize: z.number().gt(0).max(1).default(0.09),
+  fontFamily: FontFamilySchema.default("display"),
+  fontWeight: z.number().int().min(100).max(900).default(600),
+  color: ColorSchema.default("#FFFFFF"),
+  align: TextAlignSchema.default("center"),
+  lineHeight: z.number().min(0.6).max(3).default(1.1),
+  letterSpacing: z.number().min(-0.1).max(0.5).default(-0.02),
+});
+
+export const ShapeClipSchema = z.object({
+  ...VisualBase,
+  kind: z.literal("shape"),
+  shape: z.enum(["rect", "ellipse"]),
+  fill: ColorSchema.default("#FFFFFF"),
+  /** Corner radius as a fraction of the shape's smaller side. */
+  radius: z.number().min(0).max(0.5).default(0),
+});
+
+export const ImageClipSchema = z.object({
+  ...VisualBase,
+  kind: z.literal("image"),
+  src: AssetPathSchema,
+  fit: FitSchema.default("cover"),
+  radius: z.number().min(0).max(0.5).default(0),
+});
+
+export const VideoClipSchema = z.object({
+  ...VisualBase,
+  kind: z.literal("video"),
+  src: AssetPathSchema,
+  fit: FitSchema.default("cover"),
+  radius: z.number().min(0).max(0.5).default(0),
+  /** Where to start inside the source file. Trimming the head of a clip. */
+  startFrom: z.number().int().min(0).max(MAX_FRAMES).default(0),
+  volume: z.number().min(0).max(1).default(0),
+  playbackRate: z.number().min(0.25).max(4).default(1),
+});
+
+export const AudioClipSchema = z.object({
+  ...ClipBase,
+  kind: z.literal("audio"),
+  src: AssetPathSchema,
+  startFrom: z.number().int().min(0).max(MAX_FRAMES).default(0),
+  volume: z.number().min(0).max(1).default(1),
+  fadeInFrames: z.number().int().min(0).max(300).default(0),
+  fadeOutFrames: z.number().int().min(0).max(300).default(0),
+  playbackRate: z.number().min(0.25).max(4).default(1),
+});
+
+export const VisualClipSchema = z.discriminatedUnion("kind", [
+  TextClipSchema,
+  ShapeClipSchema,
+  ImageClipSchema,
+  VideoClipSchema,
+]);
+
+export const ClipSchema = z.discriminatedUnion("kind", [
+  TextClipSchema,
+  ShapeClipSchema,
+  ImageClipSchema,
+  VideoClipSchema,
+  AudioClipSchema,
+]);
+
+export const VISUAL_CLIP_KINDS = ["text", "shape", "image", "video"] as const;
+export const AUDIO_CLIP_KINDS = ["audio"] as const;
+
+// ---------------------------------------------------------------------------
+// Tracks
+// ---------------------------------------------------------------------------
+
+export const TrackKindSchema = z.enum(["visual", "audio"]);
+
+/**
+ * One row in the timeline.
+ *
+ * Clips within a track may not overlap — that is what a track *is*, one thing
+ * at a time in this lane. Overlapping two titles means putting them on two
+ * tracks, which is also how you decide which is in front.
+ */
+export const TrackSchema = z
+  .object({
+    id: z.string().min(1).max(60),
+    kind: TrackKindSchema,
+    name: z.string().min(1).max(40),
+    /** Hidden for visual tracks, muted for audio. One flag, two words. */
+    hidden: z.boolean().default(false),
+    locked: z.boolean().default(false),
+    /** Applied to every clip in the track. Audio tracks use it as a mixer fader. */
+    volume: z.number().min(0).max(1).default(1),
+    clips: z.array(ClipSchema).max(MAX_CLIPS_PER_TRACK).default([]),
+  })
+  .superRefine((track, ctx) => {
+    for (const clip of track.clips) {
+      const isAudio = clip.kind === "audio";
+      if (isAudio !== (track.kind === "audio")) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["clips"],
+          message: `a ${track.kind} track cannot hold a ${clip.kind} clip`,
+        });
+        return;
+      }
+    }
+
+    const sorted = [...track.clips].sort((a, b) => a.from - b.from);
+    for (let index = 1; index < sorted.length; index += 1) {
+      const previous = sorted[index - 1]!;
+      const current = sorted[index]!;
+      if (previous.from + previous.durationInFrames > current.from) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["clips"],
+          message: `clips "${previous.id}" and "${current.id}" overlap — put one on another track`,
+        });
+        return;
+      }
+    }
+  });
+
+// ---------------------------------------------------------------------------
+// Background
+// ---------------------------------------------------------------------------
+
+/**
+ * The one layer that always exists.
+ *
+ * Plain by design and never a clip: it spans the whole composition, it cannot
+ * be moved or deleted, and everything visual sits on top of it. Editable, but
+ * only in the ways a ground should be.
+ */
+export const BackgroundSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("solid"),
+    color: ColorSchema.default("#0A0A0C"),
+  }),
+  z.object({
+    kind: z.literal("gradient"),
+    from: ColorSchema.default("#0A0A0C"),
+    to: ColorSchema.default("#1B1B22"),
+    angle: z.number().min(0).max(360).default(160),
+  }),
+]);
+
+// ---------------------------------------------------------------------------
+// The file on disk
+// ---------------------------------------------------------------------------
+
+/**
+ * `.prismlaunch/<slug>/project.json`, in full.
+ *
+ * This is the contract between the agent and the app. It holds only what the
+ * film IS — no selection, no session history, nothing about the browser — so
+ * two people opening the same folder see the same film, and a diff of this file
+ * is a diff of the video.
+ */
+export const ProjectFileSchema = z
+  .object({
+    version: z
+      .literal(PROJECT_FILE_VERSION)
+      .describe(`File format version. Always ${PROJECT_FILE_VERSION}.`),
+    name: z.string().min(1).max(80).describe("Human-readable title."),
+    width: z.number().int().min(64).max(4096).default(DEFAULT_WIDTH),
+    height: z.number().int().min(64).max(4096).default(DEFAULT_HEIGHT),
+    fps: z.number().int().min(1).max(60).default(DEFAULT_FPS),
+    durationInFrames: z.number().int().min(1).max(MAX_FRAMES),
+    background: BackgroundSchema.default({ kind: "solid", color: "#0A0A0C" }),
+    tracks: z.array(TrackSchema).max(MAX_TRACKS).default([]),
+  })
+  .superRefine((project, ctx) => {
+    // Visual tracks must precede audio ones, so the array order IS the stacking
+    // order and the timeline can render the list top to bottom without sorting.
+    let seenAudio = false;
+    project.tracks.forEach((track, index) => {
+      if (track.kind === "audio") seenAudio = true;
+      else if (seenAudio) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["tracks", index],
+          message:
+            "visual tracks must come before audio tracks — the array order is the stacking order",
+        });
+      }
+    });
+
+    const ids = new Set<string>();
+    for (const track of project.tracks) {
+      if (ids.has(track.id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["tracks"],
+          message: `duplicate track id "${track.id}"`,
+        });
+      }
+      ids.add(track.id);
+
+      for (const clip of track.clips) {
+        if (ids.has(clip.id)) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["tracks"],
+            message: `duplicate clip id "${clip.id}"`,
+          });
+        }
+        ids.add(clip.id);
+
+        if (clip.from + clip.durationInFrames > project.durationInFrames) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["tracks"],
+            message: `clip "${clip.id}" ends at frame ${clip.from + clip.durationInFrames}, past the composition's ${project.durationInFrames}`,
+          });
+        }
+      }
+    }
+  });
+
+/**
+ * A composition as the app holds it: the file, plus where it came from and what
+ * is selected. The extra fields never reach disk — see `toProjectFile`.
+ */
+export const FilmProjectSchema = z.object({
+  file: ProjectFileSchema,
+  /** The folder under `.prismlaunch` this was read from. */
+  slug: z.string(),
+  /** Track or clip id. Null when nothing is selected. */
+  selectedId: z.string().nullable(),
+  activity: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        origin: z.enum(["human", "agent", "disk"]),
+        label: z.string().min(1).max(120),
+        detail: z.string().max(240),
+        at: z.string().min(1).max(40),
+        blocked: z.boolean().optional(),
+      }),
+    )
+    .max(200),
+});
 
 /**
  * A project's folder name under `.prismlaunch`, and its identity everywhere.
@@ -121,181 +479,6 @@ export const SlugSchema = z
     /^[a-z0-9][a-z0-9-]*$/,
     "use lowercase letters, digits and dashes, starting with a letter or digit",
   );
-
-// ---------------------------------------------------------------------------
-// Leaf objects
-// ---------------------------------------------------------------------------
-
-const HEX = /^#[0-9a-fA-F]{6}$/;
-
-export const PaletteSchema = z.object({
-  background: z.string().regex(HEX, "expected a 6-digit hex colour"),
-  primary: z.string().regex(HEX, "expected a 6-digit hex colour"),
-  accent: z.string().regex(HEX, "expected a 6-digit hex colour"),
-  text: z.string().regex(HEX, "expected a 6-digit hex colour"),
-});
-
-/**
- * What the spotlight scene is about.
- *
- * `visualTokens` are short words the renderer arranges into a suggestion of an
- * interface — "command", "search", "results" draws something palette-shaped.
- * They are decoration, not a screenshot, and the film never claims otherwise.
- */
-export const FeatureSchema = z.object({
-  label: z.string().min(1).max(40),
-  visualTokens: z.array(z.string().min(1).max(24)).max(6).default([]),
-});
-
-export const ProductSchema = z.object({
-  name: z.string().min(1).max(60),
-  description: z.string().max(300).default(""),
-});
-
-export const BriefSchema = z.object({
-  promise: z.string().min(1).max(160),
-  artDirection: ArtDirectionSchema,
-});
-
-/**
- * The session log. Not written to disk — it describes what happened in this
- * tab, not what the film is. The file is the film; this is the account of who
- * touched it while you were watching.
- */
-export const ActivityEventSchema = z.object({
-  id: z.string().min(1),
-  origin: z.enum(["human", "agent", "disk"]),
-  /** Tool name for agent events, plain label for the others. */
-  label: z.string().min(1).max(120),
-  detail: z.string().max(240),
-  at: z.string().min(1).max(40),
-  sceneId: SceneIdSchema.optional(),
-  /** A proposal the agent cannot carry out alone — e.g. a render request. */
-  blocked: z.boolean().optional(),
-});
-
-// ---------------------------------------------------------------------------
-// Scene
-// ---------------------------------------------------------------------------
-
-export const SceneSchema = z.object({
-  id: SceneIdSchema,
-  order: SceneOrderSchema,
-  template: SceneTemplateSchema,
-  durationFrames: z
-    .number()
-    .int()
-    .min(MIN_SCENE_FRAMES)
-    .max(MAX_SCENE_FRAMES),
-  headline: z.string().min(1).max(HEADLINE_MAX),
-  body: z.string().max(BODY_MAX).optional(),
-  /** Required on `feature-spotlight`, meaningless elsewhere. */
-  feature: FeatureSchema.optional(),
-  motionPreset: MotionPresetSchema,
-  emphasis: EmphasisSchema,
-  approval: ApprovalStateSchema,
-  /** What the agent changed. Present only while `approval === "draft"`. */
-  revisionNote: z.string().max(240).optional(),
-  /** Kept so "Keep current" can restore, and so the diff is showable. */
-  previousHeadline: z.string().max(HEADLINE_MAX).optional(),
-});
-
-/**
- * The fixed four-scene structure.
- *
- * Constraint is what makes the output good, and it is most of what PrismLaunch
- * contributes now that the agent writes the words: exactly four scenes, in a
- * fixed template order, totalling 16–22 seconds. There is no reordering and no
- * fifth scene. An agent that tries to write a nine-minute slideshow gets a
- * validation error naming the rule it broke.
- */
-export const SceneGraphSchema = z
-  .array(SceneSchema)
-  .length(4)
-  .superRefine((scenes, ctx) => {
-    const EXPECTED: ReadonlyArray<{
-      id: string;
-      order: number;
-      template: string;
-    }> = [
-      { id: "scene-01", order: 1, template: "kinetic-type" },
-      { id: "scene-02", order: 2, template: "product-reveal" },
-      { id: "scene-03", order: 3, template: "feature-spotlight" },
-      { id: "scene-04", order: 4, template: "outcome-cta" },
-    ];
-
-    EXPECTED.forEach((expected, index) => {
-      const scene = scenes[index];
-      if (!scene) return;
-      if (scene.id !== expected.id || scene.order !== expected.order) {
-        ctx.addIssue({
-          code: "custom",
-          path: [index, "id"],
-          message: `scene ${index + 1} must be ${expected.id} with order ${expected.order}`,
-        });
-      }
-      if (scene.template !== expected.template) {
-        ctx.addIssue({
-          code: "custom",
-          path: [index, "template"],
-          message: `${expected.id} must use the ${expected.template} template`,
-        });
-      }
-    });
-
-    // The spotlight scene is the only one that needs more than words.
-    const spotlight = scenes[2];
-    if (spotlight && spotlight.template === "feature-spotlight" && !spotlight.feature) {
-      ctx.addIssue({
-        code: "custom",
-        path: [2, "feature"],
-        message:
-          "scene-03 needs a feature: { label, visualTokens } naming what it shows",
-      });
-    }
-
-    const seconds = scenes.reduce((sum, s) => sum + s.durationFrames, 0) / FPS;
-    if (seconds < MIN_FILM_SECONDS || seconds > MAX_FILM_SECONDS) {
-      ctx.addIssue({
-        code: "custom",
-        path: [],
-        message: `film must run ${MIN_FILM_SECONDS}–${MAX_FILM_SECONDS}s, got ${seconds.toFixed(1)}s`,
-      });
-    }
-  });
-
-// ---------------------------------------------------------------------------
-// The file on disk
-// ---------------------------------------------------------------------------
-
-/**
- * `.prismlaunch/<slug>/project.json`, in full.
- *
- * This is the contract between the agent and the app. It holds only what the
- * film IS — no selection state, no session history, nothing about the browser
- * — so two people opening the same folder see the same film, and a diff of
- * this file is a diff of the video.
- */
-export const ProjectFileSchema = z.object({
-  version: z
-    .literal(PROJECT_FILE_VERSION)
-    .describe("File format version. Always 1."),
-  name: z.string().min(1).max(80).describe("Human-readable title for the film."),
-  product: ProductSchema,
-  brief: BriefSchema,
-  scenes: SceneGraphSchema,
-});
-
-/**
- * A film as the app holds it: the file, plus where it came from and what is
- * selected. The extra fields never reach disk — see `toProjectFile`.
- */
-export const FilmProjectSchema = ProjectFileSchema.extend({
-  /** The folder under `.prismlaunch` this was read from. */
-  slug: SlugSchema,
-  activeSceneId: SceneIdSchema,
-  activity: z.array(ActivityEventSchema).max(200),
-});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -329,151 +512,3 @@ export function explainZodError(error: z.ZodError): string {
     })
     .join("; ");
 }
-
-// ---------------------------------------------------------------------------
-// WebMCP tool inputs
-// ---------------------------------------------------------------------------
-
-/**
- * One schema per tool. These drive both the `inputSchema` an agent sees
- * (via `toolInputJsonSchema`) and the runtime `.parse()` inside each executor.
- *
- * `.describe()` matters more than usual here: it becomes the JSON Schema
- * description the model reads when deciding how to call the tool, so it is the
- * cheapest place to prevent a malformed call.
- */
-
-export const EmptyInput = z.object({});
-
-export const OpenProjectInput = z.object({
-  slug: SlugSchema.describe(
-    "Folder name under .prismlaunch, as listed by get_project_context.",
-  ),
-});
-
-export const CreateProjectInput = z.object({
-  slug: SlugSchema.describe(
-    "Folder name to create under .prismlaunch, e.g. 'vector-launch'.",
-  ),
-  name: z
-    .string()
-    .min(1)
-    .max(80)
-    .describe("Human-readable title, e.g. 'Vector launch video'."),
-  productName: z.string().min(1).max(60).describe("What the product is called."),
-  productDescription: z
-    .string()
-    .max(300)
-    .optional()
-    .describe("One or two sentences on what the product does."),
-  promise: z
-    .string()
-    .min(1)
-    .max(160)
-    .describe("The one sentence the film has to land."),
-  artDirection: ArtDirectionSchema.optional().describe(
-    "Visual treatment. Defaults to minimal-dark.",
-  ),
-});
-
-/** A scene as an agent submits it — no approval state; the app decides that. */
-const SceneDraftInput = z.object({
-  headline: z
-    .string()
-    .min(1)
-    .max(HEADLINE_MAX)
-    .describe(`The scene's main line. At most ${HEADLINE_MAX} characters.`),
-  body: z
-    .string()
-    .max(BODY_MAX)
-    .optional()
-    .describe(`Optional supporting line. At most ${BODY_MAX} characters.`),
-  durationFrames: z
-    .number()
-    .int()
-    .min(MIN_SCENE_FRAMES)
-    .max(MAX_SCENE_FRAMES)
-    .describe(
-      `How long the scene runs, in frames at ${FPS}fps. ${MIN_SCENE_FRAMES}–${MAX_SCENE_FRAMES}. The four must total ${MIN_FILM_SECONDS}–${MAX_FILM_SECONDS} seconds.`,
-    ),
-  motionPreset: MotionPresetSchema.describe(
-    "drift is slow and premium, snap is decisive, orbit is playful.",
-  ),
-  emphasis: EmphasisSchema,
-  feature: FeatureSchema.optional().describe(
-    "Required on scene-03 only: what the spotlight shows.",
-  ),
-});
-
-export const WriteStoryboardInput = z.object({
-  scenes: z
-    .tuple([
-      SceneDraftInput,
-      SceneDraftInput,
-      SceneDraftInput,
-      SceneDraftInput,
-    ])
-    .describe(
-      "All four scenes in order: the hook, the product reveal, one feature, the outcome.",
-    ),
-  note: z
-    .string()
-    .max(240)
-    .optional()
-    .describe("One sentence on your approach. Shown to the human."),
-});
-
-export const ReviseSceneInput = z.object({
-  sceneId: SceneIdSchema.describe("Which scene to revise."),
-  headline: z
-    .string()
-    .min(1)
-    .max(HEADLINE_MAX)
-    .optional()
-    .describe(`The scene's main line. At most ${HEADLINE_MAX} characters.`),
-  body: z
-    .string()
-    .max(BODY_MAX)
-    .optional()
-    .describe(`Optional supporting line. At most ${BODY_MAX} characters.`),
-  feature: FeatureSchema.optional().describe(
-    "Only meaningful on the feature-spotlight scene.",
-  ),
-  motionPreset: MotionPresetSchema.optional(),
-  emphasis: EmphasisSchema.optional(),
-  revisionNote: z
-    .string()
-    .min(1)
-    .max(240)
-    .describe("One sentence on what you changed and why. Shown to the human."),
-});
-
-export const FocusSceneInput = z.object({
-  sceneId: SceneIdSchema.describe("Which of the four scenes to select."),
-});
-
-export const PreviewInput = z.object({
-  mode: z
-    .enum(["scene", "film"])
-    .default("film")
-    .describe("Play just the active scene, or the whole board."),
-  sceneId: SceneIdSchema.optional().describe(
-    "Scene to play. Required when mode is 'scene'.",
-  ),
-});
-
-export const RequestRenderInput = z.object({
-  reason: z
-    .string()
-    .max(200)
-    .optional()
-    .describe("Why you think the film is ready. Shown to the human."),
-});
-
-export const ConfirmRenderInput = z.object({
-  confirmationId: z
-    .string()
-    .min(1)
-    .max(120)
-    .describe("The id request_render returned. Only works once a human approves it."),
-});

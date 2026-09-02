@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ProjectEntry, Workspace } from "@/lib/workspace/fs";
-import type { FilmProject, SceneId } from "@/types/prism";
+import type { FilmProject } from "@/types/prism";
 
 /**
  * The studio store: state and setters ONLY.
@@ -14,13 +14,21 @@ import type { FilmProject, SceneId } from "@/types/prism";
  * Everything here is a *view of a folder*. The film lives in
  * `.prismlaunch/<slug>/project.json` on the person's disk; this store holds
  * what was last read from it plus the things that are true only of this tab —
- * which scene is selected, what is playing, what the agent has proposed. None
- * of that is written back.
+ * selection, the playhead, timeline zoom, what the agent has proposed. None of
+ * that is written back.
  */
 
-export type PlaybackMode =
-  | { kind: "scene"; sceneId: SceneId }
-  | { kind: "film" };
+/**
+ * Timeline view state.
+ *
+ * `pixelsPerSecond` is the zoom, and it lives here rather than in the timeline
+ * component because the ruler, the tracks, the clips and the playhead all have
+ * to agree about it — a local `useState` would mean four components computing
+ * the same number and one of them being wrong after a resize.
+ */
+export const MIN_ZOOM = 12;
+export const MAX_ZOOM = 320;
+export const DEFAULT_ZOOM = 60;
 
 /**
  * How the app stands in relation to a folder.
@@ -56,9 +64,19 @@ export type StudioState = {
   pendingRender: PendingRender | null;
   /** Last render outcome, shown under the Export button. */
   renderNote: string | null;
-  /** Bumped to restart the preview from the top of the current scene. */
-  playToken: number;
-  playback: PlaybackMode;
+
+  /** Object URLs for `assets/*` files, keyed by the path a clip refers to. */
+  assets: Readonly<Record<string, string>>;
+  /** Paths a clip refers to that are not in the folder. Reported, not fatal. */
+  missingAssets: readonly string[];
+
+  /** The frame the playhead is on. Shared by the timeline and the player. */
+  playhead: number;
+  playing: boolean;
+  /** Timeline zoom, in pixels per second of film. */
+  pixelsPerSecond: number;
+  /** Snap clip edges to other clips and the playhead while dragging. */
+  snap: boolean;
 
   setWorkspace: (workspace: WorkspaceState) => void;
   setProjects: (projects: ProjectEntry[]) => void;
@@ -67,8 +85,14 @@ export type StudioState = {
   closeProject: () => void;
   setPendingRender: (pending: PendingRender | null) => void;
   setRenderNote: (note: string | null) => void;
-  setPlayback: (playback: PlaybackMode) => void;
-  bumpPlayToken: () => void;
+  setAssets: (
+    assets: Readonly<Record<string, string>>,
+    missing: readonly string[],
+  ) => void;
+  setPlayhead: (frame: number) => void;
+  setPlaying: (playing: boolean) => void;
+  setZoom: (pixelsPerSecond: number) => void;
+  setSnap: (snap: boolean) => void;
 };
 
 export const useStudioStore = create<StudioState>((set) => ({
@@ -78,8 +102,12 @@ export const useStudioStore = create<StudioState>((set) => ({
   loadError: null,
   pendingRender: null,
   renderNote: null,
-  playToken: 0,
-  playback: { kind: "film" },
+  assets: {},
+  missingAssets: [],
+  playhead: 0,
+  playing: false,
+  pixelsPerSecond: DEFAULT_ZOOM,
+  snap: true,
 
   setWorkspace: (workspace) => set({ workspace }),
   setProjects: (projects) =>
@@ -98,12 +126,21 @@ export const useStudioStore = create<StudioState>((set) => ({
       loadError: null,
       pendingRender: null,
       renderNote: null,
-      playback: { kind: "film" },
+      assets: {},
+      missingAssets: [],
+      playhead: 0,
+      playing: false,
     }),
   setPendingRender: (pendingRender) => set({ pendingRender }),
   setRenderNote: (renderNote) => set({ renderNote }),
-  setPlayback: (playback) => set({ playback }),
-  bumpPlayToken: () => set((state) => ({ playToken: state.playToken + 1 })),
+  setAssets: (assets, missingAssets) => set({ assets, missingAssets }),
+  setPlayhead: (playhead) => set({ playhead: Math.max(0, Math.round(playhead)) }),
+  setPlaying: (playing) => set({ playing }),
+  setZoom: (pixelsPerSecond) =>
+    set({
+      pixelsPerSecond: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pixelsPerSecond)),
+    }),
+  setSnap: (snap) => set({ snap }),
 }));
 
 /**
@@ -125,7 +162,8 @@ export function resetStudio(): void {
   useStudioStore.getState().closeProject();
   useStudioStore.setState({
     workspace: { kind: "checking" },
-    playToken: 0,
+    pixelsPerSecond: DEFAULT_ZOOM,
+    snap: true,
   });
 }
 

@@ -59,9 +59,9 @@ export function StartScreen() {
             Give this to your agent
           </h1>
           <p className="mt-2 text-center text-sm leading-[var(--ds-leading-body)] text-muted">
-            PrismLaunch turns a four-scene storyboard into an eighteen-second
-            launch film. Your agent writes it; this page renders it, and you
-            decide what ships.
+            A video canvas with a layer timeline, driven by your agent. It
+            writes the layers; this page renders them, and you decide what
+            ships.
           </p>
         </header>
 
@@ -191,10 +191,10 @@ function LinkPrompt({ busy, onLink }: { busy: boolean; onLink: () => void }) {
         Link project folder
       </Button>
       <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
-        Choose the repository you and your agent are working in. Films are kept
-        in <code className="font-mono">{WORKSPACE_DIR}/</code> inside it, one
-        folder per video. Your agent cannot open this picker — browsers only
-        show it for a real click.
+        Choose the repository you and your agent are working in. Compositions
+        are kept in <code className="font-mono">{WORKSPACE_DIR}/</code> inside
+        it, one folder per video. Your agent cannot open this picker — browsers
+        only show it for a real click.
       </p>
     </div>
   );
@@ -231,12 +231,7 @@ function Linked({
   busy: boolean;
   projects: ProjectEntry[];
   onOpen: (slug: string) => void;
-  onCreate: (inputs: {
-    slug: string;
-    name: string;
-    productName: string;
-    promise: string;
-  }) => void;
+  onCreate: (inputs: { slug: string; name: string }) => void;
   onRelink: () => void;
 }) {
   const [creating, setCreating] = useState(false);
@@ -276,8 +271,8 @@ function Linked({
       ) : (
         <p className="text-center text-sm leading-[var(--ds-leading-body)] text-muted">
           Nothing in <code className="font-mono">{WORKSPACE_DIR}/</code> yet.
-          Ask your agent to start a film, or make an empty one and let it fill
-          the scenes in.
+          Ask your agent to start one, or make an empty canvas and let it build
+          on that.
         </p>
       )}
 
@@ -293,7 +288,7 @@ function Linked({
           onClick={() => setCreating(true)}
           icon={<Plus size={15} strokeWidth={2} aria-hidden />}
         >
-          New film
+          New composition
         </Button>
       )}
 
@@ -308,7 +303,7 @@ function Linked({
   );
 }
 
-/** Folder names come from titles, so nobody has to think about slugs. */
+/** Folder names come from the title, so nobody has to think about slugs. */
 function slugify(name: string): string {
   return name
     .toLowerCase()
@@ -324,44 +319,28 @@ function NewProjectForm({
 }: {
   busy: boolean;
   onCancel: () => void;
-  onCreate: (inputs: {
-    slug: string;
-    name: string;
-    productName: string;
-    promise: string;
-  }) => void;
+  onCreate: (inputs: { slug: string; name: string }) => void;
 }) {
-  const [productName, setProductName] = useState("");
-  const [promise, setPromise] = useState("");
+  const [title, setTitle] = useState("");
 
-  const name = productName ? `${productName} launch video` : "";
-  const slug = slugify(name);
-  const ready = slug.length > 0 && promise.trim().length > 0;
+  const slug = slugify(title);
+  const ready = slug.length > 0;
 
   return (
     <form
       className="ds-level flex flex-col gap-3 rounded-sm p-3.5"
       onSubmit={(event) => {
         event.preventDefault();
-        if (ready) {
-          onCreate({ slug, name, productName, promise: promise.trim() });
-        }
+        if (ready) onCreate({ slug, name: title.trim() });
       }}
     >
       <TextInput
-        value={productName}
-        onChange={(e) => setProductName(e.target.value)}
-        placeholder="Product name"
-        aria-label="Product name"
-        maxLength={60}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Vector launch video"
+        aria-label="Composition name"
+        maxLength={80}
         autoFocus
-      />
-      <TextInput
-        value={promise}
-        onChange={(e) => setPromise(e.target.value)}
-        placeholder="The one sentence the film has to land"
-        aria-label="Promise"
-        maxLength={160}
       />
 
       {slug ? (
@@ -371,14 +350,14 @@ function NewProjectForm({
       ) : null}
 
       <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">
-        This writes four empty scenes for your agent to fill. PrismLaunch does
-        not write the copy — it has no model, and no idea what your product
-        does.
+        An empty fifteen-second canvas with one visual layer and one audio
+        layer. PrismLaunch writes no content — it has no model, and no idea what
+        your product does.
       </p>
 
       <div className="flex gap-2">
         <Button type="submit" variant="primary" disabled={!ready} loading={busy}>
-          Create film
+          Create composition
         </Button>
         <Button type="button" variant="quiet" onClick={onCancel}>
           Cancel

@@ -1,107 +1,187 @@
 import { interpolate, spring } from "remotion";
-import type { MotionPreset } from "@/types/prism";
+import type { Animation, Box, Transition } from "@/types/prism";
 
 /**
- * The three motion presets, as actual differences in how things enter.
+ * How a clip enters and leaves.
  *
- * Everything is driven from `frame` — no CSS animations, no timers, no
- * randomness — because Remotion renders by seeking to arbitrary frames rather
- * than playing forward. An animation that depends on wall-clock time produces
- * a preview and an export that disagree
- * (context/code-standards.md §Remotion conventions).
+ * Every transition is expressed as a CSS transform plus opacity, so the same
+ * eight names work on text, a shape, an image or a video without each clip type
+ * knowing anything about animation. The renderer asks for a style and applies
+ * it; nothing branches on clip kind.
+ *
+ * Enter and exit are computed independently and multiplied together, which is
+ * what makes a clip shorter than its own transitions degrade gracefully rather
+ * than flicker: both curves are clamped to the clip, so a 6-frame clip with a
+ * 12-frame fade simply fades faster.
  */
 
-export type EnterStyle = {
+export type ClipStyle = {
   opacity: number;
   transform: string;
+  filter?: string;
 };
 
-type EnterArgs = {
-  frame: number;
-  fps: number;
-  preset: MotionPreset;
-  /** Frames to wait before this element starts moving. */
-  delay?: number;
+/** Distance travelled by the sliding transitions, as a fraction of the canvas. */
+const TRAVEL = 0.08;
+
+type Phase = {
+  /** 0 at the start of the transition, 1 when it is complete. */
+  progress: number;
+  /** `enter` runs forwards, `exit` runs backwards. */
+  direction: 1 | -1;
 };
 
-export function enter({
-  frame,
-  fps,
-  preset,
-  delay = 0,
-}: EnterArgs): EnterStyle {
-  const local = frame - delay;
+function styleFor(transition: Transition, phase: Phase): ClipStyle {
+  const { progress, direction } = phase;
+  // How far from "settled" we are: 0 when the clip is fully on screen.
+  const away = 1 - progress;
+  const sign = direction;
 
-  if (preset === "snap") {
-    // Decisive: a stiff spring, almost no travel, quick opacity.
-    const progress = spring({
-      frame: local,
-      fps,
-      config: { damping: 26, stiffness: 220, mass: 0.6 },
-      durationInFrames: 18,
-    });
-    return {
-      opacity: interpolate(local, [0, 5], [0, 1], {
-        extrapolateLeft: "clamp",
-        extrapolateRight: "clamp",
-      }),
-      transform: `translateY(${interpolate(progress, [0, 1], [14, 0])}px)`,
-    };
+  switch (transition) {
+    case "none":
+      return { opacity: 1, transform: "" };
+    case "fade":
+      return { opacity: progress, transform: "" };
+    case "rise":
+      return {
+        opacity: progress,
+        transform: `translateY(${away * TRAVEL * 100 * sign}%)`,
+      };
+    case "fall":
+      return {
+        opacity: progress,
+        transform: `translateY(${-away * TRAVEL * 100 * sign}%)`,
+      };
+    case "slide-left":
+      return {
+        opacity: progress,
+        transform: `translateX(${away * TRAVEL * 100 * sign}%)`,
+      };
+    case "slide-right":
+      return {
+        opacity: progress,
+        transform: `translateX(${-away * TRAVEL * 100 * sign}%)`,
+      };
+    case "scale":
+      return {
+        opacity: progress,
+        transform: `scale(${1 - away * 0.12})`,
+      };
+    case "blur":
+      return {
+        opacity: progress,
+        transform: "",
+        filter: `blur(${away * 14}px)`,
+      };
   }
+}
 
-  if (preset === "orbit") {
-    // Playful: arrives on a slight arc with a touch of rotation and scale.
-    const progress = spring({
-      frame: local,
-      fps,
-      config: { damping: 14, stiffness: 90, mass: 0.9 },
-      durationInFrames: 34,
-    });
-    return {
-      opacity: interpolate(local, [0, 10], [0, 1], {
-        extrapolateLeft: "clamp",
-        extrapolateRight: "clamp",
-      }),
-      transform: [
-        `translateY(${interpolate(progress, [0, 1], [26, 0])}px)`,
-        `rotate(${interpolate(progress, [0, 1], [-3.2, 0])}deg)`,
-        `scale(${interpolate(progress, [0, 1], [0.94, 1])})`,
-      ].join(" "),
-    };
-  }
+/**
+ * The style for one clip at one frame.
+ *
+ * `frame` is relative to the clip, not the composition — Remotion's
+ * `<Sequence>` already rebases it, and doing the subtraction here as well is
+ * the classic way to get an animation that plays at the wrong time.
+ */
+export function clipStyle(
+  animation: Animation,
+  box: Box,
+  frame: number,
+  durationInFrames: number,
+  fps: number,
+): ClipStyle {
+  // Never let a transition run longer than the clip it belongs to, and never
+  // let enter and exit overlap — each gets at most half.
+  const half = durationInFrames / 2;
+  const enterFrames = Math.min(animation.enterFrames, half);
+  const exitFrames = Math.min(animation.exitFrames, half);
 
-  // drift — slow, floating, premium. Eased rather than sprung.
-  const progress = interpolate(local, [0, 26], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: (t) => 1 - Math.pow(1 - t, 3),
+  const enterProgress =
+    animation.enter === "none" || enterFrames <= 0
+      ? 1
+      : spring({
+          frame,
+          fps,
+          durationInFrames: enterFrames,
+          config: { damping: 200 },
+        });
+
+  const exitStart = durationInFrames - exitFrames;
+  const exitProgress =
+    animation.exit === "none" || exitFrames <= 0
+      ? 1
+      : interpolate(frame, [exitStart, durationInFrames], [1, 0], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        });
+
+  const entering = styleFor(animation.enter, {
+    progress: enterProgress,
+    direction: 1,
   });
+  const leaving = styleFor(animation.exit, {
+    progress: exitProgress,
+    direction: -1,
+  });
+
+  const transforms = [
+    entering.transform,
+    leaving.transform,
+    box.rotation !== 0 ? `rotate(${box.rotation}deg)` : "",
+  ].filter(Boolean);
+
+  const filters = [entering.filter, leaving.filter].filter(Boolean);
+
   return {
-    opacity: interpolate(local, [0, 18], [0, 1], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    }),
-    transform: `translateY(${interpolate(progress, [0, 1], [22, 0])}px)`,
+    opacity: entering.opacity * leaving.opacity * box.opacity,
+    transform: transforms.join(" "),
+    ...(filters.length > 0 ? { filter: filters.join(" ") } : {}),
   };
 }
 
 /**
- * A slow push on the whole frame, so a static scene never feels frozen.
- * Deliberately subtle — this reads as production value, not as an effect.
+ * A clip's box as absolute CSS.
+ *
+ * The box is normalised and centre-anchored, so this is where that becomes
+ * pixels: percentages plus a -50% translate. Kept separate from `clipStyle`
+ * because layout does not change per frame and animation does.
  */
-export function ambientScale(frame: number, durationInFrames: number): number {
-  return interpolate(frame, [0, durationInFrames], [1, 1.035], {
-    extrapolateRight: "clamp",
-  });
+export function boxStyle(box: Box): React.CSSProperties {
+  return {
+    position: "absolute",
+    left: `${box.x * 100}%`,
+    top: `${box.y * 100}%`,
+    width: `${box.width * 100}%`,
+    height: `${box.height * 100}%`,
+    marginLeft: `${-box.width * 50}%`,
+    marginTop: `${-box.height * 50}%`,
+  };
 }
 
-/** Character-by-character reveal used by the spotlight's typed query. */
-export function typedLength(
+/** Linear ramp used by the audio fades, in gain rather than pixels. */
+export function fadeGain(
   frame: number,
-  total: number,
-  startFrame: number,
-  framesPerChar: number,
+  durationInFrames: number,
+  fadeInFrames: number,
+  fadeOutFrames: number,
 ): number {
-  if (frame < startFrame) return 0;
-  return Math.min(total, Math.floor((frame - startFrame) / framesPerChar));
+  const rampIn =
+    fadeInFrames > 0
+      ? interpolate(frame, [0, fadeInFrames], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })
+      : 1;
+
+  const rampOut =
+    fadeOutFrames > 0
+      ? interpolate(
+          frame,
+          [durationInFrames - fadeOutFrames, durationInFrames],
+          [1, 0],
+          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+        )
+      : 1;
+
+  return rampIn * rampOut;
 }

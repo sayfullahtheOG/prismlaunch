@@ -1,89 +1,72 @@
 import { Composition } from "remotion";
-import { FPS } from "@/lib/studio/schema";
-import { totalFrames } from "@/lib/studio/timing";
-import type { Scene } from "@/types/prism";
-import { LaunchFilm, type LaunchFilmProps } from "./LaunchFilm";
+import { DEFAULT_ANIMATION, DEFAULT_BOX, PROJECT_FILE_VERSION } from "@/lib/studio/schema";
+import type { ProjectFile } from "@/types/prism";
+import { Film, type FilmProps } from "./Film";
 
 /**
- * Registers the single composition. 960×540 at 24fps, per the spec.
- *
- * Duration is derived from the passed scene graph rather than hardcoded, so a
- * board someone has re-timed renders at its real length.
+ * Registers the single composition. Size and duration come from the file, so a
+ * composition someone re-timed renders at its real length.
  *
  * `defaultProps` is a fixture — `npx remotion studio` needs something on screen
  * to open on, and nothing in the app reads it. It is the only invented film in
  * the codebase, and it lives here rather than in lib/ so it cannot be mistaken
- * for content the product ships. Real films come from a person's own
+ * for content the product ships. Real compositions come from a person's own
  * `.prismlaunch/<slug>/project.json`.
  */
-
-const FIXTURE: Scene[] = [
-  {
-    id: "scene-01",
-    order: 1,
-    template: "kinetic-type",
-    durationFrames: 84,
-    headline: "Most tools make you click. A lot.",
-    body: "Six clicks to assign an issue. Every time.",
-    motionPreset: "drift",
-    emphasis: "problem",
-    approval: "accepted",
-  },
-  {
-    id: "scene-02",
-    order: 2,
-    template: "product-reveal",
-    durationFrames: 108,
-    headline: "Vector",
-    body: "An issue tracker you drive from the keyboard.",
-    motionPreset: "snap",
-    emphasis: "product",
-    approval: "accepted",
-  },
-  {
-    id: "scene-03",
-    order: 3,
-    template: "feature-spotlight",
-    durationFrames: 132,
-    headline: "Meet the command palette.",
-    feature: {
-      label: "Command palette",
-      visualTokens: ["Assign to me", "Move to cycle", "Add to project"],
+const FIXTURE: ProjectFile = {
+  version: PROJECT_FILE_VERSION,
+  name: "Studio fixture",
+  width: 1920,
+  height: 1080,
+  fps: 30,
+  durationInFrames: 150,
+  background: { kind: "gradient", from: "#0A0A0C", to: "#1B1B22", angle: 160 },
+  tracks: [
+    {
+      id: "track-1",
+      kind: "visual",
+      name: "Titles",
+      hidden: false,
+      locked: false,
+      volume: 1,
+      clips: [
+        {
+          kind: "text",
+          id: "clip-1",
+          from: 10,
+          durationInFrames: 130,
+          approval: "accepted",
+          text: "A free canvas.",
+          fontSize: 0.14,
+          fontFamily: "display",
+          fontWeight: 400,
+          color: "#F5F5F7",
+          align: "center",
+          lineHeight: 1.1,
+          letterSpacing: -0.02,
+          box: { ...DEFAULT_BOX },
+          animation: { ...DEFAULT_ANIMATION, enter: "rise", exit: "fade" },
+        },
+      ],
     },
-    motionPreset: "drift",
-    emphasis: "feature",
-    approval: "accepted",
-  },
-  {
-    id: "scene-04",
-    order: 4,
-    template: "outcome-cta",
-    durationFrames: 108,
-    headline: "The fast path, by default.",
-    body: "vector.app",
-    motionPreset: "snap",
-    emphasis: "outcome",
-    approval: "accepted",
-  },
-];
+  ],
+};
 
 export function RemotionRoot() {
   return (
     <Composition
-      id="LaunchFilm"
-      component={LaunchFilm}
-      fps={FPS}
-      width={960}
-      height={540}
-      durationInFrames={totalFrames(FIXTURE)}
-      defaultProps={
-        {
-          scenes: FIXTURE,
-          artDirection: "minimal-dark",
-        } satisfies LaunchFilmProps
-      }
-      calculateMetadata={({ props }) => ({
-        durationInFrames: totalFrames(props.scenes),
+      id="Film"
+      component={Film}
+      fps={FIXTURE.fps}
+      width={FIXTURE.width}
+      height={FIXTURE.height}
+      durationInFrames={FIXTURE.durationInFrames}
+      defaultProps={{ file: FIXTURE, assets: {} } satisfies FilmProps}
+      calculateMetadata={({ props }: { props: FilmProps }) => ({
+        durationInFrames: props.file.durationInFrames,
+        fps: props.file.fps,
+        width: props.file.width,
+        height: props.file.height,
       })}
     />
   );

@@ -1,13 +1,13 @@
 /** Shared so the rail and the shell cannot disagree about the tab set. */
-export type RailTab = "scenes" | "look" | "folder" | "agent";
+export type RailTab = "layers" | "canvas" | "folder" | "agent";
 
 export const RAIL_TABS: ReadonlyArray<{
   id: RailTab;
   label: string;
-  icon: "Clapperboard" | "Palette" | "FolderOpen" | "Sparkles";
+  icon: "Layers" | "Frame" | "FolderOpen" | "Sparkles";
 }> = [
-  { id: "scenes", label: "Scenes", icon: "Clapperboard" },
-  { id: "look", label: "Look", icon: "Palette" },
+  { id: "layers", label: "Layers", icon: "Layers" },
+  { id: "canvas", label: "Canvas", icon: "Frame" },
   { id: "folder", label: "Folder", icon: "FolderOpen" },
   { id: "agent", label: "Agent", icon: "Sparkles" },
 ];

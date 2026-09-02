@@ -30,9 +30,7 @@ export type RenderCapability =
   | { ok: true }
   | { ok: false; reason: string };
 
-const WIDTH = 960;
-const HEIGHT = 540;
-const FPS = 24;
+
 
 /**
  * Ask the browser whether it can actually encode this, rather than assuming.
@@ -51,9 +49,8 @@ export async function probeRenderSupport(): Promise<RenderCapability> {
     const result = await canRenderMediaOnWeb({
       container: "mp4",
       videoCodec: "h264",
-      width: WIDTH,
-      height: HEIGHT,
-      muted: true,
+      width: 1920,
+      height: 1080,
     });
 
     if (result.canRender) return { ok: true };
@@ -80,55 +77,57 @@ export type RenderOutcome =
   | { ok: true; blob: Blob; filename: string }
   | { ok: false; message: string };
 
-/** `vector-launch-film.mp4` — safe on every filesystem. */
-function filenameFor(productName: string): string {
+/** `vector-launch-video.mp4` — safe on every filesystem. */
+function filenameFor(name: string): string {
   const slug =
-    productName
+    name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
       .slice(0, 40) || "prismlaunch";
-  return `${slug}-launch-film.mp4`;
+  return `${slug}.mp4`;
 }
 
 export async function renderFilmInBrowser(
   snapshot: RenderSnapshot,
+  assets: Readonly<Record<string, string>>,
   onProgress?: (progress: RenderProgress) => void,
   signal?: AbortSignal,
 ): Promise<RenderOutcome> {
   try {
-    const [{ renderMediaOnWeb }, { LaunchFilm }] = await Promise.all([
+    const [{ renderMediaOnWeb }, { Film }] = await Promise.all([
       import("@remotion/web-renderer"),
-      import("@/remotion/LaunchFilm"),
+      import("@/remotion/Film"),
     ]);
 
-    const durationInFrames = snapshot.scenes.reduce(
-      (total, scene) => total + scene.durationFrames,
-      0,
-    );
+    const { file } = snapshot;
+    const props = { file, assets };
 
-    const props = {
-      scenes: snapshot.scenes,
-      artDirection: snapshot.artDirection,
-    };
+    // A composition with no audio clip encodes no audio track. Saying so saves
+    // encoding silence, and getting it wrong the other way drops real sound.
+    const hasAudio = file.tracks.some((track) =>
+      track.clips.some(
+        (clip) =>
+          clip.kind === "audio" || (clip.kind === "video" && clip.volume > 0),
+      ),
+    );
 
     const result = await renderMediaOnWeb({
       composition: {
-        id: "LaunchFilm",
-        component: LaunchFilm,
-        durationInFrames,
-        fps: FPS,
-        width: WIDTH,
-        height: HEIGHT,
-        // Required because LaunchFilm has non-optional props. Same values as
+        id: "Film",
+        component: Film,
+        durationInFrames: file.durationInFrames,
+        fps: file.fps,
+        width: file.width,
+        height: file.height,
+        // Required because Film has non-optional props. Same values as
         // inputProps: there is only ever one snapshot being rendered.
         defaultProps: props,
       },
       inputProps: props,
       container: "mp4",
       videoCodec: "h264",
-      // The film has no audio track; saying so avoids encoding silence.
-      muted: true,
+      muted: !hasAudio,
       ...(signal ? { signal } : {}),
       ...(onProgress
         ? {
@@ -145,7 +144,7 @@ export async function renderFilmInBrowser(
     return {
       ok: true,
       blob: await result.getBlob(),
-      filename: filenameFor(snapshot.productName),
+      filename: filenameFor(snapshot.file.name),
     };
   } catch (error) {
     if (signal?.aborted) return { ok: false, message: "Render cancelled." };

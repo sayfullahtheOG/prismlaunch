@@ -8,7 +8,7 @@ import {
   setStatus,
   snapshotAccepted,
 } from "@/lib/render/job";
-import { explainZodError, FilmProjectSchema } from "@/lib/studio/schema";
+import { explainZodError, ProjectFileSchema } from "@/lib/studio/schema";
 
 /**
  * The render AUTHORISATION endpoint, in three explicit phases.
@@ -26,7 +26,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const Body = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("propose"), project: z.unknown(), reason: z.string().max(200).optional() }),
+  z.object({ action: z.literal("propose"), file: z.unknown(), reason: z.string().max(200).optional() }),
   z.object({ action: z.literal("approve"), confirmationId: z.string().max(120) }),
   z.object({ action: z.literal("confirm"), confirmationId: z.string().max(120) }),
 ]);
@@ -51,22 +51,22 @@ export async function POST(request: Request) {
 
   // ---- phase 1: propose. Renders nothing. ----
   if (input.action === "propose") {
-    const project = FilmProjectSchema.safeParse(input.project);
-    if (!project.success) {
+    const file = ProjectFileSchema.safeParse(input.file);
+    if (!file.success) {
       return NextResponse.json(
-        { ok: false, message: explainZodError(project.error) },
+        { ok: false, message: explainZodError(file.error) },
         { status: 400 },
       );
     }
 
-    const snapshot = snapshotAccepted(project.data);
+    const snapshot = snapshotAccepted(file.data);
     if (!snapshot) {
       return NextResponse.json(
         {
           ok: false,
           code: "has-draft",
           message:
-            "The board still has an unreviewed draft. Accept or discard it before rendering.",
+            "The composition still has unreviewed draft clips. Accept or reject them before rendering.",
         },
         { status: 409 },
       );

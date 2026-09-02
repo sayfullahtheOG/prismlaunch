@@ -1,18 +1,41 @@
-import { scaffoldProject } from "./scaffold";
 import {
-  ArtDirectionSchema,
+  addClip,
+  addTrack,
+  duplicateClip,
+  findClip,
+  findTrack,
+  fitDuration,
+  mintId,
+  moveClip,
+  moveTrack,
+  referencedAssets,
+  removeClip,
+  removeTrack,
+  splitClip,
+  trimClip,
+  trimToContent,
+  updateClip,
+  updateTrack,
+} from "./edits";
+import {
+  ClipSchema,
+  DEFAULT_FPS,
+  DEFAULT_HEIGHT,
+  DEFAULT_WIDTH,
   explainZodError,
   FilmProjectSchema,
+  MAX_FRAMES,
+  PROJECT_FILE_VERSION,
   ProjectFileSchema,
-  SceneIdSchema,
-  SceneSchema,
   SlugSchema,
+  TrackSchema,
   WORKSPACE_DIR,
 } from "./schema";
-import { nowTimecode, useStudioStore, type PlaybackMode } from "./store";
+import { nowTimecode, useStudioStore } from "./store";
 import {
   linkWorkspace,
   listProjects,
+  loadAssets,
   modifiedAt,
   projectExists,
   readProjectFile,
@@ -30,41 +53,43 @@ import {
 import type { RenderSnapshot } from "@/lib/render/job";
 import type {
   ActivityEvent,
-  ArtDirection,
-  Feature,
+  Background,
+  Clip,
   FilmProject,
   ProjectFile,
-  Scene,
-  SceneId,
+  Track,
+  TrackKind,
 } from "@/types/prism";
 
 /**
  * THE mutation path.
  *
- * Every state change in the product — a click handler or a WebMCP tool
- * executor — calls a function in this file. Nothing here imports React, so an
- * executor can call it with no component context
+ * Every state change in the product — a click handler, a timeline drag, or a
+ * WebMCP tool executor — calls a function in this file. Nothing here imports
+ * React, so an executor can call it with no component context
  * (context/architecture.md invariant 1, context/code-standards.md §State).
  *
- * Two things are true here that were not true before the app read folders:
+ * Three things hold throughout:
  *
  * 1. **Every commit reaches disk.** The store is a view of
  *    `.prismlaunch/<slug>/project.json`; if the two disagree the file wins.
- *    Writes are debounced so typing does not thrash a file the agent may have
- *    open, and `flushWrites()` forces the queue for callers that must not
- *    return before the bytes land — every tool executor does.
+ *    Writes are debounced so a timeline drag does not thrash a file the agent
+ *    may have open, and `flushWrites()` forces the queue for callers that must
+ *    not return before the bytes land — every tool executor does.
  *
- * 2. **The app writes no copy.** The agent decides what the film says, with
- *    its own file tools or through `writeStoryboard`. What is enforced here is
- *    structure, and the approval boundary.
+ * 2. **The app writes no content.** It has no model. The agent decides what
+ *    the film says and how it is arranged; what is enforced here is structure,
+ *    and the approval boundary.
  *
- * On that boundary: `acceptDraft` and `keepCurrent` are the only actions that
- * clear a draft, and they are deliberately never wrapped as WebMCP tools. That
- * is structural, not a rule in a description — the agent has no function to
- * call (invariant 2).
+ * 3. **The edits themselves are pure.** `edits.ts` holds the real logic as
+ *    functions from one composition to another. This file is the shell that
+ *    validates, records who did it, and persists.
+ *
+ * On the approval boundary: `acceptClip`, `revertClip` and `acceptAllDrafts`
+ * are the only actions that clear a draft, and they are deliberately never
+ * wrapped as WebMCP tools. That is structural, not a rule in a description —
+ * the agent has no function to call (invariant 2).
  */
-
-export type ActionOrigin = "human" | "agent";
 
 export type ActionResult =
   | { ok: true; message: string }
@@ -73,9 +98,10 @@ export type ActionResult =
 export type ActionErrorCode =
   | "no-workspace"
   | "no-project"
-  | "unknown-scene"
+  | "not-found"
   | "invalid-input"
   | "no-draft"
+  | "locked"
   | "graph-invalid"
   | "disk-error";
 
@@ -119,28 +145,28 @@ function requireProject(): Guard<FilmProject> {
       ok: false,
       result: fail(
         "no-project",
-        `No film is open. Create one with prism.create_project, or write ${WORKSPACE_DIR}/<slug>/project.json yourself and open it with prism.open_project.`,
+        `No composition is open. Create one with prism.create_project, or write ${WORKSPACE_DIR}/<slug>/project.json yourself and open it with prism.open_project.`,
       ),
     };
   }
   return { ok: true, value: project };
 }
 
-function findScene(project: FilmProject, sceneId: SceneId): Scene | undefined {
-  return project.scenes.find((scene) => scene.id === sceneId);
-}
-
-function sceneLabel(scene: Scene): string {
-  return `scene ${String(scene.order).padStart(2, "0")}`;
-}
-
 /**
- * Append an activity event. Every mutation records one, so the rail is a
- * complete account of who changed what — the thing that makes agent work
- * legible rather than magical. Events carry origin "disk" when the change
- * arrived from the agent's own editor: that was made by neither the person
- * watching nor a tool call, and saying so is more useful than guessing.
+ * A locked track refuses edits.
+ *
+ * The lock exists so a person can protect work while an agent is rearranging
+ * things around it, which only means anything if the agent's tools respect it
+ * too. Refusing with the track named is more useful than silently skipping.
  */
+function requireUnlocked(track: Track): ActionResult | null {
+  if (!track.locked) return null;
+  return fail(
+    "locked",
+    `Track “${track.name}” is locked. The person has to unlock it before anything on it can change.`,
+  );
+}
+
 function withActivity(
   project: FilmProject,
   event: Omit<ActivityEvent, "id" | "at">,
@@ -158,15 +184,9 @@ function withActivity(
 // Persistence
 // ---------------------------------------------------------------------------
 
-/** Strip the tab-local fields. Only what the film IS reaches the file. */
+/** Only what the film IS reaches the file. Selection and history stay in the tab. */
 export function toProjectFile(project: FilmProject): ProjectFile {
-  return {
-    version: project.version,
-    name: project.name,
-    product: project.product,
-    brief: project.brief,
-    scenes: project.scenes,
-  };
+  return project.file;
 }
 
 const WRITE_DEBOUNCE_MS = 350;
@@ -176,9 +196,9 @@ let writePending: Promise<void> | null = null;
 /**
  * Queue a write of the current project.
  *
- * Debounced because dragging a duration slider would otherwise write the file
- * thirty times a second, and that file may be open in the agent's editor. The
- * trailing write always carries the latest state, so coalescing loses nothing.
+ * Debounced because dragging a clip emits a commit per pointer move, and that
+ * file may be open in the agent's editor. The trailing write always carries the
+ * latest state, so coalescing loses nothing.
  */
 function schedulePersist(): void {
   if (writeTimer) clearTimeout(writeTimer);
@@ -195,7 +215,7 @@ async function persistNow(): Promise<void> {
   const written = await writeProjectFile(
     workspace.workspace,
     project.slug,
-    toProjectFile(project),
+    project.file,
   );
 
   if (!written.ok) {
@@ -225,37 +245,42 @@ export async function flushWrites(): Promise<void> {
 }
 
 /**
- * Commit a new project, re-validating the whole graph first.
+ * Apply a pure edit, validate the whole composition, commit and persist.
  *
- * Rejecting here means a bad tool call leaves the board untouched rather than
- * putting the UI into a state the renderer would refuse — and, now, rather
- * than writing a file the app could not read back.
+ * Rejecting here means a bad drag or a bad tool call leaves the board untouched
+ * rather than writing a file the app could not read back. `fitDuration` runs
+ * first so placing a clip past the end lengthens the film instead of failing a
+ * bounds check the caller never asked about.
  */
-function commit(next: FilmProject): ActionResult | null {
-  const parsed = FilmProjectSchema.safeParse(next);
+function commit(
+  project: FilmProject,
+  next: ProjectFile,
+  event: Omit<ActivityEvent, "id" | "at">,
+): ActionResult | null {
+  const grown = fitDuration(next);
+  const parsed = ProjectFileSchema.safeParse(grown);
   if (!parsed.success) {
     return fail("graph-invalid", explainZodError(parsed.error));
   }
-  const { loadedAt } = useStudioStore.getState();
-  useStudioStore.getState().setProject(parsed.data, loadedAt);
+
+  const updated = FilmProjectSchema.safeParse(
+    withActivity({ ...project, file: parsed.data }, event),
+  );
+  if (!updated.success) {
+    return fail("graph-invalid", explainZodError(updated.error));
+  }
+
+  useStudioStore
+    .getState()
+    .setProject(updated.data, useStudioStore.getState().loadedAt);
   schedulePersist();
   return null;
-}
-
-function replay(): void {
-  useStudioStore.getState().bumpPlayToken();
 }
 
 // ---------------------------------------------------------------------------
 // The workspace
 // ---------------------------------------------------------------------------
 
-/**
- * Called once on mount. Restores a folder linked on a previous visit, but only
- * as far as the browser allows without a gesture: the handle comes back, the
- * permission usually does not, and `needs-permission` is an honest state to
- * sit in until someone clicks.
- */
 export async function restoreWorkspace(): Promise<void> {
   const { setWorkspace } = useStudioStore.getState();
 
@@ -301,7 +326,6 @@ export async function linkFolder(): Promise<ActionResult> {
     .getState()
     .setWorkspace({ kind: "linked", workspace: linked.value, projects });
 
-  // One readable film and nothing open: skip a list of one and just show it.
   const only = projects.length === 1 ? projects[0] : undefined;
   if (only && only.problem === null && only.name !== null) {
     await openProject(only.slug);
@@ -309,8 +333,8 @@ export async function linkFolder(): Promise<ActionResult> {
 
   return ok(
     projects.length === 0
-      ? `Linked. No films in ${WORKSPACE_DIR}/ yet.`
-      : `Linked. Found ${projects.length} film${projects.length === 1 ? "" : "s"}.`,
+      ? `Linked. No compositions in ${WORKSPACE_DIR}/ yet.`
+      : `Linked. Found ${projects.length} composition${projects.length === 1 ? "" : "s"}.`,
   );
 }
 
@@ -343,13 +367,27 @@ export async function refreshProjects(): Promise<ActionResult> {
   const projects = await listProjects(guard.value);
   useStudioStore.getState().setProjects(projects);
   return ok(
-    `${projects.length} film${projects.length === 1 ? "" : "s"} in ${WORKSPACE_DIR}/.`,
+    `${projects.length} composition${projects.length === 1 ? "" : "s"} in ${WORKSPACE_DIR}/.`,
   );
 }
 
 // ---------------------------------------------------------------------------
 // Opening, creating, syncing
 // ---------------------------------------------------------------------------
+
+/**
+ * Turn the paths clips refer to into object URLs the renderer can use.
+ *
+ * Re-run after every load and every reload from disk, because a clip may now
+ * point at a file that has appeared or vanished. Missing paths are reported
+ * rather than thrown: a renamed image should leave a hole in one frame, not
+ * take the whole composition down.
+ */
+async function refreshAssets(workspace: Workspace, slug: string, file: ProjectFile) {
+  const wanted = referencedAssets(file);
+  const { urls, missing } = await loadAssets(workspace, slug, wanted);
+  useStudioStore.getState().setAssets(urls, missing);
+}
 
 export async function openProject(slug: string): Promise<ActionResult> {
   const guard = requireWorkspace();
@@ -367,9 +405,9 @@ export async function openProject(slug: string): Promise<ActionResult> {
   }
 
   const project: FilmProject = {
-    ...read.value.file,
+    file: read.value.file,
     slug: parsedSlug.data,
-    activeSceneId: "scene-01",
+    selectedId: null,
     activity: [
       {
         id: "ev-1",
@@ -383,33 +421,34 @@ export async function openProject(slug: string): Promise<ActionResult> {
 
   useStudioStore.getState().setProject(project, read.value.modifiedAt);
   useStudioStore.getState().setPendingRender(null);
-  replay();
+  useStudioStore.getState().setPlayhead(0);
+  await refreshAssets(guard.value, parsedSlug.data, read.value.file);
 
-  const drafts = project.scenes.filter((s) => s.approval === "draft").length;
+  const clips = read.value.file.tracks.reduce(
+    (total, track) => total + track.clips.length,
+    0,
+  );
   return ok(
-    `Opened “${project.name}”. ${
-      drafts === 0
-        ? "All four scenes are accepted."
-        : `${drafts} of 4 scenes are unreviewed drafts.`
-    }`,
+    `Opened “${read.value.file.name}”: ${read.value.file.tracks.length} tracks, ${clips} clips, ${(read.value.file.durationInFrames / read.value.file.fps).toFixed(1)}s.`,
   );
 }
 
 export type CreateProjectInputs = {
   slug: string;
   name: string;
-  productName: string;
-  productDescription?: string;
-  promise: string;
-  artDirection?: ArtDirection;
+  durationInFrames?: number;
+  width?: number;
+  height?: number;
+  fps?: number;
+  background?: Background;
 };
 
 /**
- * Create the folder and write the scaffold.
+ * Create the folder and write an empty composition.
  *
- * The four scenes come out as obvious placeholders marked `draft`, so a film
- * nobody has written cannot be exported. Filling them is the agent's job —
- * either through `writeStoryboard` or by editing the file it just made.
+ * Empty means empty: a background, one visual track, one audio track, and no
+ * clips. The app has no model and writes no content — the tracks exist only so
+ * there is somewhere obvious to drop the first thing.
  */
 export async function createProject(
   inputs: CreateProjectInputs,
@@ -430,7 +469,38 @@ export async function createProject(
     );
   }
 
-  const checked = ProjectFileSchema.safeParse(scaffoldProject(inputs));
+  const fps = inputs.fps ?? DEFAULT_FPS;
+  const draft: ProjectFile = {
+    version: PROJECT_FILE_VERSION,
+    name: inputs.name,
+    width: inputs.width ?? DEFAULT_WIDTH,
+    height: inputs.height ?? DEFAULT_HEIGHT,
+    fps,
+    durationInFrames: inputs.durationInFrames ?? fps * 15,
+    background: inputs.background ?? { kind: "solid", color: "#0A0A0C" },
+    tracks: [
+      {
+        id: "track-main",
+        kind: "visual",
+        name: "Layer 1",
+        hidden: false,
+        locked: false,
+        volume: 1,
+        clips: [],
+      },
+      {
+        id: "audio-main",
+        kind: "audio",
+        name: "Audio 1",
+        hidden: false,
+        locked: false,
+        volume: 1,
+        clips: [],
+      },
+    ],
+  };
+
+  const checked = ProjectFileSchema.safeParse(draft);
   if (!checked.success) {
     return fail("invalid-input", explainZodError(checked.error));
   }
@@ -442,7 +512,7 @@ export async function createProject(
   await openProject(slug);
 
   return ok(
-    `Created ${WORKSPACE_DIR}/${slug}/project.json with four empty scenes. Write them with prism.write_storyboard, or edit the file directly — the app is watching it.`,
+    `Created ${WORKSPACE_DIR}/${slug}/project.json — an empty ${(checked.data.durationInFrames / fps).toFixed(0)}s canvas with one visual track and one audio track. Add clips with prism.add_clip, or edit the file directly; the app is watching it.`,
   );
 }
 
@@ -450,9 +520,9 @@ export async function createProject(
  * Re-read the file and adopt it if it changed underneath us.
  *
  * This is what makes the agent's own editor a first-class way to work: it
- * writes project.json, and the board updates without anyone calling a tool.
- * Selection and the session log survive, because those describe the tab rather
- * than the film.
+ * writes project.json, and the timeline updates without anyone calling a tool.
+ * Selection, playhead and the session log survive, because those describe the
+ * tab rather than the film.
  */
 export async function reloadFromDisk(): Promise<ActionResult> {
   const workspaceGuard = requireWorkspace();
@@ -469,12 +539,7 @@ export async function reloadFromDisk(): Promise<ActionResult> {
   }
 
   const next = withActivity(
-    {
-      ...read.value.file,
-      slug: current.slug,
-      activeSceneId: current.activeSceneId,
-      activity: current.activity,
-    },
+    { ...current, file: read.value.file },
     {
       origin: "disk",
       label: "Reloaded from folder",
@@ -491,17 +556,13 @@ export async function reloadFromDisk(): Promise<ActionResult> {
 
   useStudioStore.getState().setProject(parsed.data, read.value.modifiedAt);
   useStudioStore.getState().setLoadError(null);
-  replay();
+  await refreshAssets(workspaceGuard.value, current.slug, read.value.file);
   return ok("Reloaded from the folder.");
 }
 
 /**
  * Poll for an external edit. Cheap — one `getFile()` and an mtime compare, with
  * no read of the contents unless something moved.
- *
- * There is no watch API for File System Access, so polling is the whole story.
- * A one-second interval is fast enough to feel live next to an agent typing,
- * and light enough to leave running.
  */
 export async function checkForDiskChanges(): Promise<boolean> {
   const { workspace, project, loadedAt } = useStudioStore.getState();
@@ -516,355 +577,539 @@ export async function checkForDiskChanges(): Promise<boolean> {
 
 export function closeProject(): ActionResult {
   useStudioStore.getState().closeProject();
-  return ok("Closed the film. The folder is untouched.");
+  return ok("Closed the composition. The folder is untouched.");
 }
 
 // ---------------------------------------------------------------------------
-// Writing the film
+// Selection, playhead, zoom — tab state, safe for agents
 // ---------------------------------------------------------------------------
 
-export type SceneDraft = {
-  headline: string;
-  body?: string;
-  durationFrames: number;
-  motionPreset: Scene["motionPreset"];
-  emphasis: Scene["emphasis"];
-  feature?: Feature;
-};
+export function select(id: string | null): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
 
-/**
- * The agent's main authoring call: all four scenes at once.
- *
- * Whole-board rather than scene-by-scene because a launch film is one argument
- * — the hook only works if the resolve pays it off — and because the 16–22s
- * budget is a property of the set. An agent writing one scene per call would
- * discover the total was wrong on the fourth one.
- *
- * Everything lands as `draft`. There is no argument that makes this accept.
- */
-export async function writeStoryboard(
-  drafts: readonly [SceneDraft, SceneDraft, SceneDraft, SceneDraft],
-  note?: string,
-): Promise<ActionResult> {
+  useStudioStore
+    .getState()
+    .setProject({ ...guard.value, selectedId: id }, useStudioStore.getState().loadedAt);
+  return ok(id ? `Selected ${id}.` : "Cleared the selection.");
+}
+
+/** Move the playhead, which is also what the preview shows. */
+export function seek(frame: number): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+
+  const clamped = Math.min(
+    Math.max(0, Math.round(frame)),
+    guard.value.file.durationInFrames,
+  );
+  useStudioStore.getState().setPlayhead(clamped);
+  return ok(
+    `Playhead at ${(clamped / guard.value.file.fps).toFixed(2)}s (frame ${clamped}).`,
+  );
+}
+
+export function setPlaying(playing: boolean): ActionResult {
+  useStudioStore.getState().setPlaying(playing);
+  return ok(playing ? "Playing." : "Paused.");
+}
+
+export function setZoom(pixelsPerSecond: number): void {
+  useStudioStore.getState().setZoom(pixelsPerSecond);
+}
+
+export function toggleSnap(): void {
+  const { snap, setSnap } = useStudioStore.getState();
+  setSnap(!snap);
+}
+
+// ---------------------------------------------------------------------------
+// Tracks
+// ---------------------------------------------------------------------------
+
+export function createTrack(kind: TrackKind, name?: string): ActionResult {
   const guard = requireProject();
   if (!guard.ok) return guard.result;
   const project = guard.value;
 
-  const scenes: Scene[] = project.scenes.map((existing, index) => {
-    const draft = drafts[index]!;
-    return {
-      id: existing.id,
-      order: existing.order,
-      template: existing.template,
-      durationFrames: draft.durationFrames,
-      headline: draft.headline,
-      motionPreset: draft.motionPreset,
-      emphasis: draft.emphasis,
-      approval: "draft" as const,
-      revisionNote: note ?? "Storyboard written by your agent.",
-      ...(draft.body ? { body: draft.body } : {}),
-      ...(draft.feature ? { feature: draft.feature } : {}),
-      // Only worth keeping if there was something real there to restore.
-      ...(existing.approval === "accepted"
-        ? { previousHeadline: existing.headline }
-        : {}),
-    };
-  });
+  const existing = project.file.tracks.filter(
+    (track) => track.kind === kind,
+  ).length;
+  const label =
+    name ?? (kind === "audio" ? `Audio ${existing + 1}` : `Layer ${existing + 1}`);
 
-  const rejected = commit(
-    withActivity(
-      { ...project, scenes, activeSceneId: "scene-01" },
-      {
-        origin: "agent",
-        label: "prism.write_storyboard",
-        detail: note ?? "Wrote all four scenes",
-      },
-    ),
-  );
+  const { file, track } = addTrack(project.file, kind, label);
+  const rejected = commit(project, file, {
+    origin: "human",
+    label: "Added track",
+    detail: label,
+  });
   if (rejected) return rejected;
 
-  await flushWrites();
-  replay();
-
-  const seconds = (
-    scenes.reduce((total, s) => total + s.durationFrames, 0) / 24
-  ).toFixed(1);
-
-  return ok(
-    `Wrote four scenes, ${seconds}s total. All four are drafts on the person's screen now — they accept or reject each one, and you cannot do it for them.`,
-  );
+  select(track.id);
+  return ok(`Added ${kind} track “${label}” (${track.id}).`);
 }
 
-export type ScenePatch = {
-  headline?: string | undefined;
-  body?: string | undefined;
-  feature?: Feature | undefined;
-  motionPreset?: Scene["motionPreset"] | undefined;
-  emphasis?: Scene["emphasis"] | undefined;
-  durationFrames?: number | undefined;
-};
+export function deleteTrack(trackId: string): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
 
-/** Drop undefined keys so `exactOptionalPropertyTypes` stays satisfied. */
-function defined(patch: ScenePatch): Partial<Scene> {
-  return Object.fromEntries(
-    Object.entries(patch).filter(([, value]) => value !== undefined),
-  ) as Partial<Scene>;
+  const track = findTrack(project.file, trackId);
+  if (!track) return fail("not-found", `No track "${trackId}".`);
+
+  const locked = requireUnlocked(track);
+  if (locked) return locked;
+
+  const rejected = commit(project, removeTrack(project.file, trackId), {
+    origin: "human",
+    label: "Deleted track",
+    detail: `${track.name} · ${track.clips.length} clips`,
+  });
+  if (rejected) return rejected;
+
+  if (project.selectedId === trackId) select(null);
+  return ok(`Deleted “${track.name}” and its ${track.clips.length} clips.`);
 }
 
-function applyPatch(
-  sceneId: SceneId,
-  patch: ScenePatch,
-  origin: { origin: "human" } | { origin: "agent"; revisionNote: string },
+export function patchTrack(
+  trackId: string,
+  patch: Partial<Omit<Track, "id" | "kind" | "clips">>,
 ): ActionResult {
   const guard = requireProject();
   if (!guard.ok) return guard.result;
   const project = guard.value;
 
-  const scene = findScene(project, sceneId);
-  if (!scene) return fail("unknown-scene", `unknown scene "${sceneId}"`);
+  const track = findTrack(project.file, trackId);
+  if (!track) return fail("not-found", `No track "${trackId}".`);
 
-  const changes = defined(patch);
-  if (Object.keys(changes).length === 0) {
-    return ok(`Nothing to change on ${sceneLabel(scene)}.`);
+  // The lock itself is always changeable — otherwise locking a track would be
+  // a one-way door.
+  if (track.locked && !("locked" in patch)) {
+    const locked = requireUnlocked(track);
+    if (locked) return locked;
   }
 
-  const agent = origin.origin === "agent";
-  const next: Scene = {
-    ...scene,
-    ...changes,
-    // A person editing their own film is not proposing anything, so their edit
-    // never creates a draft. An agent's always does.
-    ...(agent
-      ? {
-          approval: "draft" as const,
-          revisionNote: origin.revisionNote,
-          ...(scene.approval === "accepted"
-            ? { previousHeadline: scene.headline }
-            : {}),
-        }
+  const rejected = commit(project, updateTrack(project.file, trackId, patch), {
+    origin: "human",
+    label: "Changed track",
+    detail: `${track.name} · ${Object.keys(patch).join(", ")}`,
+  });
+  if (rejected) return rejected;
+
+  return ok(`Updated “${track.name}”.`);
+}
+
+export function shiftTrack(trackId: string, direction: -1 | 1): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const next = moveTrack(project.file, trackId, direction);
+  if (next === project.file) {
+    return ok("Already at the end of its group.");
+  }
+
+  const rejected = commit(project, next, {
+    origin: "human",
+    label: direction === -1 ? "Moved track forward" : "Moved track back",
+    detail: findTrack(project.file, trackId)?.name ?? trackId,
+  });
+  if (rejected) return rejected;
+
+  return ok("Reordered.");
+}
+
+// ---------------------------------------------------------------------------
+// Clips
+// ---------------------------------------------------------------------------
+
+/**
+ * Put a clip on a track.
+ *
+ * The id is minted here rather than taken from the caller, so an agent cannot
+ * collide with something already in the file, and the id it gets back is the
+ * one to use for every later edit.
+ */
+export function createClip(
+  trackId: string,
+  clip: Omit<Clip, "id">,
+  origin: "human" | "agent" = "human",
+  note?: string,
+): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const track = findTrack(project.file, trackId);
+  if (!track) return fail("not-found", `No track "${trackId}".`);
+
+  const locked = requireUnlocked(track);
+  if (locked) return locked;
+
+  const parsed = ClipSchema.safeParse({
+    ...clip,
+    id: mintId(clip.kind),
+    // Agent work always arrives as a draft. There is no argument that makes
+    // this accept.
+    approval: origin === "agent" ? "draft" : "accepted",
+    ...(origin === "agent" && note ? { revisionNote: note } : {}),
+  });
+  if (!parsed.success) {
+    return fail("invalid-input", explainZodError(parsed.error));
+  }
+
+  const rejected = commit(project, addClip(project.file, trackId, parsed.data), {
+    origin,
+    label: origin === "agent" ? "prism.add_clip" : "Added clip",
+    detail: note ?? `${parsed.data.kind} on ${track.name}`,
+  });
+  if (rejected) return rejected;
+
+  select(parsed.data.id);
+  return ok(
+    `Added ${parsed.data.kind} clip ${parsed.data.id} to “${track.name}” at frame ${parsed.data.from}${origin === "agent" ? " — it is a draft for the person to accept" : ""}.`,
+  );
+}
+
+export function deleteClip(clipId: string): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const found = findClip(project.file, clipId);
+  if (!found) return fail("not-found", `No clip "${clipId}".`);
+
+  const locked = requireUnlocked(found.track);
+  if (locked) return locked;
+
+  const rejected = commit(project, removeClip(project.file, clipId), {
+    origin: "human",
+    label: "Deleted clip",
+    detail: `${found.clip.kind} on ${found.track.name}`,
+  });
+  if (rejected) return rejected;
+
+  if (project.selectedId === clipId) select(null);
+  return ok("Deleted.");
+}
+
+export function patchClip(
+  clipId: string,
+  patch: Partial<Clip>,
+  origin: "human" | "agent" = "human",
+  note?: string,
+): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const found = findClip(project.file, clipId);
+  if (!found) return fail("not-found", `No clip "${clipId}".`);
+
+  const locked = requireUnlocked(found.track);
+  if (locked) return locked;
+
+  const merged = {
+    ...found.clip,
+    ...patch,
+    ...(origin === "agent"
+      ? { approval: "draft" as const, revisionNote: note ?? "Changed by your agent" }
       : {}),
   };
 
-  const parsed = SceneSchema.safeParse(next);
+  const parsed = ClipSchema.safeParse(merged);
   if (!parsed.success) {
     return fail("invalid-input", explainZodError(parsed.error));
   }
 
   const rejected = commit(
-    withActivity(
-      {
-        ...project,
-        scenes: project.scenes.map((s) => (s.id === sceneId ? parsed.data : s)),
-      },
-      agent
-        ? {
-            origin: "agent",
-            label: "prism.revise_scene",
-            detail: origin.revisionNote,
-            sceneId,
-          }
-        : {
-            origin: "human",
-            label: "Edited scene",
-            detail: Object.keys(changes).join(", "),
-            sceneId,
-          },
-    ),
+    project,
+    updateClip(project.file, clipId, parsed.data),
+    {
+      origin,
+      label: origin === "agent" ? "prism.update_clip" : "Edited clip",
+      detail: note ?? Object.keys(patch).join(", "),
+    },
   );
   if (rejected) return rejected;
 
-  replay();
-  return ok(
-    agent
-      ? `Proposed a change to ${sceneLabel(scene)}. It is a draft — the person accepts or rejects it.`
-      : `Updated ${sceneLabel(scene)}.`,
+  return ok(origin === "agent" ? "Proposed a change — it is a draft." : "Updated.");
+}
+
+/** Drag along the timeline, or across to another track. */
+export function dragClip(
+  clipId: string,
+  toTrackId: string,
+  from: number,
+): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const found = findClip(project.file, clipId);
+  if (!found) return fail("not-found", `No clip "${clipId}".`);
+
+  const locked = requireUnlocked(found.track);
+  if (locked) return locked;
+
+  const rejected = commit(
+    project,
+    moveClip(project.file, clipId, toTrackId, from),
+    { origin: "human", label: "Moved clip", detail: `${found.clip.kind}` },
   );
+  if (rejected) return rejected;
+
+  return ok("Moved.");
 }
 
-/** A person editing their own film. Never creates a draft. */
-export function updateScene(sceneId: SceneId, patch: ScenePatch): ActionResult {
-  return applyPatch(sceneId, patch, { origin: "human" });
+export function dragClipEdge(
+  clipId: string,
+  edge: "start" | "end",
+  frame: number,
+): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const found = findClip(project.file, clipId);
+  if (!found) return fail("not-found", `No clip "${clipId}".`);
+
+  const locked = requireUnlocked(found.track);
+  if (locked) return locked;
+
+  const rejected = commit(
+    project,
+    trimClip(project.file, clipId, edge, frame),
+    { origin: "human", label: "Trimmed clip", detail: edge },
+  );
+  if (rejected) return rejected;
+
+  return ok("Trimmed.");
 }
 
-/** An agent proposing one change. Always lands as a draft. */
-export async function reviseSceneDraft(
-  sceneId: SceneId,
-  patch: ScenePatch,
-  revisionNote: string,
-): Promise<ActionResult> {
-  const result = applyPatch(sceneId, patch, { origin: "agent", revisionNote });
-  await flushWrites();
-  return result;
+/** Cut the selected clip at the playhead. The classic timeline verb. */
+export function splitAtPlayhead(): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const { playhead } = useStudioStore.getState();
+  const id = project.selectedId;
+  if (!id) return fail("not-found", "Select a clip to split.");
+
+  const found = findClip(project.file, id);
+  if (!found) return fail("not-found", "Select a clip to split.");
+
+  const locked = requireUnlocked(found.track);
+  if (locked) return locked;
+
+  const result = splitClip(project.file, id, playhead);
+  if (!result) {
+    return fail(
+      "invalid-input",
+      "The playhead is not inside the clip, or one half would be too short.",
+    );
+  }
+
+  const rejected = commit(project, result.file, {
+    origin: "human",
+    label: "Split clip",
+    detail: `at frame ${playhead}`,
+  });
+  if (rejected) return rejected;
+
+  select(result.newClipId);
+  return ok("Split.");
+}
+
+export function duplicateSelected(): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const id = project.selectedId;
+  if (!id) return fail("not-found", "Select a clip to duplicate.");
+
+  const result = duplicateClip(project.file, id);
+  if (!result) {
+    return fail("invalid-input", "No room after that clip on its track.");
+  }
+
+  const rejected = commit(project, result.file, {
+    origin: "human",
+    label: "Duplicated clip",
+    detail: id,
+  });
+  if (rejected) return rejected;
+
+  select(result.newClipId);
+  return ok("Duplicated.");
+}
+
+// ---------------------------------------------------------------------------
+// Composition settings
+// ---------------------------------------------------------------------------
+
+export function setBackground(background: Background): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const rejected = commit(
+    project,
+    { ...project.file, background },
+    { origin: "human", label: "Changed background", detail: background.kind },
+  );
+  if (rejected) return rejected;
+
+  return ok(`Background is now a ${background.kind}.`);
+}
+
+export function setDuration(frames: number): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const clamped = Math.min(MAX_FRAMES, Math.max(1, Math.round(frames)));
+  const rejected = commit(
+    project,
+    { ...project.file, durationInFrames: clamped },
+    {
+      origin: "human",
+      label: "Changed duration",
+      detail: `${(clamped / project.file.fps).toFixed(1)}s`,
+    },
+  );
+  if (rejected) return rejected;
+
+  return ok(`Composition is ${(clamped / project.file.fps).toFixed(1)}s.`);
+}
+
+export function fitDurationToContent(): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const next = trimToContent(project.file);
+  const rejected = commit(project, next, {
+    origin: "human",
+    label: "Trimmed composition",
+    detail: `${(next.durationInFrames / project.file.fps).toFixed(1)}s`,
+  });
+  if (rejected) return rejected;
+
+  return ok(`Trimmed to ${(next.durationInFrames / project.file.fps).toFixed(1)}s.`);
+}
+
+export function renameProject(name: string): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const rejected = commit(
+    project,
+    { ...project.file, name },
+    { origin: "human", label: "Renamed", detail: name },
+  );
+  if (rejected) return rejected;
+  return ok(`Renamed to “${name}”.`);
 }
 
 // ---------------------------------------------------------------------------
 // The approval boundary — human only, never registered as a tool
 // ---------------------------------------------------------------------------
 
-function resolveDraft(sceneId: SceneId, accepted: boolean): ActionResult {
+function resolveDraft(clipId: string, accepted: boolean): ActionResult {
   const guard = requireProject();
   if (!guard.ok) return guard.result;
   const project = guard.value;
 
-  const scene = findScene(project, sceneId);
-  if (!scene) return fail("unknown-scene", `unknown scene "${sceneId}"`);
-  if (scene.approval !== "draft") {
-    return fail("no-draft", `${sceneLabel(scene)} has no pending draft.`);
+  const found = findClip(project.file, clipId);
+  if (!found) return fail("not-found", `No clip "${clipId}".`);
+  if (found.clip.approval !== "draft") {
+    return fail("no-draft", "That clip has no pending draft.");
   }
 
-  const restored =
-    !accepted && scene.previousHeadline ? scene.previousHeadline : scene.headline;
+  // Rejecting removes it. There is no "previous version" to restore, because a
+  // draft clip is either something the agent added — in which case undoing is
+  // deletion — or something it changed, and the file on disk before the change
+  // is the person's own git history. Pretending otherwise would need a second
+  // copy of every clip.
+  const next = accepted
+    ? updateClip(project.file, clipId, {
+        approval: "accepted",
+        revisionNote: undefined,
+      } as Partial<Clip>)
+    : removeClip(project.file, clipId);
 
-  const settled: Scene = { ...scene, approval: "accepted", headline: restored };
-  delete settled.revisionNote;
-  delete settled.previousHeadline;
-
-  const rejected = commit(
-    withActivity(
-      {
-        ...project,
-        scenes: project.scenes.map((s) => (s.id === sceneId ? settled : s)),
-        // Drop the blocked render proposal — the human has now answered it.
-        activity: project.activity.filter((event) => !event.blocked),
-      },
-      {
-        origin: "human",
-        label: accepted ? "Accepted draft" : "Kept current",
-        detail: sceneLabel(scene),
-        sceneId,
-      },
-    ),
-  );
+  const rejected = commit(project, next, {
+    origin: "human",
+    label: accepted ? "Accepted clip" : "Rejected clip",
+    detail: found.clip.kind,
+  });
   if (rejected) return rejected;
 
-  replay();
-  return ok(
-    accepted
-      ? `Accepted the draft on ${sceneLabel(scene)}.`
-      : `Discarded the draft on ${sceneLabel(scene)}.`,
-  );
+  return ok(accepted ? "Accepted." : "Removed the agent's clip.");
 }
 
-export function acceptDraft(sceneId: SceneId): ActionResult {
-  return resolveDraft(sceneId, true);
+export function acceptClip(clipId: string): ActionResult {
+  return resolveDraft(clipId, true);
 }
 
-export function keepCurrent(sceneId: SceneId): ActionResult {
-  return resolveDraft(sceneId, false);
+export function rejectClip(clipId: string): ActionResult {
+  return resolveDraft(clipId, false);
 }
 
 /**
  * Accept every pending draft at once.
  *
- * Reviewing four scenes one at a time is the right default, but a person who
- * has watched the film and likes it should not have to click four times to say
- * so. Still human-only, and still never a tool.
+ * Reviewing clip by clip is the right default — that is the whole approval
+ * boundary — but a person who has watched the film and likes it should not have
+ * to click thirty times to say so. Still human-only, and still never a tool.
  */
 export function acceptAllDrafts(): ActionResult {
   const guard = requireProject();
   if (!guard.ok) return guard.result;
+  const project = guard.value;
 
-  const drafts = guard.value.scenes.filter((s) => s.approval === "draft");
+  const drafts = project.file.tracks.flatMap((track) =>
+    track.clips.filter((clip) => clip.approval === "draft"),
+  );
   if (drafts.length === 0) return ok("Nothing is waiting for review.");
 
-  for (const scene of drafts) resolveDraft(scene.id, true);
-  return ok(`Accepted ${drafts.length} draft${drafts.length === 1 ? "" : "s"}.`);
-}
-
-// ---------------------------------------------------------------------------
-// Film-level settings
-// ---------------------------------------------------------------------------
-
-export function setArtDirection(direction: ArtDirection): ActionResult {
-  const parsed = ArtDirectionSchema.safeParse(direction);
-  if (!parsed.success) {
-    return fail(
-      "invalid-input",
-      `unknown art direction "${String(direction)}" — expected ${ArtDirectionSchema.options.join(", ")}`,
-    );
+  let file = project.file;
+  for (const clip of drafts) {
+    file = updateClip(file, clip.id, {
+      approval: "accepted",
+      revisionNote: undefined,
+    } as Partial<Clip>);
   }
 
-  const guard = requireProject();
-  if (!guard.ok) return guard.result;
-  const project = guard.value;
-
-  if (project.brief.artDirection === parsed.data) {
-    return ok(`Already using ${parsed.data}.`);
-  }
-
-  const rejected = commit(
-    withActivity(
-      { ...project, brief: { ...project.brief, artDirection: parsed.data } },
-      { origin: "human", label: "Changed art direction", detail: parsed.data },
-    ),
-  );
+  const rejected = commit(project, file, {
+    origin: "human",
+    label: "Accepted all drafts",
+    detail: `${drafts.length} clips`,
+  });
   if (rejected) return rejected;
 
-  replay();
-  return ok(`Art direction is now ${parsed.data}.`);
-}
-
-// ---------------------------------------------------------------------------
-// Selection and playback — UI state, safe for agents
-// ---------------------------------------------------------------------------
-
-export function focusScene(sceneId: SceneId): ActionResult {
-  const idCheck = SceneIdSchema.safeParse(sceneId);
-  if (!idCheck.success) {
-    return fail("unknown-scene", `unknown scene "${String(sceneId)}"`);
-  }
-
-  const guard = requireProject();
-  if (!guard.ok) return guard.result;
-  const project = guard.value;
-
-  const scene = findScene(project, idCheck.data);
-  if (!scene) return fail("unknown-scene", `unknown scene "${sceneId}"`);
-
-  const { loadedAt } = useStudioStore.getState();
-  useStudioStore
-    .getState()
-    .setProject({ ...project, activeSceneId: scene.id }, loadedAt);
-  useStudioStore.getState().setPlayback({ kind: "scene", sceneId: scene.id });
-  replay();
-
-  return ok(`Focused ${sceneLabel(scene)}. Headline: "${scene.headline}"`);
-}
-
-export function setPlayback(mode: PlaybackMode): ActionResult {
-  useStudioStore.getState().setPlayback(mode);
-  replay();
-  return ok(
-    mode.kind === "film" ? "Playing the full board." : `Playing ${mode.sceneId}.`,
-  );
-}
-
-export function replayCurrent(): void {
-  replay();
+  return ok(`Accepted ${drafts.length} clip${drafts.length === 1 ? "" : "s"}.`);
 }
 
 // ---------------------------------------------------------------------------
 // Read model — what a WebMCP read tool returns
 // ---------------------------------------------------------------------------
 
-/**
- * A small, structured summary of where things stand.
- *
- * Always reports the workspace, even when a film is open, because the agent's
- * next move is often a file write and it needs to know the folder is there.
- * `film` is null before one is opened — a key rather than an absence, so the
- * agent reads a fact with a remedy attached instead of inferring one from a
- * missing field.
- */
 export function getProjectContext() {
-  const { workspace, project, loadError } = useStudioStore.getState();
+  const { workspace, project, loadError, playhead, missingAssets } =
+    useStudioStore.getState();
 
   const workspaceSummary =
     workspace.kind === "linked"
       ? {
           linked: true as const,
           directory: WORKSPACE_DIR,
-          films: workspace.projects.map((entry) => ({
+          compositions: workspace.projects.map((entry) => ({
             slug: entry.slug,
             name: entry.name,
             ...(entry.problem ? { problem: entry.problem } : {}),
@@ -883,37 +1128,45 @@ export function getProjectContext() {
   if (!project) {
     return {
       workspace: workspaceSummary,
-      film: null,
+      composition: null,
       ...(loadError ? { fileError: loadError } : {}),
     };
   }
 
+  const { file } = project;
+
   return {
     workspace: workspaceSummary,
-    film: {
+    composition: {
       slug: project.slug,
       path: `${WORKSPACE_DIR}/${project.slug}/project.json`,
-      name: project.name,
-      productName: project.product.name,
-      promise: project.brief.promise,
-      artDirection: project.brief.artDirection,
-      activeSceneId: project.activeSceneId,
-      pendingDraftSceneIds: project.scenes
-        .filter((s) => s.approval === "draft")
-        .map((s) => s.id),
-      totalSeconds:
-        project.scenes.reduce((total, s) => total + s.durationFrames, 0) / 24,
-      scenes: project.scenes.map((scene) => ({
-        id: scene.id,
-        order: scene.order,
-        template: scene.template,
-        headline: scene.headline,
-        ...(scene.body !== undefined ? { body: scene.body } : {}),
-        ...(scene.feature !== undefined ? { feature: scene.feature } : {}),
-        motionPreset: scene.motionPreset,
-        emphasis: scene.emphasis,
-        approval: scene.approval,
-        durationFrames: scene.durationFrames,
+      name: file.name,
+      width: file.width,
+      height: file.height,
+      fps: file.fps,
+      durationInFrames: file.durationInFrames,
+      durationSeconds: Number((file.durationInFrames / file.fps).toFixed(2)),
+      background: file.background,
+      playheadFrame: playhead,
+      selectedId: project.selectedId,
+      ...(missingAssets.length > 0 ? { missingAssets } : {}),
+      pendingDraftClipIds: file.tracks.flatMap((track) =>
+        track.clips
+          .filter((clip) => clip.approval === "draft")
+          .map((clip) => clip.id),
+      ),
+      // Front to back, matching the timeline read top to bottom.
+      tracks: file.tracks.map((track) => ({
+        id: track.id,
+        kind: track.kind,
+        name: track.name,
+        hidden: track.hidden,
+        locked: track.locked,
+        volume: track.volume,
+        clips: track.clips.map((clip) => ({
+          ...clip,
+          endsAtFrame: clip.from + clip.durationInFrames,
+        })),
       })),
     },
   };
@@ -927,27 +1180,20 @@ type Proposal =
   | { ok: true; confirmationId: string; summary: string }
   | { ok: false; result: ActionResult };
 
-/**
- * Phase 1, without any UI.
- *
- * Records the accepted board on the server and mints a confirmation. Renders
- * nothing and touches no store state — raising the confirm sheet is the
- * caller's decision, because the two entry points need different behaviour:
- * an agent must be stopped and made to wait, a person who just clicked Export
- * has already said yes.
- */
 async function proposeRenderOnServer(reason?: string): Promise<Proposal> {
   const guard = requireProject();
   if (!guard.ok) return { ok: false, result: guard.result };
   const project = guard.value;
 
-  const draft = project.scenes.find((scene) => scene.approval === "draft");
-  if (draft) {
+  const drafts = project.file.tracks.flatMap((track) =>
+    track.clips.filter((clip) => clip.approval === "draft"),
+  );
+  if (drafts.length > 0) {
     return {
       ok: false,
       result: fail(
         "invalid-input",
-        `${sceneLabel(draft)} still has an unreviewed draft. The person needs to accept or discard it first.`,
+        `${drafts.length} clip${drafts.length === 1 ? " is" : "s are"} still an unreviewed draft. The person needs to accept or reject ${drafts.length === 1 ? "it" : "them"} first.`,
       ),
     };
   }
@@ -962,7 +1208,7 @@ async function proposeRenderOnServer(reason?: string): Promise<Proposal> {
     const response = await fetch("/api/render", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "propose", project, reason }),
+      body: JSON.stringify({ action: "propose", file: project.file, reason }),
     });
     body = await response.json();
   } catch {
@@ -982,14 +1228,10 @@ async function proposeRenderOnServer(reason?: string): Promise<Proposal> {
   return {
     ok: true,
     confirmationId: body.confirmationId,
-    summary: body.summary ?? "Render the film.",
+    summary: body.summary ?? "Render the composition.",
   };
 }
 
-/**
- * Phase 1 as an AGENT sees it. Renders nothing, raises the confirm sheet, and
- * tells the agent to wait for a person.
- */
 export async function requestRender(reason?: string): Promise<ActionResult> {
   const proposal = await proposeRenderOnServer(reason);
   if (!proposal.ok) return proposal.result;
@@ -1004,28 +1246,18 @@ export async function requestRender(reason?: string): Promise<ActionResult> {
     available: true,
   });
 
-  commit(
-    withActivity(guard.value, {
-      origin: "agent",
-      label: "prism.request_render",
-      detail: "Proposed a render — needs your confirmation",
-      blocked: true,
-    }),
-  );
+  commit(guard.value, guard.value.file, {
+    origin: "agent",
+    label: "prism.request_render",
+    detail: "Proposed a render — needs your confirmation",
+    blocked: true,
+  });
 
   return ok(
     `Nothing has been rendered. ${proposal.summary} A confirmation is now waiting in PrismLaunch — ask the person to approve it, then call prism.confirm_render with confirmationId "${proposal.confirmationId}".`,
   );
 }
 
-/**
- * Phase 3. Carries only the token — no scene data — so a caller holding it can
- * replay what was recorded but cannot change it. Fails until a human has
- * approved that exact confirmation.
- *
- * The server authorises and returns the recorded snapshot; the browser then
- * encodes it with WebCodecs and writes the file into the project's own folder.
- */
 export async function confirmRender(
   confirmationId: string,
   onProgress?: (fraction: number) => void,
@@ -1041,11 +1273,8 @@ export async function confirmRender(
     return fail("disk-error", "Could not reach the render service.");
   }
 
-  const body: {
-    ok: boolean;
-    message?: string;
-    snapshot?: RenderSnapshot;
-  } = await response.json().catch(() => ({ ok: false }));
+  const body: { ok: boolean; message?: string; snapshot?: RenderSnapshot } =
+    await response.json().catch(() => ({ ok: false }));
 
   if (!body.ok || !body.snapshot) {
     return fail("invalid-input", body.message ?? "The render could not start.");
@@ -1055,7 +1284,8 @@ export async function confirmRender(
     "@/lib/render/web-render"
   );
 
-  const outcome = await renderFilmInBrowser(body.snapshot, (progress) =>
+  const { assets } = useStudioStore.getState();
+  const outcome = await renderFilmInBrowser(body.snapshot, assets, (progress) =>
     onProgress?.(progress.progress),
   );
 
@@ -1113,11 +1343,10 @@ export function dismissRenderRequest(): ActionResult {
 /**
  * The human's own Export button.
  *
- * A person clicking Export *is* the approval, so this walks all three phases
- * in one go. It still goes through the same server gate rather than a shortcut
+ * A person clicking Export *is* the approval, so this walks all three phases in
+ * one go. It still goes through the same server gate rather than a shortcut
  * path — the snapshot is recorded, approved, and consumed exactly as it would
- * be for an agent-initiated render, so there is only one way a render can ever
- * start.
+ * be for an agent-initiated render, so there is only one way a render can start.
  */
 export async function startRenderAsHuman(
   onProgress?: (fraction: number) => void,

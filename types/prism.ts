@@ -1,19 +1,25 @@
 import type { z } from "zod";
 import type {
-  ActivityEventSchema,
-  ApprovalStateSchema,
-  ArtDirectionSchema,
-  BriefSchema,
-  EmphasisSchema,
-  FeatureSchema,
+  AnimationSchema,
+  AssetPathSchema,
+  AudioClipSchema,
+  BackgroundSchema,
+  BoxSchema,
+  ClipSchema,
+  ColorSchema,
   FilmProjectSchema,
-  MotionPresetSchema,
-  PaletteSchema,
-  ProductSchema,
+  FitSchema,
+  FontFamilySchema,
+  ImageClipSchema,
   ProjectFileSchema,
-  SceneIdSchema,
-  SceneSchema,
-  SceneTemplateSchema,
+  ShapeClipSchema,
+  TextAlignSchema,
+  TextClipSchema,
+  TrackKindSchema,
+  TrackSchema,
+  TransitionSchema,
+  VideoClipSchema,
+  VisualClipSchema,
 } from "@/lib/studio/schema";
 
 /**
@@ -24,22 +30,32 @@ import type {
  * See context/code-standards.md §TypeScript Standards.
  */
 
-export type ArtDirection = z.infer<typeof ArtDirectionSchema>;
-export type SceneTemplate = z.infer<typeof SceneTemplateSchema>;
-export type MotionPreset = z.infer<typeof MotionPresetSchema>;
-export type ApprovalState = z.infer<typeof ApprovalStateSchema>;
-export type Emphasis = z.infer<typeof EmphasisSchema>;
-export type SceneId = z.infer<typeof SceneIdSchema>;
+export type Color = z.infer<typeof ColorSchema>;
+export type Box = z.infer<typeof BoxSchema>;
+export type Transition = z.infer<typeof TransitionSchema>;
+export type Animation = z.infer<typeof AnimationSchema>;
+export type FontFamily = z.infer<typeof FontFamilySchema>;
+export type TextAlign = z.infer<typeof TextAlignSchema>;
+export type Fit = z.infer<typeof FitSchema>;
+export type AssetPath = z.infer<typeof AssetPathSchema>;
 
-export type Palette = z.infer<typeof PaletteSchema>;
-export type Feature = z.infer<typeof FeatureSchema>;
-export type Product = z.infer<typeof ProductSchema>;
-export type Brief = z.infer<typeof BriefSchema>;
-export type Scene = z.infer<typeof SceneSchema>;
-export type ActivityEvent = z.infer<typeof ActivityEventSchema>;
+export type TextClip = z.infer<typeof TextClipSchema>;
+export type ShapeClip = z.infer<typeof ShapeClipSchema>;
+export type ImageClip = z.infer<typeof ImageClipSchema>;
+export type VideoClip = z.infer<typeof VideoClipSchema>;
+export type AudioClip = z.infer<typeof AudioClipSchema>;
+export type VisualClip = z.infer<typeof VisualClipSchema>;
+export type Clip = z.infer<typeof ClipSchema>;
+export type ClipKind = Clip["kind"];
+
+export type TrackKind = z.infer<typeof TrackKindSchema>;
+export type Track = z.infer<typeof TrackSchema>;
+export type Background = z.infer<typeof BackgroundSchema>;
 
 /** What lives in `.prismlaunch/<slug>/project.json`. The agent writes this. */
 export type ProjectFile = z.infer<typeof ProjectFileSchema>;
 
 /** The file, plus where it came from and what is selected. Never written to disk. */
 export type FilmProject = z.infer<typeof FilmProjectSchema>;
+
+export type ActivityEvent = FilmProject["activity"][number];

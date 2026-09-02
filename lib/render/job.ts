@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { FilmProject, Scene } from "@/types/prism";
+import type { ProjectFile } from "@/types/prism";
 
 /**
  * The two-phase render gate, and the job lifecycle behind it.
@@ -7,7 +7,7 @@ import type { FilmProject, Scene } from "@/types/prism";
  * The gate is the product's central safety claim, so it is structural rather
  * than a rule written in a tool description:
  *
- *   1. `propose()` records a snapshot of the ACCEPTED scenes and mints a
+ *   1. `propose()` records a snapshot of the ACCEPTED composition and mints a
  *      short-lived, single-use confirmation. It renders nothing.
  *   2. A HUMAN approves it in the app — `approve()` is reachable only from a
  *      real click, never from a tool.
@@ -23,10 +23,16 @@ import type { FilmProject, Scene } from "@/types/prism";
  * field the agent fills in itself, so it grants its own permission.
  */
 
+/**
+ * What the server recorded, and the only thing `confirm` will ever hand back.
+ *
+ * The whole composition file, verbatim — not a reference to it. That is what
+ * makes the second phase unable to change anything: it carries no scene data at
+ * all, so a caller holding the token can only replay exactly what phase one
+ * recorded.
+ */
 export type RenderSnapshot = {
-  scenes: Scene[];
-  artDirection: FilmProject["brief"]["artDirection"];
-  productName: string;
+  file: ProjectFile;
 };
 
 export type ConfirmationState = "pending" | "approved" | "consumed";
@@ -80,8 +86,10 @@ export function propose(
 ): { confirmationId: string; summary: string } {
   sweep();
 
-  const seconds = snapshot.scenes.reduce((n, s) => n + s.durationFrames, 0) / 24;
-  const summary = `Render “${snapshot.productName}” — ${snapshot.scenes.length} accepted scenes, ${seconds.toFixed(1)}s, 960×540 MP4.`;
+  const { file } = snapshot;
+  const seconds = file.durationInFrames / file.fps;
+  const clips = file.tracks.reduce((n, track) => n + track.clips.length, 0);
+  const summary = `Render “${file.name}” — ${clips} clips across ${file.tracks.length} tracks, ${seconds.toFixed(1)}s, ${file.width}×${file.height} MP4.`;
 
   const confirmation: Confirmation = {
     id: `cnf_${randomUUID()}`,
@@ -181,16 +189,17 @@ export function setStatus(id: string, status: RenderStatus): void {
 }
 
 /**
- * Only accepted scenes ever reach a render. A draft in the graph means the
- * human has not signed off, so there is nothing legitimate to export
- * (context/architecture.md invariant 4).
+ * Only an all-accepted composition ever reaches a render. One draft clip means
+ * the human has not signed off on something in the film, so there is nothing
+ * legitimate to export (context/architecture.md invariant 4).
  */
-export function snapshotAccepted(project: FilmProject): RenderSnapshot | null {
-  if (project.scenes.some((scene) => scene.approval === "draft")) return null;
+export function snapshotAccepted(file: ProjectFile): RenderSnapshot | null {
+  const hasDraft = file.tracks.some((track) =>
+    track.clips.some((clip) => clip.approval === "draft"),
+  );
+  if (hasDraft) return null;
 
-  return {
-    scenes: project.scenes.map((scene) => ({ ...scene })),
-    artDirection: project.brief.artDirection,
-    productName: project.product.name,
-  };
+  // Structured-cloned so a later edit in the browser cannot reach back into
+  // what the person approved. The snapshot is frozen at the moment of proposal.
+  return { file: structuredClone(file) };
 }

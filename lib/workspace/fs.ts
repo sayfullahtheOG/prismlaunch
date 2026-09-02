@@ -1,4 +1,5 @@
 import {
+  ASSETS_DIR,
   explainZodError,
   PROJECT_FILE,
   PROJECT_FILE_VERSION,
@@ -302,6 +303,79 @@ export async function writeRender(
     };
   } catch {
     return fail("write-failed", `Could not save ${filename}.`);
+  }
+}
+
+/**
+ * Turn the asset paths a composition refers to into object URLs.
+ *
+ * Remotion needs a URL for every `<Img>`, `<Video>` and `<Audio>`; the files
+ * are handles in someone's folder. This walks the path segment by segment
+ * rather than splitting on "/" and trusting it — `AssetPathSchema` already
+ * rejects `..` and absolute paths, and this is the second lock on the same
+ * door: a composition can only ever read files inside its own directory.
+ *
+ * Missing paths come back listed instead of thrown. A renamed image should
+ * leave a hole in one frame and a line in the UI, not take the film down.
+ *
+ * The URLs live until the tab closes. Revoking them on reload would be tidier,
+ * but a revoked URL that Remotion is still holding renders as a broken frame,
+ * and the leak is a few dozen blobs.
+ */
+export async function loadAssets(
+  workspace: Workspace,
+  slug: string,
+  paths: readonly string[],
+): Promise<{ urls: Record<string, string>; missing: string[] }> {
+  const urls: Record<string, string> = {};
+  const missing: string[] = [];
+
+  let root: FileSystemDirectoryHandle;
+  try {
+    root = await workspace.dir.getDirectoryHandle(slug);
+  } catch {
+    return { urls, missing: [...paths] };
+  }
+
+  for (const path of paths) {
+    const segments = path.split("/").filter(Boolean);
+    const filename = segments.pop();
+    if (!filename) {
+      missing.push(path);
+      continue;
+    }
+
+    try {
+      let dir = root;
+      for (const segment of segments) {
+        if (segment === "." || segment === "..") throw new Error("escape");
+        dir = await dir.getDirectoryHandle(segment);
+      }
+      const handle = await dir.getFileHandle(filename);
+      urls[path] = URL.createObjectURL(await handle.getFile());
+    } catch {
+      missing.push(path);
+    }
+  }
+
+  return { urls, missing };
+}
+
+/** Files sitting in the project's `assets/` folder, whether referenced or not. */
+export async function listAssets(
+  workspace: Workspace,
+  slug: string,
+): Promise<string[]> {
+  try {
+    const root = await workspace.dir.getDirectoryHandle(slug);
+    const assets = await root.getDirectoryHandle(ASSETS_DIR);
+    const names: string[] = [];
+    for await (const [name, handle] of assets.entries()) {
+      if (handle.kind === "file") names.push(`${ASSETS_DIR}/${name}`);
+    }
+    return names.sort();
+  } catch {
+    return [];
   }
 }
 

@@ -3,8 +3,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   explainZodError,
-  MAX_FILM_SECONDS,
-  MIN_FILM_SECONDS,
   ProjectFileSchema,
   PROJECT_FILE_VERSION,
   WORKSPACE_DIR,
@@ -56,21 +54,35 @@ describe("public/SKILL.md", () => {
     expect(parsed.success).toBe(true);
   });
 
-  it("shows an example whose scenes are all drafts", () => {
+  it("shows an example whose clips are all drafts", () => {
     // The document tells agents never to write "accepted". The example has to
     // model that, or it teaches the opposite of what it says.
-    const raw = JSON.parse(jsonBlocks(SKILL)[0]!) as { scenes: unknown[] };
-    const approvals = raw.scenes.map(
-      (scene) => (scene as { approval: string }).approval,
+    const parsed = ProjectFileSchema.parse(JSON.parse(jsonBlocks(SKILL)[0]!));
+    const approvals = parsed.tracks.flatMap((track) =>
+      track.clips.map((clip) => clip.approval),
     );
-    expect(approvals).toEqual(["draft", "draft", "draft", "draft"]);
+
+    expect(approvals.length).toBeGreaterThan(0);
+    expect(approvals.every((approval) => approval === "draft")).toBe(true);
   });
 
-  it("quotes the version, folder and duration window the code actually uses", () => {
+  /**
+   * The example has to demonstrate the two rules people get wrong, or it is
+   * teaching by omission: visual tracks before audio ones, and simultaneous
+   * clips on separate tracks rather than overlapping on one.
+   */
+  it("shows a stack that demonstrates the ordering rules", () => {
+    const parsed = ProjectFileSchema.parse(JSON.parse(jsonBlocks(SKILL)[0]!));
+
+    expect(parsed.tracks.filter((t) => t.kind === "visual").length).toBeGreaterThan(1);
+    expect(parsed.tracks.some((t) => t.kind === "audio")).toBe(true);
+    expect(parsed.tracks[parsed.tracks.length - 1]!.kind).toBe("audio");
+  });
+
+  it("quotes the version and folder the code actually uses", () => {
     const raw = JSON.parse(jsonBlocks(SKILL)[0]!) as { version: number };
     expect(raw.version).toBe(PROJECT_FILE_VERSION);
     expect(SKILL).toContain(`${WORKSPACE_DIR}/`);
-    expect(SKILL).toContain(`${MIN_FILM_SECONDS}–${MAX_FILM_SECONDS} seconds`);
   });
 
   it("documents every tool the app registers, and no others", async () => {
@@ -94,7 +106,7 @@ describe("public/SKILL.md", () => {
   });
 
   it("states the approval boundary rather than leaving it implicit", () => {
-    expect(SKILL).toMatch(/cannot accept (your own work|it yourself)/i);
-    expect(SKILL).toMatch(/never write .*accepted/i);
+    expect(SKILL).toMatch(/cannot accept your own work/i);
+    expect(SKILL).toMatch(/always write `?draft`?/i);
   });
 });

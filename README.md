@@ -73,9 +73,13 @@ The studio is at [http://localhost:3000](http://localhost:3000).
 | `npm run test` | Vitest |
 | `npm run typecheck` | `tsc --noEmit` |
 
-## The file format
+## The two documents an agent reads
 
-`public/SKILL.md` is the contract, and it is the same document an agent reads. `lib/studio/schema.ts` enforces it. `tests/skill.test.ts` parses the example out of the document and validates it against the live schema, so the docs cannot drift from the code without the suite failing.
+**`public/SKILL.md`** is how the tool works — the file format, the tools, the folder. `lib/studio/schema.ts` enforces it, and `tests/skill.test.ts` parses the example out of the document and validates it against the live schema, so the two cannot drift without the suite failing.
+
+**`public/PRISM_METHOD.md`** is what to make with it. This is the product. It is the end-to-end craft of a promo film — concept, script, storyboard, timing locked to music before design, colour and type, motion in frame counts, sound in beats and gain, four rounds of review — synthesised from what Sandwich, Giant Ant, Buck, Ordinary Folk and the in-house teams at Apple, Linear and Raycast say they actually do, and from the perceptual research underneath. Every number in it is theirs. `tests/method.test.ts` checks that every transition, colour, font and tool it names is one the renderer really has, and that its tempo table is actually frame-locked at 30fps.
+
+The tool without the method produces the video everyone has seen. The method is why it doesn't.
 
 ## The tools
 

@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as actions from "@/lib/studio/actions";
 import { buildTools } from "@/lib/webmcp/tools";
-import { readProject, resetStudio } from "@/lib/studio/store";
+import { readProject, resetStudio, useStudioStore } from "@/lib/studio/store";
+import { film } from "./fixture";
+import type { FilmProject } from "@/types/prism";
 
 /**
  * These tests exist mostly to pin the approval boundary.
@@ -12,12 +14,51 @@ import { readProject, resetStudio } from "@/lib/studio/store";
  * module's public surface and confirms an agent has no function to call.
  */
 
-beforeEach(() => {
-  resetStudio();
-});
-
 const DRAFT = "scene-03" as const;
 const ACCEPTED = "scene-01" as const;
+
+/**
+ * The board these tests run against.
+ *
+ * The app starts with no film at all, so every test has to put one there
+ * first. It is seeded through the real construction path and then walked into
+ * the state under test by calling the real actions — `reviseSceneDraft` is what
+ * makes scene 03 a draft, exactly as an agent would. Only the blocked render
+ * proposal is appended by hand, because minting one goes through the server.
+ */
+beforeEach(() => {
+  resetStudio();
+  useStudioStore.getState().setProject(film());
+
+  actions.reviseSceneDraft(
+    DRAFT,
+    { headline: "The palette knows what you meant." },
+    "Sharpened the proof line",
+  );
+
+  const seeded = current();
+  useStudioStore.getState().setProject({
+    ...seeded,
+    activity: [
+      ...seeded.activity,
+      {
+        id: "ev-blocked",
+        origin: "agent",
+        label: "prism.request_render",
+        detail: "Proposed a render — needs your confirmation",
+        at: "14:04:09",
+        blocked: true,
+      },
+    ],
+  });
+});
+
+/** The project, asserted to exist — every test seeds one in `beforeEach`. */
+function current(): FilmProject {
+  const project = readProject();
+  if (!project) throw new Error("expected a seeded project");
+  return project;
+}
 
 describe("the approval boundary", () => {
   it("keeps the human-only actions available to the UI", () => {
@@ -68,26 +109,26 @@ describe("the approval boundary", () => {
     );
 
     expect(result.ok).toBe(true);
-    const scene = readProject().scenes.find((s) => s.id === ACCEPTED)!;
+    const scene = current().scenes.find((s) => s.id === ACCEPTED)!;
     expect(scene.approval).toBe("draft");
     expect(scene.revisionNote).toBe("Tightened the hook");
   });
 
   it("records the replaced headline so the diff is showable", () => {
-    const before = readProject().scenes.find((s) => s.id === ACCEPTED)!.headline;
+    const before = current().scenes.find((s) => s.id === ACCEPTED)!.headline;
     actions.reviseSceneDraft(ACCEPTED, { headline: "A sharper hook" }, "note");
 
-    const scene = readProject().scenes.find((s) => s.id === ACCEPTED)!;
+    const scene = current().scenes.find((s) => s.id === ACCEPTED)!;
     expect(scene.previousHeadline).toBe(before);
     expect(scene.headline).toBe("A sharper hook");
   });
 
   it("accepting a draft keeps the agent's text and clears the draft state", () => {
-    const drafted = readProject().scenes.find((s) => s.id === DRAFT)!.headline;
+    const drafted = current().scenes.find((s) => s.id === DRAFT)!.headline;
 
     expect(actions.acceptDraft(DRAFT).ok).toBe(true);
 
-    const scene = readProject().scenes.find((s) => s.id === DRAFT)!;
+    const scene = current().scenes.find((s) => s.id === DRAFT)!;
     expect(scene.approval).toBe("accepted");
     expect(scene.headline).toBe(drafted);
     expect(scene.revisionNote).toBeUndefined();
@@ -95,13 +136,13 @@ describe("the approval boundary", () => {
   });
 
   it("keeping current restores the headline the agent replaced", () => {
-    const original = readProject().scenes.find((s) => s.id === DRAFT)!
+    const original = current().scenes.find((s) => s.id === DRAFT)!
       .previousHeadline;
     expect(original).toBeDefined();
 
     expect(actions.keepCurrent(DRAFT).ok).toBe(true);
 
-    const scene = readProject().scenes.find((s) => s.id === DRAFT)!;
+    const scene = current().scenes.find((s) => s.id === DRAFT)!;
     expect(scene.approval).toBe("accepted");
     expect(scene.headline).toBe(original);
   });
@@ -113,16 +154,16 @@ describe("the approval boundary", () => {
   });
 
   it("clears the blocked render proposal once the human answers", () => {
-    expect(readProject().activity.some((e) => e.blocked)).toBe(true);
+    expect(current().activity.some((e) => e.blocked)).toBe(true);
     actions.acceptDraft(DRAFT);
-    expect(readProject().activity.some((e) => e.blocked)).toBe(false);
+    expect(current().activity.some((e) => e.blocked)).toBe(false);
   });
 });
 
 describe("human edits", () => {
   it("do not change approval state", () => {
     actions.updateScene(ACCEPTED, { headline: "Directly edited" });
-    const scene = readProject().scenes.find((s) => s.id === ACCEPTED)!;
+    const scene = current().scenes.find((s) => s.id === ACCEPTED)!;
     expect(scene.approval).toBe("accepted");
     expect(scene.revisionNote).toBeUndefined();
   });
@@ -140,9 +181,9 @@ describe("human edits", () => {
   });
 
   it("leave the board untouched when validation fails", () => {
-    const before = readProject().scenes.find((s) => s.id === ACCEPTED)!.headline;
+    const before = current().scenes.find((s) => s.id === ACCEPTED)!.headline;
     actions.updateScene(ACCEPTED, { headline: "x".repeat(80) });
-    expect(readProject().scenes.find((s) => s.id === ACCEPTED)!.headline).toBe(
+    expect(current().scenes.find((s) => s.id === ACCEPTED)!.headline).toBe(
       before,
     );
   });
@@ -158,13 +199,13 @@ describe("human edits", () => {
   });
 
   it("report a no-op rather than writing an empty activity event", () => {
-    const scene = readProject().scenes.find((s) => s.id === ACCEPTED)!;
-    const before = readProject().activity.length;
+    const scene = current().scenes.find((s) => s.id === ACCEPTED)!;
+    const before = current().activity.length;
 
     const result = actions.updateScene(ACCEPTED, { headline: scene.headline });
 
     expect(result.ok).toBe(true);
-    expect(readProject().activity.length).toBe(before);
+    expect(current().activity.length).toBe(before);
   });
 });
 
@@ -173,7 +214,7 @@ describe("focusScene", () => {
     const result = actions.focusScene("scene-02");
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.message).toContain("Vector");
-    expect(readProject().activeSceneId).toBe("scene-02");
+    expect(current().activeSceneId).toBe("scene-02");
   });
 
   it("rejects an unknown scene id", () => {
@@ -188,7 +229,7 @@ describe("focusScene", () => {
 describe("setArtDirection", () => {
   it("switches the whole film", () => {
     expect(actions.setArtDirection("warm-playful").ok).toBe(true);
-    expect(readProject().brief.artDirection).toBe("warm-playful");
+    expect(current().brief.artDirection).toBe("warm-playful");
   });
 
   it("rejects an unknown direction and lists the real ones", () => {
@@ -200,10 +241,18 @@ describe("setArtDirection", () => {
 
 describe("getProjectContext", () => {
   it("summarises the board for an agent", () => {
+    const { film: summary } = actions.getProjectContext();
+    expect(summary).not.toBeNull();
+    expect(summary!.scenes).toHaveLength(4);
+    expect(summary!.pendingDraftSceneId).toBe(DRAFT);
+    expect(summary!.candidates.length).toBeGreaterThan(0);
+  });
+
+  it("tells the agent how to start one when there is no film", () => {
+    resetStudio();
     const context = actions.getProjectContext();
-    expect(context.scenes).toHaveLength(4);
-    expect(context.pendingDraftSceneId).toBe(DRAFT);
-    expect(context.candidates.length).toBeGreaterThan(0);
+    expect(context.film).toBeNull();
+    expect(context.note).toMatch(/inspect_public_repo/);
   });
 
   it("never leaks raw source snippets", () => {

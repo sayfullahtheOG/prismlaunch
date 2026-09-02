@@ -83,7 +83,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.get_project_context",
       description:
-        "Read the current launch film: the product, the creative brief, the four scenes with their copy and approval state, and the component candidates found in the source. Call this first, before proposing any change.",
+        "Read the current launch film: the product, the creative brief, the four scenes with their copy and approval state, and the component candidates found in the source. Call this first, before proposing any change. If no film exists yet it says so, and says what to do about it.",
       schema: RequestRenderInput.pick({}),
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute: () => {
@@ -95,7 +95,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.inspect_public_repo",
       description:
-        "Read a public GitHub repository and rebuild the storyboard from what it finds. Only call this with a URL the person gave you — never invent or guess a repository. Reads a bounded set of files; it never runs the code.",
+        "Read a public GitHub repository and build the four-scene storyboard from what it finds. This is how a film starts, and how an existing one is rebuilt from a different product. Only call this with a URL the person gave you — never invent or guess a repository. Reads a bounded set of files; it never runs the code.",
       schema: InspectRepoInput,
       annotations: { untrustedContentHint: true },
       execute: (input) =>

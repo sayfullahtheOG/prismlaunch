@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { demoProject } from "@/lib/source/demo-project";
 import {
   explainZodError,
   FilmProjectSchema,
@@ -7,16 +6,15 @@ import {
   toolInputJsonSchema,
   SceneSchema,
 } from "@/lib/studio/schema";
-import type { FilmProject, Scene } from "@/types/prism";
+import type { Scene } from "@/types/prism";
+import { film } from "./fixture";
 
-/** Deep-clone the demo so no test mutates the shared fixture. */
-function clone(): FilmProject {
-  return structuredClone(demoProject);
-}
+/** A fresh film per call, so no test can mutate another's. */
+const clone = film;
 
 describe("SceneGraphSchema", () => {
-  it("accepts the demo film", () => {
-    expect(SceneGraphSchema.safeParse(demoProject.scenes).success).toBe(true);
+  it("accepts a freshly generated film", () => {
+    expect(SceneGraphSchema.safeParse(clone().scenes).success).toBe(true);
   });
 
   it("rejects a fifth scene", () => {
@@ -113,7 +111,7 @@ describe("SceneSchema", () => {
 
 describe("FilmProjectSchema component binding", () => {
   it("accepts the demo project", () => {
-    expect(FilmProjectSchema.safeParse(demoProject).success).toBe(true);
+    expect(FilmProjectSchema.safeParse(clone()).success).toBe(true);
   });
 
   it("rejects component-spotlight with no componentId", () => {

@@ -1,4 +1,9 @@
 import { generateStoryboard } from "./generator";
+import {
+  createFilmProject,
+  DEFAULT_ART_DIRECTION,
+  initialBrief,
+} from "./new-project";
 import { PALETTES } from "./palettes";
 import {
   ArtDirectionSchema,
@@ -12,6 +17,7 @@ import type { RenderSnapshot } from "@/lib/render/job";
 import type {
   ActivityEvent,
   ArtDirection,
+  Brief,
   FilmProject,
   ProductManifest,
   Scene,
@@ -39,6 +45,7 @@ export type ActionResult =
   | { ok: false; code: ActionErrorCode; message: string };
 
 export type ActionErrorCode =
+  | "no-project"
   | "inspection-failed"
   | "unknown-scene"
   | "invalid-input"
@@ -52,6 +59,27 @@ function ok(message: string): ActionResult {
 
 function fail(code: ActionErrorCode, message: string): ActionResult {
   return { ok: false, code, message };
+}
+
+/**
+ * Every action that edits a film needs one to exist. Rather than each caller
+ * re-checking, this returns a ready-made corrective message that tells an agent
+ * exactly what to do next — which is the whole contract for a tool result.
+ */
+function requireProject():
+  | { ok: true; project: FilmProject }
+  | { ok: false; result: ActionResult } {
+  const { project } = useStudioStore.getState();
+  if (!project) {
+    return {
+      ok: false,
+      result: fail(
+        "no-project",
+        "There is no film yet. Inspect a source first — the built-in demo product, a public GitHub repository, or a local folder.",
+      ),
+    };
+  }
+  return { ok: true, project };
 }
 
 function findScene(project: FilmProject, sceneId: SceneId): Scene | undefined {
@@ -110,7 +138,10 @@ export function focusScene(sceneId: SceneId): ActionResult {
     return fail("unknown-scene", `unknown scene "${String(sceneId)}"`);
   }
 
-  const { project, setPlayback } = useStudioStore.getState();
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const { project } = guard;
+  const { setPlayback } = useStudioStore.getState();
   const scene = findScene(project, idCheck.data);
   if (!scene) return fail("unknown-scene", `unknown scene "${sceneId}"`);
 
@@ -183,7 +214,9 @@ function applyPatch(
   options: EditOptions,
 ): ActionResult {
   const patch = defined(rawPatch);
-  const { project } = useStudioStore.getState();
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const { project } = guard;
   const scene = findScene(project, sceneId);
   if (!scene) return fail("unknown-scene", `unknown scene "${sceneId}"`);
 
@@ -284,7 +317,9 @@ export function reviseSceneDraft(
 // ---------------------------------------------------------------------------
 
 function resolveDraft(sceneId: SceneId, accepted: boolean): ActionResult {
-  const { project } = useStudioStore.getState();
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const { project } = guard;
   const scene = findScene(project, sceneId);
   if (!scene) return fail("unknown-scene", `unknown scene "${sceneId}"`);
   if (scene.approval !== "draft") {
@@ -350,7 +385,9 @@ export function setArtDirection(direction: ArtDirection): ActionResult {
     );
   }
 
-  const { project } = useStudioStore.getState();
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const { project } = guard;
   if (project.brief.artDirection === parsed.data) {
     return ok(`Already using ${parsed.data}.`);
   }
@@ -380,36 +417,51 @@ export function setArtDirection(direction: ArtDirection): ActionResult {
  * text: evidence snippets are untrusted and belong behind the
  * `untrustedContentHint` annotation, not in a general context dump
  * (invariant 6).
+ *
+ * `film` is null before anyone has inspected a source. It is a key rather than
+ * an absence so the agent reads a fact with a remedy attached, instead of
+ * having to infer one from a missing field.
  */
 export function getProjectContext() {
   const { project } = useStudioStore.getState();
 
+  // Told plainly, with the remedy attached: an agent reading this is one tool
+  // call away from fixing it, and should not have to infer that from a null.
+  if (!project) {
+    return {
+      film: null,
+      note: "No film exists yet. Call prism.inspect_public_repo with a repository the person named, or ask them to pick a source in the app.",
+    };
+  }
+
   return {
-    productName: project.product.productName,
-    promise: project.brief.promise,
-    artDirection: project.brief.artDirection,
-    activeSceneId: project.activeSceneId,
-    pendingDraftSceneId:
-      project.scenes.find((s) => s.approval === "draft")?.id ?? null,
-    candidates: project.product.componentCandidates.map((candidate) => ({
-      id: candidate.id,
-      label: candidate.label,
-      kind: candidate.kind,
-    })),
-    scenes: project.scenes.map((scene) => ({
-      id: scene.id,
-      order: scene.order,
-      template: scene.template,
-      headline: scene.headline,
-      ...(scene.body !== undefined ? { body: scene.body } : {}),
-      ...(scene.componentId !== undefined
-        ? { componentId: scene.componentId }
-        : {}),
-      motionPreset: scene.motionPreset,
-      emphasis: scene.emphasis,
-      approval: scene.approval,
-      durationFrames: scene.durationFrames,
-    })),
+    film: {
+      productName: project.product.productName,
+      promise: project.brief.promise,
+      artDirection: project.brief.artDirection,
+      activeSceneId: project.activeSceneId,
+      pendingDraftSceneId:
+        project.scenes.find((s) => s.approval === "draft")?.id ?? null,
+      candidates: project.product.componentCandidates.map((candidate) => ({
+        id: candidate.id,
+        label: candidate.label,
+        kind: candidate.kind,
+      })),
+      scenes: project.scenes.map((scene) => ({
+        id: scene.id,
+        order: scene.order,
+        template: scene.template,
+        headline: scene.headline,
+        ...(scene.body !== undefined ? { body: scene.body } : {}),
+        ...(scene.componentId !== undefined
+          ? { componentId: scene.componentId }
+          : {}),
+        motionPreset: scene.motionPreset,
+        emphasis: scene.emphasis,
+        approval: scene.approval,
+        durationFrames: scene.durationFrames,
+      })),
+    },
   };
 }
 
@@ -468,16 +520,19 @@ export async function inspectSource(
   const manifest = payload.manifest;
   const { project } = useStudioStore.getState();
 
-  const brief = {
-    ...project.brief,
-    selectedComponentIds: manifest.componentCandidates[0]
-      ? [manifest.componentCandidates[0].id]
-      : [],
-  };
+  // Art direction is the one thing worth carrying across an inspection: it is
+  // a taste decision about the film, not a fact about the product. Everything
+  // else is rebuilt, because the previous board described a different product.
+  const brief: Brief = initialBrief(
+    manifest,
+    project?.brief.artDirection ?? DEFAULT_ART_DIRECTION,
+  );
+
+  const base: FilmProject = project ?? createFilmProject(manifest, brief);
 
   const next = withActivity(
     {
-      ...project,
+      ...base,
       product: manifest,
       brief,
       scenes: generateStoryboard(manifest, brief),
@@ -485,7 +540,7 @@ export async function inspectSource(
     },
     {
       origin: "human",
-      label: "Inspected source",
+      label: project ? "Inspected source" : "Started a film",
       detail: `${manifest.productName} · ${manifest.componentCandidates.length} candidates`,
     },
   );
@@ -522,7 +577,9 @@ export type RegenerateOptions = {
 export function regenerateStoryboard(
   options: RegenerateOptions = {},
 ): ActionResult {
-  const { project } = useStudioStore.getState();
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const { project } = guard;
 
   if (options.artDirection && !ArtDirectionSchema.safeParse(options.artDirection).success) {
     return fail(
@@ -608,7 +665,9 @@ type Proposal =
  * has already said yes.
  */
 async function proposeRenderOnServer(reason?: string): Promise<Proposal> {
-  const { project } = useStudioStore.getState();
+  const guard = requireProject();
+  if (!guard.ok) return { ok: false, result: guard.result };
+  const { project } = guard;
 
   const draft = project.scenes.find((scene) => scene.approval === "draft");
   if (draft) {
@@ -666,6 +725,9 @@ export async function requestRender(reason?: string): Promise<ActionResult> {
   const proposal = await proposeRenderOnServer(reason);
   if (!proposal.ok) return proposal.result;
 
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+
   useStudioStore.getState().setPendingRender({
     confirmationId: proposal.confirmationId,
     summary: proposal.summary,
@@ -674,7 +736,7 @@ export async function requestRender(reason?: string): Promise<ActionResult> {
   });
 
   commit(
-    withActivity(useStudioStore.getState().project, {
+    withActivity(guard.project, {
       origin: "agent",
       label: "prism.request_render",
       detail: "Proposed a render — needs your confirmation",

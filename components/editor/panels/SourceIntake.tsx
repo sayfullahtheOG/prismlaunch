@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { TextInput } from "@/components/ui/Field";
 import { Segmented } from "@/components/ui/Segmented";
 import { inspectSource, type InspectKind } from "@/lib/studio/actions";
+import { useStudioStore } from "@/lib/studio/store";
 
 const TABS: ReadonlyArray<{
   id: InspectKind;
@@ -48,6 +49,10 @@ export function SourceIntake() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
+  // The same control does two jobs, and saying so matters: on an empty studio
+  // it creates the film, afterwards it replaces the one that is there.
+  const hasFilm = useStudioStore((state) => state.project !== null);
+
   const active = TABS.find((tab) => tab.id === kind)!;
 
   async function run() {
@@ -66,7 +71,7 @@ export function SourceIntake() {
     <div className="ds-level flex flex-col gap-3 rounded-sm p-3.5">
       <Segmented
         label="Source kind"
-        options={TABS.map((tab) => tab.id)}
+        options={TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
         value={kind}
         onChange={(next) => {
           setKind(next);
@@ -97,7 +102,11 @@ export function SourceIntake() {
         loading={busy}
         disabled={kind !== "demo" && ref.trim().length === 0}
       >
-        {busy ? "Reading source…" : "Inspect and rebuild board"}
+        {busy
+          ? "Reading source…"
+          : hasFilm
+            ? "Inspect and rebuild board"
+            : "Read the source and build the film"}
       </Button>
 
       {error ? (

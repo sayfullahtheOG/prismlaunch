@@ -68,6 +68,13 @@ export function AgentPanel({ activity, kind, toolCount }: Props) {
       </PanelSection>
 
       <PanelSection label="Activity">
+        {activity.length === 0 ? (
+          <p className="ds-inset rounded-sm bg-sunken p-3 text-xs leading-[var(--ds-leading-body)] text-subtle">
+            Nothing yet. Every edit — yours or your agent&rsquo;s — is recorded
+            here as it happens.
+          </p>
+        ) : null}
+
         <ol className="flex flex-col">
           {activity.map((event, index) => {
             const isLast = index === activity.length - 1;

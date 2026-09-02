@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { demoProject } from "@/lib/source/demo-project";
 import type { FilmProject, SceneId } from "@/types/prism";
 
 /**
@@ -10,6 +9,14 @@ import type { FilmProject, SceneId } from "@/types/prism";
  * `setState` from outside this module. Two mutation paths would let the agent
  * and the UI drift apart, which is the one thing that would break the
  * shared-canvas premise (context/architecture.md invariant 1).
+ *
+ * `project` starts as `null`, deliberately.
+ *
+ * A first-time visitor should arrive at their own empty studio, not somebody
+ * else's finished film. And "empty" cannot be an empty project: the schema
+ * requires exactly four scenes in fixed slots, so a board with nothing in it
+ * is not a representable value. The honest representation of "no film yet" is
+ * the absence of one.
  */
 
 export type PlaybackMode =
@@ -21,12 +28,11 @@ export type PendingRender = {
   confirmationId: string;
   summary: string;
   reason?: string;
-  /** False when the environment cannot render — the sheet says so honestly. */
   available: boolean;
 };
 
 export type StudioState = {
-  project: FilmProject;
+  project: FilmProject | null;
   pendingRender: PendingRender | null;
   /** Last render outcome, shown under the Export button. */
   renderNote: string | null;
@@ -35,49 +41,46 @@ export type StudioState = {
   playback: PlaybackMode;
 
   setProject: (project: FilmProject) => void;
+  clearProject: () => void;
   setPendingRender: (pending: PendingRender | null) => void;
   setRenderNote: (note: string | null) => void;
-  updateProject: (recipe: (previous: FilmProject) => FilmProject) => void;
   setPlayback: (playback: PlaybackMode) => void;
   bumpPlayToken: () => void;
 };
 
 export const useStudioStore = create<StudioState>((set) => ({
-  project: demoProject,
+  project: null,
   pendingRender: null,
   renderNote: null,
   playToken: 0,
-  playback: { kind: "scene", sceneId: demoProject.activeSceneId },
+  playback: { kind: "film" },
 
   setProject: (project) => set({ project }),
+  clearProject: () =>
+    set({
+      project: null,
+      pendingRender: null,
+      renderNote: null,
+      playback: { kind: "film" },
+    }),
   setPendingRender: (pendingRender) => set({ pendingRender }),
   setRenderNote: (renderNote) => set({ renderNote }),
-  updateProject: (recipe) =>
-    set((state) => ({ project: recipe(state.project) })),
   setPlayback: (playback) => set({ playback }),
   bumpPlayToken: () => set((state) => ({ playToken: state.playToken + 1 })),
 }));
 
 /**
  * Read the current project outside React — this is how a WebMCP executor sees
- * the same state the user is looking at.
+ * the same state the user is looking at. Null until a source is inspected.
  */
-export function readProject(): FilmProject {
+export function readProject(): FilmProject | null {
   return useStudioStore.getState().project;
 }
 
-/**
- * Restore the built-in demo film. Backs the P1 "reset to demo" control and
- * gives tests a clean slate without reaching for `setState` directly.
- */
+/** Back to the empty studio. Backs a "start over" control and gives tests a clean slate. */
 export function resetStudio(): void {
-  useStudioStore.setState({
-    project: demoProject,
-    pendingRender: null,
-    renderNote: null,
-    playToken: 0,
-    playback: { kind: "scene", sceneId: demoProject.activeSceneId },
-  });
+  useStudioStore.getState().clearProject();
+  useStudioStore.setState({ playToken: 0 });
 }
 
 /** `14:04:09` — activity timestamps are wall-clock and display-only. */

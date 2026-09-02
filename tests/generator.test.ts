@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { demoProject } from "@/lib/source/demo-project";
+import { brief, manifest } from "./fixture";
 import { fit, generateStoryboard } from "@/lib/studio/generator";
 import { HEADLINE_MAX, SceneGraphSchema } from "@/lib/studio/schema";
 import { totalSeconds } from "@/lib/studio/timing";
-import type { Brief, ProductManifest } from "@/types/prism";
-
-const manifest: ProductManifest = demoProject.product;
-const brief: Brief = demoProject.brief;
+import type { ProductManifest } from "@/types/prism";
 
 /** A manifest where inspection found metadata but no usable candidates. */
 const bareManifest: ProductManifest = {
@@ -34,14 +31,16 @@ describe("generateStoryboard", () => {
   });
 
   it("varies the hook between different products", () => {
-    // Not a guarantee for every pair, but these two must differ or the seeding
-    // is doing nothing useful.
-    const one = generateStoryboard(manifest, brief)[0]!.headline;
-    const two = generateStoryboard(
-      { ...manifest, productName: "Quill" },
-      brief,
-    )[0]!.headline;
-    expect(one).not.toBe(two);
+    // Seeding is a hash into a small pool, so any two names may legitimately
+    // collide. What must hold is that the pool is actually being used — across
+    // a handful of products the hook has to move.
+    const hooks = new Set(
+      ["Vector", "Quill", "Ledger", "Harbour", "Signal"].map(
+        (productName) =>
+          generateStoryboard({ ...manifest, productName }, brief)[0]!.headline,
+      ),
+    );
+    expect(hooks.size).toBeGreaterThan(1);
   });
 
   it("features the component the brief selected", () => {

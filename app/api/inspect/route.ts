@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { demoProject } from "@/lib/source/demo-project";
+import { demoManifest } from "@/lib/source/demo-manifest";
 import { buildManifest } from "@/lib/source/extract";
 import { GitHubProvider, parseRepoUrl } from "@/lib/source/github";
 import { isLocalProviderEnabled, LocalProvider } from "@/lib/source/local";
@@ -76,7 +76,7 @@ export async function POST(request: Request): Promise<NextResponse<Ok | Err>> {
   if (kind === "demo") {
     return NextResponse.json({
       ok: true,
-      manifest: demoProject.product,
+      manifest: demoManifest,
       cached: false,
     });
   }

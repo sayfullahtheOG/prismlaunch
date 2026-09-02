@@ -67,7 +67,9 @@ export function WebMcpProbe() {
     // stale tools never outlive the page (architecture.md invariant 11).
     const controller = new AbortController();
 
-    void ctx
+    // Same canonical call as lib/webmcp/register.ts:
+    //   document.modelContext.registerTool({ name, description, inputSchema, execute })
+    void (document.modelContext ?? ctx)
       .registerTool(
         {
           name: "prism.echo",

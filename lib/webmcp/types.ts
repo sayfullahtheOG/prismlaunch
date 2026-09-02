@@ -82,7 +82,21 @@ export interface ModelContext extends EventTarget {
   ): Promise<string>;
 }
 
-type ModelContextCarrier = { modelContext?: ModelContext };
+/**
+ * The WebMCP getters, declared properly rather than reached through a cast.
+ *
+ * `Document` is the current location; `Navigator` is the deprecated alias that
+ * Chrome 149 — the origin-trial floor — still ships. Declaring both lets call
+ * sites read as the spec writes them: `document.modelContext.registerTool(...)`.
+ */
+declare global {
+  interface Document {
+    modelContext?: ModelContext;
+  }
+  interface Navigator {
+    modelContext?: ModelContext;
+  }
+}
 
 /**
  * Resolve the model context, tolerating both spec locations.
@@ -95,13 +109,7 @@ type ModelContextCarrier = { modelContext?: ModelContext };
  */
 export function getModelContext(): ModelContext | null {
   if (typeof document === "undefined") return null;
-
-  const fromDocument = (document as unknown as ModelContextCarrier).modelContext;
-  if (fromDocument) return fromDocument;
-
-  const fromNavigator = (navigator as unknown as ModelContextCarrier)
-    .modelContext;
-  return fromNavigator ?? null;
+  return document.modelContext ?? navigator.modelContext ?? null;
 }
 
 /**

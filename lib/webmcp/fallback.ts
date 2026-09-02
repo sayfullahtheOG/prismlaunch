@@ -96,10 +96,17 @@ export type ContextKind = "native" | "fallback" | "absent";
 
 const FLAG = "__prismLaunchFallback";
 
+declare global {
+  interface Document {
+    /** Marks the context on this document as our shim, not the browser's. */
+    __prismLaunchFallback?: boolean;
+  }
+}
+
 /** True when the context on this document is ours, not the browser's. */
 export function isFallbackInstalled(): boolean {
   if (typeof document === "undefined") return false;
-  return Boolean((document as unknown as Record<string, unknown>)[FLAG]);
+  return document.__prismLaunchFallback === true;
 }
 
 export function detectKind(): ContextKind {

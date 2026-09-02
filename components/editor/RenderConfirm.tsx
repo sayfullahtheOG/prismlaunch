@@ -24,6 +24,7 @@ export function RenderConfirm() {
   const pending = useStudioStore((state) => state.pendingRender);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
 
   if (!pending) return null;
 
@@ -39,7 +40,10 @@ export function RenderConfirm() {
       return;
     }
 
-    const started = await confirmRender(pending.confirmationId);
+    const started = await confirmRender(pending.confirmationId, (fraction) =>
+      setProgress(Math.round(fraction * 100)),
+    );
+
     setBusy(false);
     if (!started.ok) setError(started.message);
   }
@@ -76,13 +80,10 @@ export function RenderConfirm() {
           export and stopped — starting it needs you.
         </p>
 
-        {!pending.available ? (
-          <p className="ds-level mt-3 rounded-sm bg-warning-soft px-3 py-2.5 text-xs text-warning">
-            Rendering is not configured in this environment, so this will fail
-            honestly rather than silently. The live preview still reflects every
-            edit.
-          </p>
-        ) : null}
+        <p className="ds-level mt-3 rounded-sm bg-sunken px-3 py-2.5 text-xs leading-[var(--ds-leading-body)] text-muted">
+          The film is encoded on this device — nothing is uploaded, and the file
+          downloads straight to you.
+        </p>
 
         {error ? (
           <p
@@ -101,7 +102,11 @@ export function RenderConfirm() {
             className="flex-1"
             icon={<Check size={15} strokeWidth={2.4} aria-hidden />}
           >
-            {busy ? "Starting…" : "Approve and render"}
+            {busy
+              ? progress > 0
+                ? `Encoding… ${progress}%`
+                : "Starting…"
+              : "Approve and render"}
           </Button>
           <Button
             variant="secondary"

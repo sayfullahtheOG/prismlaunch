@@ -2,13 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /**
-   * @remotion/renderer ships a headless browser and FFmpeg binaries. Bundling
-   * it breaks the build, so it must stay external and load from node_modules
-   * at runtime. Note the related rule in context/architecture.md: never import
-   * @remotion/bundler inside an API route either — it pulls in webpack, which
-   * conflicts with route bundling.
+   * No `serverExternalPackages` for Remotion any more: the film is encoded in
+   * the browser with WebCodecs, so no headless Chromium or FFmpeg binary is
+   * ever loaded on the server.
    */
-  serverExternalPackages: ["@remotion/renderer"],
 
   /**
    * Deliberately NO COOP/COEP or Origin-Agent-Cluster headers.

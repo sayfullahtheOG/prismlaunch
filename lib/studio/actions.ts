@@ -8,6 +8,7 @@ import {
   SceneSchema,
 } from "./schema";
 import { nowTimecode, useStudioStore, type PlaybackMode } from "./store";
+import type { RenderSnapshot } from "@/lib/render/job";
 import type {
   ActivityEvent,
   ArtDirection,
@@ -650,8 +651,16 @@ export async function requestRender(reason?: string): Promise<ActionResult> {
  * Phase 3. Carries only the token — no scene data — so a caller holding it can
  * replay what was recorded but cannot change it. Fails until a human has
  * approved that exact confirmation.
+ *
+ * The server authorises and returns the recorded snapshot; the browser then
+ * encodes it with WebCodecs. Splitting it this way keeps the gate structural
+ * (only the server can release a snapshot) while the work happens locally, so
+ * no endpoint spends CPU on video.
  */
-export async function confirmRender(confirmationId: string): Promise<ActionResult> {
+export async function confirmRender(
+  confirmationId: string,
+  onProgress?: (fraction: number) => void,
+): Promise<ActionResult> {
   let response: Response;
   try {
     response = await fetch("/api/render", {
@@ -663,15 +672,32 @@ export async function confirmRender(confirmationId: string): Promise<ActionResul
     return fail("inspection-failed", "Could not reach the render service.");
   }
 
-  const body: { ok: boolean; message?: string; jobId?: string } =
-    await response.json().catch(() => ({ ok: false }));
+  const body: {
+    ok: boolean;
+    message?: string;
+    jobId?: string;
+    snapshot?: RenderSnapshot;
+  } = await response.json().catch(() => ({ ok: false }));
 
-  if (!body.ok) {
+  if (!body.ok || !body.snapshot) {
     return fail("invalid-input", body.message ?? "The render could not start.");
   }
 
+  const { renderFilmInBrowser, downloadBlob } = await import(
+    "@/lib/render/web-render"
+  );
+
+  const outcome = await renderFilmInBrowser(body.snapshot, (progress) =>
+    onProgress?.(progress.progress),
+  );
+
+  if (!outcome.ok) return fail("invalid-input", outcome.message);
+
+  downloadBlob(outcome.blob, outcome.filename);
   useStudioStore.getState().setPendingRender(null);
-  return ok(`Render started (job ${body.jobId}).`);
+
+  const megabytes = (outcome.blob.size / 1_000_000).toFixed(1);
+  return ok(`Rendered ${outcome.filename} (${megabytes} MB). The download has started.`);
 }
 
 /**
@@ -707,7 +733,9 @@ export function dismissRenderRequest(): ActionResult {
  * be for an agent-initiated render, so there is only one way a render can ever
  * start.
  */
-export async function startRenderAsHuman(): Promise<ActionResult> {
+export async function startRenderAsHuman(
+  onProgress?: (fraction: number) => void,
+): Promise<ActionResult> {
   const proposed = await requestRender();
   if (!proposed.ok) return proposed;
 
@@ -717,5 +745,5 @@ export async function startRenderAsHuman(): Promise<ActionResult> {
   const approved = await approveRender(pending.confirmationId);
   if (!approved.ok) return approved;
 
-  return confirmRender(pending.confirmationId);
+  return confirmRender(pending.confirmationId, onProgress);
 }

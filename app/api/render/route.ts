@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { startRender, isRenderAvailable, unavailableReason } from "@/lib/render/backend";
 import {
   approve,
   consume,
@@ -9,17 +8,19 @@ import {
   setStatus,
   snapshotAccepted,
 } from "@/lib/render/job";
-import { checkRate, clientKey } from "@/lib/render/rate-limit";
 import { explainZodError, FilmProjectSchema } from "@/lib/studio/schema";
 
 /**
- * The render endpoint, in three explicit phases.
+ * The render AUTHORISATION endpoint, in three explicit phases.
  *
  * `propose` records what would be rendered and mints a token. `approve` is the
- * human's click. `confirm` starts the render and accepts nothing but the token,
- * so it can only replay what `propose` recorded. See lib/render/job.ts.
+ * human's click. `confirm` releases the recorded snapshot and accepts nothing
+ * but the token, so a caller holding it can replay what `propose` recorded but
+ * cannot change it. See lib/render/job.ts.
  *
- * Node runtime: Remotion cannot render on edge.
+ * Encoding itself happens in the browser (lib/render/web-render.ts), so this
+ * route spends no CPU on video and needs no rate limiter to protect a bill.
+ * It only decides *whether* a render may proceed, never performs one.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,7 +78,9 @@ export async function POST(request: Request) {
       status: "needs_confirmation",
       confirmationId,
       summary,
-      renderAvailable: isRenderAvailable(),
+      // Whether encoding is possible is a fact about the visitor's browser,
+      // so the client probes it rather than the server guessing.
+      renderAvailable: true,
     });
   }
 
@@ -93,19 +96,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, status: "approved" });
   }
 
-  // ---- phase 3: confirm. Replays the recorded snapshot. ----
-  const limit = checkRate(clientKey(request));
-  if (!limit.allowed) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: `Too many renders. Try again in ${Math.ceil(limit.retryAfterSeconds / 60)} minute(s).`,
-        retryAfterSeconds: limit.retryAfterSeconds,
-      },
-      { status: 429 },
-    );
-  }
-
+  // ---- phase 3: confirm. Releases the recorded snapshot. ----
   const result = consume(input.confirmationId);
   if (!result.ok) {
     return NextResponse.json(
@@ -114,24 +105,15 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isRenderAvailable()) {
-    setStatus(result.jobId, { state: "failed", message: unavailableReason() });
-    return NextResponse.json(
-      { ok: false, code: "unavailable", message: unavailableReason(), jobId: result.jobId },
-      { status: 503 },
-    );
-  }
-
-  const started = await startRender(result.jobId, result.snapshot, setStatus);
-  if (!started.ok) {
-    setStatus(result.jobId, { state: "failed", message: started.message });
-    return NextResponse.json(
-      { ok: false, code: "render-failed", message: started.message, jobId: result.jobId },
-      { status: 502 },
-    );
-  }
-
-  return NextResponse.json({ ok: true, status: "started", jobId: result.jobId });
+  // The snapshot travels back so the browser encodes exactly what was recorded
+  // at propose time — not whatever the board happens to look like now.
+  setStatus(result.jobId, { state: "rendering", progress: 0 });
+  return NextResponse.json({
+    ok: true,
+    status: "authorised",
+    jobId: result.jobId,
+    snapshot: result.snapshot,
+  });
 }
 
 /** Lets the UI show the confirm sheet an agent raised. */

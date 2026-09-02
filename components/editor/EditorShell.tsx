@@ -62,10 +62,19 @@ export function EditorShell() {
   const pendingRender = useStudioStore((state) => state.pendingRender);
   const renderNote = useStudioStore((state) => state.renderNote);
 
+  const [rendering, setRendering] = useState(false);
+
   async function exportFilm() {
-    useStudioStore.getState().setRenderNote("Starting render…");
-    const result = await startRenderAsHuman();
-    useStudioStore.getState().setRenderNote(result.message);
+    const store = useStudioStore.getState();
+    setRendering(true);
+    store.setRenderNote("Encoding in your browser…");
+
+    const result = await startRenderAsHuman((fraction) =>
+      store.setRenderNote(`Encoding… ${Math.round(fraction * 100)}%`),
+    );
+
+    setRendering(false);
+    store.setRenderNote(result.message);
   }
 
   function step(direction: 1 | -1) {
@@ -91,6 +100,7 @@ export function EditorShell() {
         }
         onRender={() => void exportFilm()}
         note={renderNote}
+        busy={rendering}
       />
 
       <div className="flex min-h-0 flex-1">

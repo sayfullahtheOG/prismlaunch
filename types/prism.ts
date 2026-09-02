@@ -19,6 +19,7 @@ import type {
   LookSchema,
   StageIdSchema,
   StageStatusSchema,
+  StoryboardPanelSchema,
   ShapeClipSchema,
   TextAlignSchema,
   TextClipSchema,
@@ -65,6 +66,7 @@ export type Process = z.infer<typeof ProcessSchema>;
 export type Direction = z.infer<typeof DirectionSchema>;
 export type ScriptBeat = z.infer<typeof ScriptBeatSchema>;
 export type LockedBeat = z.infer<typeof LockedBeatSchema>;
+export type StoryboardPanel = z.infer<typeof StoryboardPanelSchema>;
 export type Look = z.infer<typeof LookSchema>;
 
 /** What lives in `.prismlaunch/<slug>/project.json`. The agent writes this. */

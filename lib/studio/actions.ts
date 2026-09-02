@@ -73,6 +73,7 @@ import type {
   Process,
   ProjectFile,
   StageId,
+  StoryboardPanel,
   Track,
   TrackKind,
 } from "@/types/prism";
@@ -187,7 +188,7 @@ function requireStageForClips(
   const stage = currentStage(project.file.process);
   return fail(
     "stage-gated",
-    `Clips come after the script is approved. The process is at ${stage ? STAGE_LABELS[stage] : "the end"}${stage ? ` — ${nextInstruction(project.file.process).instruction}` : ""}`,
+    `Clips come after the storyboard is approved. The process is at ${stage ? STAGE_LABELS[stage] : "the end"}${stage ? ` — ${nextInstruction(project.file.process).instruction}` : ""}`,
   );
 }
 
@@ -1210,9 +1211,137 @@ export function submitScript(
   return submitStage("script", artifact, summary);
 }
 
+export function submitStoryboard(
+  artifact: StagePatch<"storyboard">,
+  summary?: string,
+): Promise<ActionResult> {
+  return submitStage("storyboard", artifact, summary);
+}
+
+/** The track `layAnimatic` writes to, found or made. */
+const BOARDS_TRACK = "Boards";
+
+/**
+ * Put the approved storyboard on the timeline as placeholders.
+ *
+ * One text clip per panel, at cumulative frames from the panels' durations,
+ * carrying the panel's words and transitions, labelled by its beat. The
+ * agent wrote every one of those values; what this adds is the arithmetic —
+ * which is exactly the part an agent hand-computing frame offsets across nine
+ * panels gets wrong, and the reason the method says the animatic is free in
+ * this tool.
+ *
+ * The clips land `accepted`, not `draft`. They are a transcription of an
+ * artifact the person already approved, and making them click through nine
+ * accept buttons to reach the animatic they are about to review would be the
+ * process getting in its own way. The animatic approval is the decision.
+ *
+ * Re-running replaces the Boards track's clips, so a storyboard sent back and
+ * resubmitted can be re-laid without hand-deleting the old placeholders.
+ */
+export async function layAnimatic(): Promise<ActionResult> {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+  const { process } = project.file;
+
+  if (!isApprovedStage(process, "storyboard")) {
+    return fail(
+      "stage-gated",
+      `The storyboard is not approved yet — there is nothing to lay. ${nextInstruction(process).instruction}`,
+    );
+  }
+  if (timingLocked(process)) {
+    return fail(
+      "timing-locked",
+      "The animatic is already approved and the timing is locked. Ask the person to reopen it before re-laying the boards.",
+    );
+  }
+
+  const panels = process.storyboard.panels;
+  if (panels.length === 0) {
+    return fail("invalid-input", "The storyboard has no panels.");
+  }
+
+  let cursor = 0;
+  const clips: Clip[] = panels.map((panel) => {
+    const clip = boardClip(panel, cursor);
+    cursor += panel.durationInFrames;
+    return clip;
+  });
+
+  let file = project.file;
+  let track = file.tracks.find(
+    (candidate) => candidate.kind === "visual" && candidate.name === BOARDS_TRACK,
+  );
+  if (!track) {
+    const added = addTrack(file, "visual", BOARDS_TRACK);
+    file = added.file;
+    track = added.track;
+  }
+
+  const boardsId = track.id;
+  file = {
+    ...file,
+    tracks: file.tracks.map((candidate) =>
+      candidate.id === boardsId ? { ...candidate, clips } : candidate,
+    ),
+  };
+
+  // The boards are the film's extent now. A blank composition may have been
+  // created longer than the storyboard runs, and thirty frames of dead tail
+  // behind the last board is not a beat anyone approved. Trimming considers
+  // every track, so a music bed already placed keeps the length it needs.
+  file = trimToContent(file);
+
+  const rejected = commit(project, file, {
+    origin: "agent",
+    label: "prism.lay_animatic",
+    detail: `${clips.length} boards on the timeline · ${(cursor / project.file.fps).toFixed(1)}s`,
+  });
+  if (rejected) return rejected;
+
+  await flushWrites();
+  return ok(
+    `Laid ${clips.length} boards on the “${BOARDS_TRACK}” track, ${(cursor / project.file.fps).toFixed(1)}s end to end. Now add the music with prism.add_audio — startFrom on a downbeat — adjust any board to the beat grid, and call prism.submit_animatic.`,
+  );
+}
+
+/** A placeholder clip from a panel: its words, its transitions, its slot. */
+function boardClip(panel: StoryboardPanel, from: number): Clip {
+  return {
+    kind: "text",
+    id: mintId("board"),
+    from,
+    durationInFrames: panel.durationInFrames,
+    approval: "accepted",
+    label: panel.label,
+    revisionNote: `Board: ${panel.frame}`,
+    text: panel.words?.trim() || panel.label,
+    fontSize: 0.07,
+    fontFamily: "mono",
+    fontWeight: 400,
+    color: "#F7F8F899",
+    align: "center",
+    lineHeight: 1.2,
+    letterSpacing: 0,
+    box: { x: 0.5, y: 0.47, width: 0.8, height: 0.3, rotation: 0, opacity: 1 },
+    animation: {
+      enter: panel.transitionIn,
+      exit: panel.transitionOut,
+      enterFrames: 10,
+      exitFrames: 6,
+    },
+  };
+}
+
+function isApprovedStage(process: Process, stage: StageId): boolean {
+  return process[stage].status === "approved";
+}
+
 /**
  * The animatic's artifact is the timeline itself, so this checks that there
- * is one: at least one visual clip per script beat, and music underneath.
+ * is one: at least one visual clip per storyboard panel, and music underneath.
  */
 export async function submitAnimatic(summary?: string): Promise<ActionResult> {
   const guard = requireProject();
@@ -1225,18 +1354,18 @@ export async function submitAnimatic(summary?: string): Promise<ActionResult> {
   const audio = file.tracks
     .filter((track) => track.kind === "audio")
     .reduce((n, track) => n + track.clips.length, 0);
-  const beats = file.process.script.beats.length;
+  const panels = file.process.storyboard.panels.length;
 
   if (visual === 0) {
     return fail(
       "invalid-input",
-      "The animatic is the timeline, and the timeline is empty. Place one labelled placeholder clip per script beat first.",
+      "The animatic is the timeline, and the timeline is empty. Call prism.lay_animatic to put the approved boards on it first.",
     );
   }
-  if (beats > 0 && visual < beats) {
+  if (panels > 0 && visual < panels) {
     return fail(
       "invalid-input",
-      `The script has ${beats} beats but the timeline has ${visual} visual clip${visual === 1 ? "" : "s"}. One placeholder per beat, then submit.`,
+      `The storyboard has ${panels} panels but the timeline has ${visual} visual clip${visual === 1 ? "" : "s"}. prism.lay_animatic puts one placeholder per panel; then submit.`,
     );
   }
 
@@ -1711,6 +1840,7 @@ export function getProjectContext() {
         brief: strip(file.process.brief),
         concept: strip(file.process.concept),
         script: strip(file.process.script),
+        storyboard: strip(file.process.storyboard),
         animatic: { beats: file.process.animatic.beats },
         style: strip(file.process.style),
         sound: strip(file.process.sound),

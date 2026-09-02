@@ -137,20 +137,20 @@ describe("the stage order, for agents", () => {
    * approved. An agent that skips concept and script and starts placing text
    * is the failure mode the method was written against.
    */
-  it("keeps the agent off the timeline until the script is approved", () => {
-    useStudioStore.getState().setProject(filmApprovedThrough("concept"), 0);
+  it("keeps the agent off the timeline until the storyboard is approved", () => {
+    useStudioStore.getState().setProject(filmApprovedThrough("script"), 0);
     expect(agentMayPlaceClips(current().file.process)).toBe(false);
 
     const result = actions.createClip("track-1", AGENT_TEXT, "agent", "eager");
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("stage-gated");
-      expect(result.message).toMatch(/script is approved/);
+      expect(result.message).toMatch(/storyboard is approved/);
     }
   });
 
-  it("lets the agent onto the timeline once the script is approved", () => {
-    useStudioStore.getState().setProject(filmApprovedThrough("script"), 0);
+  it("lets the agent onto the timeline once the storyboard is approved", () => {
+    useStudioStore.getState().setProject(filmApprovedThrough("storyboard"), 0);
     expect(agentMayPlaceClips(current().file.process)).toBe(true);
 
     const result = actions.createClip("track-1", AGENT_TEXT, "agent", "the hook");
@@ -165,29 +165,25 @@ describe("the stage order, for agents", () => {
 
 describe("the animatic and the timing lock", () => {
   it("refuses to submit an empty animatic", async () => {
-    useStudioStore.getState().setProject(filmApprovedThrough("script"), 0);
+    useStudioStore.getState().setProject(filmApprovedThrough("storyboard"), 0);
     const result = await actions.submitAnimatic("nothing here");
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.message).toMatch(/timeline is empty/);
   });
 
-  it("wants one placeholder per script beat", async () => {
-    const project = filmApprovedThrough("script");
-    project.file.process.script.beats = [
-      { id: "b1", label: "Hook", words: "a", seconds: 2 },
-      { id: "b2", label: "Reveal", words: "b", seconds: 3 },
-      { id: "b3", label: "Proof", words: "c", seconds: 3 },
-    ];
+  it("wants one placeholder per storyboard panel", async () => {
+    const project = filmApprovedThrough("storyboard");
+    project.file.process.storyboard.panels = PANELS;
     useStudioStore.getState().setProject(project, 0);
     actions.createClip("track-1", AGENT_TEXT, "agent", "hook");
 
     const result = await actions.submitAnimatic("only one");
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.message).toMatch(/3 beats.*1 visual clip/);
+    if (!result.ok) expect(result.message).toMatch(/3 panels.*1 visual clip/);
   });
 
   it("snapshots every visual clip as a beat on approval", () => {
-    const project = filmApprovedThrough("script");
+    const project = filmApprovedThrough("storyboard");
     project.file.tracks[0]!.clips = [
       textClip({ id: "hook", from: 0, durationInFrames: 60, label: "Hook" }),
       textClip({ id: "reveal", from: 90, durationInFrames: 90, label: "Reveal" }),
@@ -204,7 +200,7 @@ describe("the animatic and the timing lock", () => {
   });
 
   it("lets an agent fill a locked beat but not cross its edge", () => {
-    const project = filmApprovedThrough("script");
+    const project = filmApprovedThrough("storyboard");
     project.file.tracks[0]!.clips = [
       textClip({ id: "hook", from: 0, durationInFrames: 60, label: "Hook" }),
       textClip({ id: "reveal", from: 90, durationInFrames: 90, label: "Reveal" }),
@@ -241,7 +237,7 @@ describe("the animatic and the timing lock", () => {
   });
 
   it("refuses an agent moving a clip out of its beat, but not recolouring it", () => {
-    const project = filmApprovedThrough("script");
+    const project = filmApprovedThrough("storyboard");
     project.file.tracks[0]!.clips = [
       textClip({ id: "hook", from: 0, durationInFrames: 60, label: "Hook" }),
     ];
@@ -278,7 +274,7 @@ describe("the animatic and the timing lock", () => {
   });
 
   it("unlocks when the person reopens the animatic", () => {
-    const project = filmApprovedThrough("script");
+    const project = filmApprovedThrough("storyboard");
     project.file.tracks[0]!.clips = [
       textClip({ id: "hook", from: 0, durationInFrames: 60, label: "Hook" }),
     ];
@@ -296,6 +292,102 @@ describe("the animatic and the timing lock", () => {
       tracks: [{ ...projectFile().tracks[0]!, clips: [textClip({ id: "a", from: 0, durationInFrames: 30 })] }],
     });
     expect(snapshotBeats(file)[0]!.label).toBe("Most tools make you click.");
+  });
+});
+
+const PANELS = [
+  { id: "p1", label: "Hook", frame: "Black. One line, centred.", durationInFrames: 60, transitionIn: "rise" as const, transitionOut: "fade" as const, words: "Six clicks." },
+  { id: "p2", label: "Reveal", frame: "Wordmark, large.", durationInFrames: 90, transitionIn: "scale" as const, transitionOut: "fade" as const, words: "Vector" },
+  { id: "p3", label: "Proof", frame: "One row of the UI, 2×.", durationInFrames: 120, transitionIn: "fade" as const, transitionOut: "none" as const },
+];
+
+describe("the storyboard", () => {
+  it("is its own stage, after the script and before the animatic", () => {
+    const index = STAGES.indexOf("storyboard");
+    expect(STAGES[index - 1]).toBe("script");
+    expect(STAGES[index + 1]).toBe("animatic");
+  });
+
+  it("refuses until the script is approved", async () => {
+    useStudioStore.getState().setProject(filmApprovedThrough("concept"), 0);
+    const result = await actions.submitStoryboard({ panels: PANELS }, "boards");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("stage-gated");
+  });
+
+  it("carries one panel per beat with the board's five fields", async () => {
+    useStudioStore.getState().setProject(filmApprovedThrough("script"), 0);
+    const result = await actions.submitStoryboard({ panels: PANELS }, "first, last, then between");
+    expect(result.ok).toBe(true);
+
+    const panels = current().file.process.storyboard.panels;
+    expect(panels).toHaveLength(3);
+    expect(panels[0]).toMatchObject({ label: "Hook", durationInFrames: 60, transitionIn: "rise" });
+    expect(panels[2]!.transitionOut).toBe("none");
+  });
+
+  /**
+   * The transcription: nine panels of hand-computed cumulative frames is the
+   * arithmetic an agent gets wrong. The tool does it, from the artifact the
+   * person already approved.
+   */
+  it("lays the approved boards on the timeline at cumulative frames", async () => {
+    const project = filmApprovedThrough("storyboard");
+    project.file.process.storyboard.panels = PANELS;
+    useStudioStore.getState().setProject(project, 0);
+
+    const result = await actions.layAnimatic();
+    expect(result.ok).toBe(true);
+
+    const boards = current().file.tracks.find((t) => t.name === "Boards");
+    expect(boards).toBeDefined();
+    expect(boards!.clips.map((c) => [c.from, c.durationInFrames])).toEqual([
+      [0, 60],
+      [60, 90],
+      [150, 120],
+    ]);
+    // The film grew to fit them.
+    expect(current().file.durationInFrames).toBe(270);
+    // Words and transitions are the panel's; the third has no words, so its label stands in.
+    const [hook, , proof] = boards!.clips;
+    expect(hook!.kind === "text" && hook!.text).toBe("Six clicks.");
+    expect(hook!.kind === "text" && hook!.animation.enter).toBe("rise");
+    expect(proof!.kind === "text" && proof!.text).toBe("Proof");
+    // Transcribed from an approved artifact: not a draft to click through.
+    expect(boards!.clips.every((c) => c.approval === "accepted")).toBe(true);
+  });
+
+  it("refuses to lay before the storyboard is approved", async () => {
+    const project = filmApprovedThrough("script");
+    project.file.process.storyboard.panels = PANELS;
+    useStudioStore.getState().setProject(project, 0);
+    const result = await actions.layAnimatic();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("stage-gated");
+  });
+
+  it("replaces the boards when re-laid, rather than doubling them", async () => {
+    const project = filmApprovedThrough("storyboard");
+    project.file.process.storyboard.panels = PANELS;
+    useStudioStore.getState().setProject(project, 0);
+
+    await actions.layAnimatic();
+    await actions.layAnimatic();
+
+    const boards = current().file.tracks.find((t) => t.name === "Boards");
+    expect(boards!.clips).toHaveLength(3);
+  });
+
+  it("will not re-lay once the timing is locked", async () => {
+    const project = filmApprovedThrough("storyboard");
+    project.file.process.storyboard.panels = PANELS;
+    useStudioStore.getState().setProject(project, 0);
+    await actions.layAnimatic();
+    actions.approveStage("animatic");
+
+    const result = await actions.layAnimatic();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("timing-locked");
   });
 });
 
@@ -341,6 +433,7 @@ describe("the approval boundary, extended to the process", () => {
       const expected = `prism.submit_${stage === "concept" ? "concepts" : stage === "style" ? "style_frames" : stage}`;
       expect(names, `${expected} is missing`).toContain(expected);
     }
+    expect(names).toContain("prism.lay_animatic");
 
     const forbidden = names.filter((name) =>
       /approve|reopen|skip|unlock|accept/i.test(name),

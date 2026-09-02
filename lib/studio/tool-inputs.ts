@@ -377,6 +377,47 @@ export const SubmitScriptInput = z.object({
   summary,
 });
 
+export const SubmitStoryboardInput = z.object({
+  panels: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(40),
+        beatId: z.string().max(40).optional().describe("The script beat this boards."),
+        label: z.string().min(1).max(40).describe("'Hook', 'Reveal', 'Proof 1'…"),
+        frame: z
+          .string()
+          .min(1)
+          .max(280)
+          .describe("What is on screen: ground, composition, type role, the product if shown. A sentence a designer could draw from."),
+        action: z.string().max(240).optional().describe("What moves, in what order."),
+        durationInFrames: z
+          .number()
+          .int()
+          .min(6)
+          .max(9000)
+          .describe("At 30fps. From the script's seconds, adjusted to the beat grid once you have chosen music."),
+        // Defaulted here rather than mapped in the executor, so the parsed
+        // panel is already the shape the stage artifact wants.
+        transitionIn: z
+          .enum(["none", "fade", "rise", "fall", "slide-left", "slide-right", "scale", "blur"])
+          .default("fade")
+          .describe("Defaults to fade."),
+        transitionOut: z
+          .enum(["none", "fade", "rise", "fall", "slide-left", "slide-right", "scale", "blur"])
+          .default("fade")
+          .describe("Defaults to fade."),
+        sound: z.string().max(140).optional().describe("What the music or SFX does here."),
+        words: z.string().max(160).optional().describe("The on-screen words, if any. Under seven."),
+      }),
+    )
+    .min(2)
+    .max(40)
+    .describe("One panel per script beat, in order. Board the first, then the last, then fill between."),
+  summary,
+});
+
+export const LayAnimaticInput = z.object({});
+
 export const SubmitAnimaticInput = z.object({ summary });
 
 export const SubmitStyleFramesInput = z.object({

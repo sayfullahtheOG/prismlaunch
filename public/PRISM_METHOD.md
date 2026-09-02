@@ -328,6 +328,12 @@ Thumbnails first, no detail. A trick from School of Motion: board the first
 beat, then the last, then fill in the transitions between — the ending decides
 what the middle has to earn.
 
+In this tool the board is `prism.submit_storyboard`: one panel per beat with
+exactly those fields, in frames. The person reads them as boards in the
+Process panel — a frame with the words roughed in and the notes beneath. That
+is the film before it exists, and it is the cheapest moment there will ever be
+to change it.
+
 ### The animatic
 
 This is where the film is actually made, and in this tool it costs almost
@@ -335,15 +341,18 @@ nothing, so there is no excuse for skipping it.
 
 1. **Choose the music first** (§9). Tempo sets the shot lengths. A track laid
    under a finished edit never fits.
-2. Lay **one clip per beat** on the real timeline — a text clip carrying the
-   beat's words, or a shape clip labelled with the beat's name. Set each
-   clip's `from` and `durationInFrames` to the real timing. Choose the real
-   transitions. Leave everything else default and ugly.
+2. **`prism.lay_animatic`.** Once the storyboard is approved, this puts one
+   placeholder clip per panel on the timeline, at cumulative frames from the
+   panels' durations, carrying each panel's words and transitions. The words
+   and durations are yours; the frame arithmetic — the thing an agent gets
+   wrong by hand across nine panels — is the tool's.
 3. Put the music on an audio track with `startFrom` set so a real downbeat
-   sits at the clip's first frame.
+   sits at the clip's first frame. Move any board whose edge is off the grid
+   onto it with `prism.update_clip`.
 4. Play it. Watch it three times (§11). Fix the structure.
-5. **Show it to the person, whole.** Structural notes now cost seconds to
-   apply. The same note after forty finished clips costs the film.
+5. **Show it to the person, whole** — `prism.submit_animatic`. Structural
+   notes now cost seconds to apply. The same note after forty finished clips
+   costs the film.
 
 Deliberately crude — School of Motion's animatics are black-and-white sketches
 *because* roughness keeps the conversation on structure. If the person starts
@@ -829,8 +838,10 @@ VO      none — the interface says it
 
 ## 10. Build — in the tool
 
-Every stage above is a field in `project.json` and a `submit_*` tool, and the
-tool for a stage refuses until the person has approved the one before. Submit
+Every stage above is a field in `project.json` and a `submit_*` tool — the
+storyboard is `prism.submit_storyboard`, and `prism.lay_animatic` transcribes
+it onto the timeline — and the tool for a stage refuses until the person has
+approved the one before. Submit
 the brief; stop. Submit the concepts; stop. The person reads each in the
 Process panel and approves it or sends it back with a note, which reaches you
 through `prism.get_project_context`. You do not decide when a stage is done.

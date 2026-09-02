@@ -335,6 +335,8 @@ function Artifact({
           <Row label="Message" value={b.message} strong />
           <Row label="Feeling" value={b.feeling} />
           <Row label="Length" value={b.lengthSeconds ? `${b.lengthSeconds}s` : undefined} />
+          <Row label="The truth" value={b.truth} />
+          <Row label="Demo moment" value={b.demoMoment} />
         </dl>
       );
     }
@@ -429,6 +431,60 @@ function Artifact({
       );
     }
 
+    case "storyboard": {
+      const panels = process.storyboard.panels;
+      if (panels.length === 0) return <Empty />;
+      const total = panels.reduce((n, panel) => n + panel.durationInFrames, 0);
+      return (
+        <div className="flex flex-col gap-2">
+          <ol className="flex flex-col gap-2">
+            {panels.map((panel, index) => (
+              <li key={panel.id} className="ds-raised rounded-sm bg-raised p-2.5">
+                {/*
+                  A board is a frame with notes under it. The frame here is a
+                  block of ground with the panel's words set the way a board
+                  would rough them in — enough to read the film as a sequence,
+                  deliberately not enough to argue about colour.
+                */}
+                <div className="ds-inset flex aspect-video items-center justify-center rounded-xs bg-sunken px-3">
+                  <span className="line-clamp-2 text-center font-mono text-2xs text-muted">
+                    {panel.words?.trim() || panel.label}
+                  </span>
+                </div>
+                <p className="mt-2 flex items-baseline gap-2">
+                  <span className="tabular font-mono text-2xs text-subtle">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="text-xs font-semibold text-ink">{panel.label}</span>
+                  <span className="tabular ml-auto font-mono text-2xs text-subtle">
+                    {panel.durationInFrames}f · {(panel.durationInFrames / file.fps).toFixed(1)}s
+                  </span>
+                </p>
+                <p className="mt-1 text-xs leading-[var(--ds-leading-body)] text-muted">
+                  {panel.frame}
+                </p>
+                {panel.action ? (
+                  <p className="mt-1 text-2xs leading-[var(--ds-leading-body)] text-subtle">
+                    <span className="font-semibold">Moves: </span>
+                    {panel.action}
+                  </p>
+                ) : null}
+                <p className="mt-1.5 flex flex-wrap gap-x-3 font-mono text-2xs text-subtle">
+                  <span>in {panel.transitionIn}</span>
+                  <span>out {panel.transitionOut}</span>
+                  {panel.sound ? <span>♪ {panel.sound}</span> : null}
+                </p>
+              </li>
+            ))}
+          </ol>
+          <p className="tabular font-mono text-2xs text-subtle">
+            {panels.length} panels · {total}f · {(total / file.fps).toFixed(1)}s
+            {process.brief.lengthSeconds ? ` of ${process.brief.lengthSeconds}s` : ""}
+          </p>
+        </div>
+      );
+    }
+
     case "animatic": {
       const visual = file.tracks
         .filter((track) => track.kind === "visual")
@@ -461,7 +517,9 @@ function Artifact({
             </ol>
           ) : (
             <p className="text-2xs text-subtle">
-              Approving snapshots every visual clip as a locked beat.
+              {visual === 0
+                ? "Empty. Your agent lays the approved boards here with prism.lay_animatic."
+                : "Approving snapshots every visual clip as a locked beat."}
             </p>
           )}
         </div>

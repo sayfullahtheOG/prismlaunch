@@ -375,8 +375,8 @@ export const BackgroundSchema = z.discriminatedUnion("kind", [
  * The pipeline, as state in the file.
  *
  * PRISM_METHOD.md describes how a film gets made: brief, concept, script,
- * animatic with timing locked to the music, style frames, build, sound,
- * polish. A document can be skipped. This cannot: each stage is a field in
+ * storyboard, animatic with timing locked to the music, style frames, build,
+ * sound, polish. A document can be skipped. This cannot: each stage is a field in
  * `project.json`, the agent submits an artifact into it, the person approves
  * or sends it back with a note, and the tools for a later stage refuse until
  * the earlier one is approved.
@@ -395,6 +395,7 @@ export const STAGES = [
   "brief",
   "concept",
   "script",
+  "storyboard",
   "animatic",
   "style",
   "build",
@@ -425,6 +426,10 @@ export const BriefStageSchema = z.object({
   message: z.string().max(200).optional(),
   feeling: z.string().max(40).optional(),
   lengthSeconds: z.number().min(5).max(180).optional(),
+  /** Immersion's output: the one thing true here and false everywhere else. */
+  truth: z.string().max(240).optional(),
+  /** The single interaction that, seen once, explains the whole product. */
+  demoMoment: z.string().max(240).optional(),
 });
 
 export const DirectionSchema = z.object({
@@ -462,6 +467,37 @@ export const ScriptStageSchema = z.object({
   ...StageBase,
   beats: z.array(ScriptBeatSchema).max(14).default([]),
   voiceover: z.string().max(800).optional(),
+});
+
+/**
+ * One storyboard panel — a beat, described before it exists on the timeline.
+ *
+ * The five fields a motion-graphics board carries: what is in the frame, what
+ * moves, how long, how it comes in and goes out, and what the sound does. In
+ * frames rather than seconds because this is what `lay_animatic` transcribes
+ * onto the timeline, and the timeline counts frames.
+ */
+export const StoryboardPanelSchema = z.object({
+  id: z.string().min(1).max(40),
+  /** The script beat this boards. */
+  beatId: z.string().max(40).optional(),
+  label: z.string().min(1).max(40),
+  /** What is on screen: composition, ground, type role, the product if shown. */
+  frame: z.string().min(1).max(280),
+  /** What moves, and in what order. */
+  action: z.string().max(240).optional(),
+  durationInFrames: z.number().int().min(6).max(MAX_FRAMES),
+  transitionIn: TransitionSchema.default("fade"),
+  transitionOut: TransitionSchema.default("fade"),
+  /** The music or effect at this beat. */
+  sound: z.string().max(140).optional(),
+  /** The on-screen words, if any. Under seven. */
+  words: z.string().max(160).optional(),
+});
+
+export const StoryboardStageSchema = z.object({
+  ...StageBase,
+  panels: z.array(StoryboardPanelSchema).max(40).default([]),
 });
 
 /** A beat's window, frozen when the animatic is approved. */
@@ -505,6 +541,7 @@ export const ProcessSchema = z.object({
   brief: BriefStageSchema,
   concept: ConceptStageSchema,
   script: ScriptStageSchema,
+  storyboard: StoryboardStageSchema,
   animatic: AnimaticStageSchema,
   style: StyleStageSchema,
   build: BuildStageSchema,
@@ -517,6 +554,7 @@ export const EMPTY_PROCESS: z.infer<typeof ProcessSchema> = {
   brief: { status: "pending" },
   concept: { status: "pending", directions: [] },
   script: { status: "pending", beats: [] },
+  storyboard: { status: "pending", panels: [] },
   animatic: { status: "pending", beats: [] },
   style: { status: "pending", clipIds: [] },
   build: { status: "pending" },

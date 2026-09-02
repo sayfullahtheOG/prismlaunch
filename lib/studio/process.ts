@@ -14,6 +14,7 @@ export const STAGE_LABELS: Record<StageId, string> = {
   brief: "Brief",
   concept: "Concept",
   script: "Script",
+  storyboard: "Storyboard",
   animatic: "Animatic",
   style: "Style frames",
   build: "Build",
@@ -26,7 +27,8 @@ export const STAGE_PURPOSE: Record<StageId, string> = {
   brief: "Who is watching, the one message, the one feeling, and how long.",
   concept: "Three directions, one recommended. The idea everything else serves.",
   script: "The beats and their words, timed. Read aloud with a stopwatch.",
-  animatic: "One placeholder clip per beat on the real timeline, cut to the real music. Approving this locks the timing.",
+  storyboard: "One panel per beat: what is in the frame, what moves, how long, how it comes in and goes out, what the sound does. The film, before it exists.",
+  animatic: "The boards laid on the real timeline, cut to the real music. Approving this locks the timing.",
   style: "Two or three beats built for real. Ground, ink, accent, type — the look every other beat copies.",
   build: "Every remaining beat, built inside its locked window.",
   sound: "Music, effects and any voice, placed to the beat grid.",
@@ -59,9 +61,9 @@ export function previousApproved(process: Process, stage: StageId): boolean {
  * Whether an agent may put clips on the timeline yet.
  *
  * Clips exist from the animatic onward — that stage IS placing clips. Before
- * it there is nothing to place: no approved script means no beats, and a clip
- * without a beat is a guess. The person can always add clips; this only gates
- * the tools.
+ * it there is nothing to place: no approved storyboard means no boards, and a
+ * clip without a board is a guess. The person can always add clips; this only
+ * gates the tools.
  */
 export function agentMayPlaceClips(process: Process): boolean {
   return previousApproved(process, "animatic");
@@ -106,7 +108,8 @@ export function nextInstruction(process: Process): {
     brief: "Write the brief with prism.submit_brief — one audience, one message, one feeling, one length. PRISM_METHOD.md §2.",
     concept: "Generate 8–12 angles, keep three, recommend one. Submit with prism.submit_concepts. PRISM_METHOD.md §3.",
     script: "Write the beats with their words and seconds; read it aloud against the length. Submit with prism.submit_script. PRISM_METHOD.md §5.",
-    animatic: "Choose the music first. Place one labelled placeholder clip per beat on the timeline, put the music on an audio track with startFrom on a downbeat, and call prism.submit_animatic. PRISM_METHOD.md §6 and §9.",
+    storyboard: "Board every script beat: frame, action, durationInFrames, transition in and out, sound, words. Board the first beat, then the last, then fill in between. Submit with prism.submit_storyboard. PRISM_METHOD.md §6.",
+    animatic: "Choose the music first (PRISM_METHOD.md §9). Call prism.lay_animatic to put the approved boards on the timeline as placeholders, then prism.add_audio the music with startFrom on a downbeat, then prism.submit_animatic. PRISM_METHOD.md §6.",
     style: "Pick a look from PRISM_METHOD.md §7. Build the hook, the reveal and the endcard for real, inside their locked windows. Submit with prism.submit_style_frames.",
     build: "Replace every remaining placeholder with real clips, inside their windows, applying the approved look. Submit with prism.submit_build. PRISM_METHOD.md §10.",
     sound: "Place effects on the transitions, duck under any voice, add room tone. Submit with prism.submit_sound and the filled-in plan. PRISM_METHOD.md §9.",

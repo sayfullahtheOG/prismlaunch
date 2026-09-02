@@ -77,8 +77,8 @@ look like every other AI-made video, which is the thing this exists to stop.
    each submit, **stop** — the person approves it in the Process panel, or
    sends it back with a note you will find in `process`. You cannot approve a
    stage yourself; there is no tool for it.
-5. The timeline opens up once the script is approved. Approving the animatic
-   locks the timing.
+5. The timeline opens up once the storyboard is approved. Approving the
+   animatic locks the timing.
 6. Every clip you add is a draft the person accepts or rejects.
    **You cannot accept your own work** — there is no tool for it, by design.
 7. When polish is approved, call `prism.request_render`. That renders nothing;
@@ -86,21 +86,28 @@ look like every other AI-made video, which is the thing this exists to stop.
 
 ## The process
 
-The eight stages of PRISM_METHOD.md are eight fields in `project.json` and
-eight tools. The tool for a stage refuses until the person has approved every
+The nine stages of PRISM_METHOD.md are nine fields in `project.json` and
+nine tools. The tool for a stage refuses until the person has approved every
 stage before it, so you cannot skip ahead — not because a document says so,
 but because the tool says no.
 
 | Stage | Tool | What you submit | Approving it… |
 | --- | --- | --- | --- |
-| 1 Brief | `prism.submit_brief` | audience, message, feeling, length | lets you concept |
+| 1 Brief | `prism.submit_brief` | audience, message, feeling, length; the truth and the demo moment from immersion | lets you concept |
 | 2 Concept | `prism.submit_concepts` | 2–4 directions, one recommended | picks the idea |
-| 3 Script | `prism.submit_script` | beats with words and seconds; VO if any | opens the timeline |
-| 4 Animatic | `prism.submit_animatic` | the timeline itself: one placeholder per beat, music underneath | **locks the timing** |
-| 5 Style frames | `prism.submit_style_frames` | the look, and the 2–3 clips built for real | fixes the look |
-| 6 Build | `prism.submit_build` | every beat built, inside its window | — |
-| 7 Sound | `prism.submit_sound` | the sound plan; effects, ducking, tone placed | — |
-| 8 Polish | `prism.submit_polish` | the §14 checklist, run, with verdicts | unblocks the render |
+| 3 Script | `prism.submit_script` | beats with words and seconds; VO if any | lets you board |
+| 4 Storyboard | `prism.submit_storyboard` | one panel per beat: frame, action, frames, in/out, sound, words | opens the timeline |
+| 5 Animatic | `prism.lay_animatic`, then `prism.submit_animatic` | the boards on the timeline, music underneath, cut to the grid | **locks the timing** |
+| 6 Style frames | `prism.submit_style_frames` | the look, and the 2–3 clips built for real | fixes the look |
+| 7 Build | `prism.submit_build` | every beat built, inside its window | — |
+| 8 Sound | `prism.submit_sound` | the sound plan; effects, ducking, tone placed | — |
+| 9 Polish | `prism.submit_polish` | the §14 checklist, run, with verdicts | unblocks the render |
+
+**Laying the animatic.** Once the storyboard is approved, `prism.lay_animatic`
+puts one placeholder clip per panel on a "Boards" track, at cumulative frames
+from the panels' durations, carrying each panel's words and transitions. The
+words and durations are yours; the frame arithmetic is the tool's. Then add the
+music, move any board onto the beat grid, and submit.
 
 **The timing lock.** When the animatic is approved, every visual clip on the
 timeline becomes a locked beat. From then on a visual clip you add or move
@@ -286,7 +293,8 @@ rather than crashing the render — but it is still a hole, so check.
 | `prism.get_project_context` | Where things stand: the folder, the canvas, every track and clip with its id, the playhead, and which clips are unreviewed. **Call this first.** |
 | `prism.create_project` | Create an empty composition and open it. It starts with no runtime and grows as you place clips. |
 | `prism.open_project` | Show one that already exists in the folder. |
-| `prism.submit_brief` … `prism.submit_polish` | The eight stages, in order. See *The process* above. |
+| `prism.submit_brief` … `prism.submit_polish` | The nine stages, in order. See *The process* above. |
+| `prism.lay_animatic` | The approved boards onto the timeline, as placeholders, with the frame arithmetic done. |
 | `prism.add_track` | Add a visual or audio layer. |
 | `prism.update_track` | Rename, hide/mute, or set a layer's volume. |
 | `prism.move_track` | Move a layer forward or back in the stack. |

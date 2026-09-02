@@ -594,15 +594,31 @@ export function regenerateStoryboard(
  * short-lived confirmation. The confirm sheet then appears in the app for a
  * human to approve. The returned message deliberately tells the agent to wait.
  */
-export async function requestRender(reason?: string): Promise<ActionResult> {
+type Proposal =
+  | { ok: true; confirmationId: string; summary: string }
+  | { ok: false; result: ActionResult };
+
+/**
+ * Phase 1, without any UI.
+ *
+ * Records the accepted board on the server and mints a confirmation. Renders
+ * nothing and touches no store state — raising the confirm sheet is the
+ * caller's decision, because the two entry points need different behaviour:
+ * an agent must be stopped and made to wait, a person who just clicked Export
+ * has already said yes.
+ */
+async function proposeRenderOnServer(reason?: string): Promise<Proposal> {
   const { project } = useStudioStore.getState();
 
-  const pending = project.scenes.find((scene) => scene.approval === "draft");
-  if (pending) {
-    return fail(
-      "invalid-input",
-      `${sceneLabel(pending)} still has an unreviewed draft. The person needs to accept or discard it first.`,
-    );
+  const draft = project.scenes.find((scene) => scene.approval === "draft");
+  if (draft) {
+    return {
+      ok: false,
+      result: fail(
+        "invalid-input",
+        `${sceneLabel(draft)} still has an unreviewed draft. The person needs to accept or discard it first.`,
+      ),
+    };
   }
 
   let body: {
@@ -610,7 +626,6 @@ export async function requestRender(reason?: string): Promise<ActionResult> {
     confirmationId?: string;
     summary?: string;
     message?: string;
-    renderAvailable?: boolean;
   };
   try {
     const response = await fetch("/api/render", {
@@ -620,30 +635,55 @@ export async function requestRender(reason?: string): Promise<ActionResult> {
     });
     body = await response.json();
   } catch {
-    return fail("inspection-failed", "Could not reach the render service.");
+    return {
+      ok: false,
+      result: fail("inspection-failed", "Could not reach the render service."),
+    };
   }
 
   if (!body.ok || !body.confirmationId) {
-    return fail("invalid-input", body.message ?? "Could not propose a render.");
+    return {
+      ok: false,
+      result: fail(
+        "invalid-input",
+        body.message ?? "Could not propose a render.",
+      ),
+    };
   }
 
-  useStudioStore.getState().setPendingRender({
+  return {
+    ok: true,
     confirmationId: body.confirmationId,
     summary: body.summary ?? "Render the film.",
+  };
+}
+
+/**
+ * Phase 1 as an AGENT sees it. Renders nothing, raises the confirm sheet, and
+ * tells the agent to wait for a person.
+ */
+export async function requestRender(reason?: string): Promise<ActionResult> {
+  const proposal = await proposeRenderOnServer(reason);
+  if (!proposal.ok) return proposal.result;
+
+  useStudioStore.getState().setPendingRender({
+    confirmationId: proposal.confirmationId,
+    summary: proposal.summary,
     ...(reason ? { reason } : {}),
-    available: body.renderAvailable !== false,
+    available: true,
   });
 
-  const next = withActivity(project, {
-    origin: "agent",
-    label: "prism.request_render",
-    detail: "Proposed a render — needs your confirmation",
-    blocked: true,
-  });
-  commit(next);
+  commit(
+    withActivity(useStudioStore.getState().project, {
+      origin: "agent",
+      label: "prism.request_render",
+      detail: "Proposed a render — needs your confirmation",
+      blocked: true,
+    }),
+  );
 
   return ok(
-    `Nothing has been rendered. ${body.summary} A confirmation is now waiting in PrismLaunch — ask the person to approve it, then call prism.confirm_render with confirmationId "${body.confirmationId}".`,
+    `Nothing has been rendered. ${proposal.summary} A confirmation is now waiting in PrismLaunch — ask the person to approve it, then call prism.confirm_render with confirmationId "${proposal.confirmationId}".`,
   );
 }
 
@@ -736,14 +776,14 @@ export function dismissRenderRequest(): ActionResult {
 export async function startRenderAsHuman(
   onProgress?: (fraction: number) => void,
 ): Promise<ActionResult> {
-  const proposed = await requestRender();
-  if (!proposed.ok) return proposed;
+  // Deliberately does NOT go through requestRender(): that raises the agent's
+  // confirm sheet, and asking a person to confirm the button they just pressed
+  // is a dialog that answers itself. The click is the approval.
+  const proposal = await proposeRenderOnServer();
+  if (!proposal.ok) return proposal.result;
 
-  const pending = useStudioStore.getState().pendingRender;
-  if (!pending) return fail("invalid-input", "No render was proposed.");
-
-  const approved = await approveRender(pending.confirmationId);
+  const approved = await approveRender(proposal.confirmationId);
   if (!approved.ok) return approved;
 
-  return confirmRender(pending.confirmationId, onProgress);
+  return confirmRender(proposal.confirmationId, onProgress);
 }

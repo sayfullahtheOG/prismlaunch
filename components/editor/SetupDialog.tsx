@@ -42,6 +42,15 @@ export function SetupDialog() {
   const loadError = useStudioStore((state) => state.loadError);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * What the last click did, in the action's own words. Shown even on
+   * success, because a link that succeeds without landing anywhere — the
+   * picker returned nothing, every composition was unreadable — used to leave
+   * the dialog exactly as it was, and a person cannot tell "nothing happened"
+   * from "something happened and I cannot see it". The first version was
+   * silent here, and in an agent browser it read as broken.
+   */
+  const [outcome, setOutcome] = useState<string | null>(null);
   const surface = useRef<HTMLDivElement>(null);
 
   // Focus lands in the dialog on open. There is no trigger to return to.
@@ -54,9 +63,18 @@ export function SetupDialog() {
   async function run(action: () => Promise<{ ok: boolean; message: string }>) {
     setBusy(true);
     setError(null);
-    const result = await action();
-    setBusy(false);
-    if (!result.ok) setError(result.message);
+    setOutcome(null);
+    try {
+      const result = await action();
+      if (result.ok) setOutcome(result.message);
+      else setError(result.message);
+    } catch (thrown) {
+      // A rejection here is a bug, but a bug the person should be able to
+      // read and report rather than a dialog that quietly does nothing.
+      setError(`Something failed inside the app: ${thrown instanceof Error ? thrown.message : String(thrown)}`);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -120,6 +138,12 @@ export function SetupDialog() {
             onCreate={() => void run(createBlankProject)}
             onRelink={() => void run(linkFolder)}
           />
+        ) : null}
+
+        {outcome && !error ? (
+          <p role="status" className="text-center text-xs leading-[var(--ds-leading-body)] text-muted">
+            {outcome}
+          </p>
         ) : null}
 
         {error || loadError ? (

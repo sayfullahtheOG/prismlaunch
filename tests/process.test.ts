@@ -64,6 +64,46 @@ beforeEach(() => {
   resetStudio();
 });
 
+describe("editing a board by hand", () => {
+  beforeEach(() => {
+    resetStudio();
+    useStudioStore.getState().setProject(
+      film({
+        process: {
+          ...approvedThrough("script"),
+          storyboard: { status: "submitted", panels: PANELS },
+        },
+      }),
+      0,
+    );
+  });
+
+  it("changes one panel and leaves the rest alone", () => {
+    const result = actions.patchStoryboardPanel("p1", { durationInFrames: 48, words: "Six clicks." });
+    expect(result.ok).toBe(true);
+
+    const panels = readProject()!.file.process.storyboard.panels;
+    expect(panels[0]!.durationInFrames).toBe(48);
+    expect(panels[0]!.words).toBe("Six clicks.");
+    expect(panels[1]).toEqual(PANELS[1]);
+  });
+
+  it("refuses a panel that does not exist, and a value the schema rejects", () => {
+    expect(actions.patchStoryboardPanel("nope", { label: "x" }).ok).toBe(false);
+    const short = actions.patchStoryboardPanel("p1", { durationInFrames: 2 });
+    expect(short.ok).toBe(false);
+    expect(readProject()!.file.process.storyboard.panels[0]!.durationInFrames).toBe(PANELS[0]!.durationInFrames);
+  });
+
+  it("selects a panel by id, like anything else", () => {
+    expect(actions.select("p2").ok).toBe(true);
+    expect(readProject()!.selection).toEqual({ kind: "panel", id: "p2" });
+    expect(actions.select("no-such-thing").ok).toBe(false);
+    actions.selectBackground();
+    expect(readProject()!.selection).toEqual({ kind: "background" });
+  });
+});
+
 describe("the file", () => {
   /**
    * The bug that was on screen: a file written by the eight-stage build has a

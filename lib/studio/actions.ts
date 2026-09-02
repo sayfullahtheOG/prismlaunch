@@ -1428,6 +1428,56 @@ export function submitPolish(
 }
 
 /**
+ * Edit one storyboard panel in place.
+ *
+ * The person's, not the agent's: an agent resubmits the whole storyboard
+ * with `submit_storyboard`, and the person answers it. But a duration that
+ * is twelve frames long or a word that should be another word does not need
+ * a round trip, and the person owns the process, so they can change it here.
+ * The agent sees the edit on its next `get_project_context`.
+ */
+export function patchStoryboardPanel(
+  panelId: string,
+  patch: Partial<Omit<StoryboardPanel, "id">>,
+): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+  const { storyboard } = project.file.process;
+
+  const panel = storyboard.panels.find((candidate) => candidate.id === panelId);
+  if (!panel) return fail("not-found", `No storyboard panel "${panelId}".`);
+
+  const next: Process = {
+    ...project.file.process,
+    storyboard: {
+      ...storyboard,
+      panels: storyboard.panels.map((candidate) =>
+        candidate.id === panelId ? { ...candidate, ...patch } : candidate,
+      ),
+    },
+  };
+
+  const checked = ProcessSchema.safeParse(next);
+  if (!checked.success) {
+    return fail("invalid-input", explainZodError(checked.error));
+  }
+
+  const rejected = commit(
+    project,
+    { ...project.file, process: checked.data },
+    {
+      origin: "human",
+      label: "Edited board",
+      detail: `${panel.label} · ${Object.keys(patch).join(", ")}`,
+    },
+  );
+  if (rejected) return rejected;
+
+  return ok(`Updated board “${panel.label}”.`);
+}
+
+/**
  * HUMAN ONLY. Approve a stage — and for the animatic, lock the timing.
  *
  * Never a tool, for the same reason accepting a clip is not: the whole process

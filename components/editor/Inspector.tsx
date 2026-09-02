@@ -5,6 +5,7 @@ import { useStudioStore } from "@/lib/studio/store";
 import type { ProjectFile } from "@/types/prism";
 import { ClipInspector } from "./inspector/ClipInspector";
 import { CompositionInspector } from "./inspector/CompositionInspector";
+import { PanelInspector } from "./inspector/PanelInspector";
 
 /**
  * Properties of whatever is selected.
@@ -19,6 +20,11 @@ export function Inspector({ file }: { file: ProjectFile }) {
 
   const clip =
     selection?.kind === "clip" ? findClip(file, selection.id) : undefined;
+  const panelIndex =
+    selection?.kind === "panel"
+      ? file.process.storyboard.panels.findIndex((panel) => panel.id === selection.id)
+      : -1;
+  const panel = panelIndex >= 0 ? file.process.storyboard.panels[panelIndex] : undefined;
 
   return (
     <aside
@@ -29,6 +35,8 @@ export function Inspector({ file }: { file: ProjectFile }) {
         <ClipInspector clip={clip.clip} track={clip.track} file={file} />
       ) : selection?.kind === "background" ? (
         <CompositionInspector file={file} />
+      ) : panel ? (
+        <PanelInspector panel={panel} index={panelIndex} file={file} />
       ) : (
         <Empty />
       )}

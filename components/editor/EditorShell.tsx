@@ -26,11 +26,13 @@ import { IconRail } from "./IconRail";
 import { Inspector } from "./Inspector";
 import { RenderConfirm } from "./RenderConfirm";
 import { SetupDialog } from "./SetupDialog";
+import { StoryboardBoard } from "./StoryboardBoard";
 import { TopBar } from "./TopBar";
 import { useDiskSync } from "./useDiskSync";
 import { useWebMcp } from "./WebMcpProvider";
 import { AgentPanel } from "./panels/AgentPanel";
 import { ProcessPanel } from "./panels/ProcessPanel";
+import { StoryboardPanel } from "./panels/StoryboardPanel";
 
 /**
  * The editor is the page.
@@ -141,6 +143,7 @@ export function EditorShell() {
 
           <div className="flex w-[300px] shrink-0 flex-col border-r border-line-soft bg-surface">
             {tab === "process" ? <ProcessPanel file={file} /> : null}
+            {tab === "storyboard" ? <StoryboardPanel file={file} /> : null}
             {tab === "agent" ? (
               <AgentPanel
                 activity={project?.activity ?? []}
@@ -151,9 +154,21 @@ export function EditorShell() {
             ) : null}
           </div>
 
+          {/*
+            The storyboard takes the whole middle. A board is read as a
+            sequence of frames and needs the width; the canvas and timeline
+            are one click away, and the boards are on the timeline anyway
+            once the animatic is laid.
+          */}
           <main id="studio" className="flex min-w-0 flex-1 flex-col">
-            <Canvas file={file} />
-            <Timeline file={file} />
+            {tab === "storyboard" ? (
+              <StoryboardBoard file={file} />
+            ) : (
+              <>
+                <Canvas file={file} />
+                <Timeline file={file} />
+              </>
+            )}
           </main>
 
           <Inspector file={file} />
@@ -191,6 +206,9 @@ function useTimelineKeys(): void {
 
       const store = useStudioStore.getState();
       if (!store.project) return;
+      // No timeline on screen, no timeline shortcuts: space over the boards
+      // should not start a player nobody can see.
+      if (store.tab === "storyboard") return;
 
       const step = event.shiftKey ? store.project.file.fps : 1;
 

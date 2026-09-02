@@ -5,16 +5,13 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  Circle,
   CircleDot,
+  LayoutGrid,
   Lock,
-  RotateCcw,
   Sparkles,
-  Undo2,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { TextArea } from "@/components/ui/Field";
-import { approveStage, reopenStage, requestChanges } from "@/lib/studio/actions";
+import { showTab } from "@/lib/studio/actions";
 import {
   currentStage,
   STAGE_LABELS,
@@ -23,17 +20,22 @@ import {
 } from "@/lib/studio/process";
 import { STAGES } from "@/lib/studio/schema";
 import { clipCount, draftCount } from "@/lib/studio/timing";
-import type { Process, ProjectFile, StageId, StageStatus } from "@/types/prism";
+import type { Process, ProjectFile, StageId } from "@/types/prism";
 import { PanelShell } from "./PanelShell";
+import { STAGE_STATUS, StageDecision } from "./StageDecision";
 
 /**
  * The pipeline, as a place.
  *
- * Eight stages down the side. The agent submits into one; the person reads
+ * Nine stages down the side. The agent submits into one; the person reads
  * what arrived and either approves it or sends it back with a note. Nothing
  * here writes an artifact — that is the agent's job — and nothing the agent can
  * call approves one. The two buttons on a submitted stage are the whole
  * approval boundary, made visible.
+ *
+ * Artifacts that fit a column are shown in it: the brief, the concepts, the
+ * script, the sound plan, the checklist. Ones that need the screen — the
+ * storyboard — are summarised here and opened in their own section.
  *
  * The current stage is open; the rest are one line each. A person should be
  * able to see at a glance where the film is and what is waiting on them.
@@ -85,32 +87,6 @@ export function ProcessPanel({ file }: { file: ProjectFile }) {
   );
 }
 
-const STATUS: Record<
-  StageStatus,
-  { label: string; tone: string; icon: React.ReactNode }
-> = {
-  pending: {
-    label: "Not started",
-    tone: "text-subtle",
-    icon: <Circle size={13} strokeWidth={1.8} aria-hidden />,
-  },
-  submitted: {
-    label: "Waiting for you",
-    tone: "text-warning",
-    icon: <Sparkles size={13} strokeWidth={2.2} aria-hidden />,
-  },
-  "changes-requested": {
-    label: "Sent back",
-    tone: "text-muted",
-    icon: <Undo2 size={13} strokeWidth={2} aria-hidden />,
-  },
-  approved: {
-    label: "Approved",
-    tone: "text-success",
-    icon: <Check size={13} strokeWidth={2.6} aria-hidden />,
-  },
-};
-
 function StageRow({
   stage,
   index,
@@ -128,7 +104,7 @@ function StageRow({
   isOpen: boolean;
   onToggle: () => void;
 }) {
-  const status = STATUS[state.status];
+  const status = STAGE_STATUS[state.status];
 
   return (
     <li
@@ -196,122 +172,10 @@ function StageRow({
             </p>
           ) : null}
 
-          <Decision stage={stage} state={state} process={file.process} />
+          <StageDecision stage={stage} state={state} process={file.process} />
         </div>
       ) : null}
     </li>
-  );
-}
-
-/**
- * The buttons, by status.
- *
- * A submitted stage gets the two that matter. A pending one gets a quiet
- * "approve anyway" — the person may not want a brief for a ten-second teaser,
- * and skipping is theirs to do. An approved one gets reopen. Sent-back gets
- * nothing but the note: the ball is with the agent.
- */
-function Decision({
-  stage,
-  state,
-  process,
-}: {
-  stage: StageId;
-  state: Process[StageId];
-  process: Process;
-}) {
-  const [note, setNote] = useState("");
-  const [chosen, setChosen] = useState<string | null>(null);
-
-  if (state.status === "approved") {
-    return (
-      <Button
-        variant="quiet"
-        onClick={() => reopenStage(stage)}
-        icon={<RotateCcw size={13} strokeWidth={2} aria-hidden />}
-      >
-        {stage === "animatic" ? "Reopen and unlock timing" : "Reopen"}
-      </Button>
-    );
-  }
-
-  if (state.status === "changes-requested") {
-    return (
-      <p className="text-2xs text-subtle">
-        Waiting for your agent to resubmit.
-      </p>
-    );
-  }
-
-  if (state.status === "pending") {
-    return (
-      <Button variant="quiet" onClick={() => approveStage(stage)}>
-        Skip — approve as is
-      </Button>
-    );
-  }
-
-  // Submitted: the whole approval boundary, in two buttons.
-  const pick =
-    stage === "concept" ? (chosen ?? process.concept.recommended) : undefined;
-
-  return (
-    <div className="flex flex-col gap-2">
-      {stage === "concept" && process.concept.directions.length > 0 ? (
-        <fieldset className="flex flex-col gap-1">
-          <legend className="mb-1 text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase">
-            Go with
-          </legend>
-          {process.concept.directions.map((direction) => (
-            <label
-              key={direction.id}
-              className="flex cursor-pointer items-center gap-2 text-xs text-ink"
-            >
-              <input
-                type="radio"
-                name="chosen-direction"
-                value={direction.id}
-                checked={pick === direction.id}
-                onChange={() => setChosen(direction.id)}
-                className="accent-accent"
-              />
-              {direction.title}
-            </label>
-          ))}
-        </fieldset>
-      ) : null}
-
-      <TextArea
-        value={note}
-        onChange={(event) => setNote(event.target.value)}
-        placeholder="What should change? Your agent reads this."
-        rows={2}
-        aria-label="Feedback for your agent"
-      />
-
-      <div className="flex gap-2">
-        <Button
-          variant="primary"
-          className="flex-1"
-          onClick={() => approveStage(stage, pick ? { chosen: pick } : {})}
-          icon={<Check size={14} strokeWidth={2.4} aria-hidden />}
-        >
-          {stage === "animatic" ? "Approve and lock timing" : "Approve"}
-        </Button>
-        <Button
-          variant="secondary"
-          className="flex-1"
-          disabled={note.trim().length === 0}
-          onClick={() => {
-            requestChanges(stage, note);
-            setNote("");
-          }}
-          icon={<Undo2 size={14} strokeWidth={2.2} aria-hidden />}
-        >
-          Send back
-        </Button>
-      </div>
-    </div>
   );
 }
 
@@ -437,50 +301,20 @@ function Artifact({
       const total = panels.reduce((n, panel) => n + panel.durationInFrames, 0);
       return (
         <div className="flex flex-col gap-2">
-          <ol className="flex flex-col gap-2">
-            {panels.map((panel, index) => (
-              <li key={panel.id} className="ds-raised rounded-sm bg-raised p-2.5">
-                {/*
-                  A board is a frame with notes under it. The frame here is a
-                  block of ground with the panel's words set the way a board
-                  would rough them in — enough to read the film as a sequence,
-                  deliberately not enough to argue about colour.
-                */}
-                <div className="ds-inset flex aspect-video items-center justify-center rounded-xs bg-sunken px-3">
-                  <span className="line-clamp-2 text-center font-mono text-2xs text-muted">
-                    {panel.words?.trim() || panel.label}
-                  </span>
-                </div>
-                <p className="mt-2 flex items-baseline gap-2">
-                  <span className="tabular font-mono text-2xs text-subtle">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className="text-xs font-semibold text-ink">{panel.label}</span>
-                  <span className="tabular ml-auto font-mono text-2xs text-subtle">
-                    {panel.durationInFrames}f · {(panel.durationInFrames / file.fps).toFixed(1)}s
-                  </span>
-                </p>
-                <p className="mt-1 text-xs leading-[var(--ds-leading-body)] text-muted">
-                  {panel.frame}
-                </p>
-                {panel.action ? (
-                  <p className="mt-1 text-2xs leading-[var(--ds-leading-body)] text-subtle">
-                    <span className="font-semibold">Moves: </span>
-                    {panel.action}
-                  </p>
-                ) : null}
-                <p className="mt-1.5 flex flex-wrap gap-x-3 font-mono text-2xs text-subtle">
-                  <span>in {panel.transitionIn}</span>
-                  <span>out {panel.transitionOut}</span>
-                  {panel.sound ? <span>♪ {panel.sound}</span> : null}
-                </p>
-              </li>
-            ))}
-          </ol>
-          <p className="tabular font-mono text-2xs text-subtle">
-            {panels.length} panels · {total}f · {(total / file.fps).toFixed(1)}s
-            {process.brief.lengthSeconds ? ` of ${process.brief.lengthSeconds}s` : ""}
+          <p className="text-xs leading-[var(--ds-leading-body)] text-muted">
+            <span className="text-ink">{panels.length}</span> panels ·{" "}
+            <span className="tabular font-mono text-2xs">
+              {(total / file.fps).toFixed(1)}s
+              {process.brief.lengthSeconds ? ` of ${process.brief.lengthSeconds}s` : ""}
+            </span>
           </p>
+          <Button
+            variant="secondary"
+            onClick={() => showTab("storyboard")}
+            icon={<LayoutGrid size={14} strokeWidth={1.9} aria-hidden />}
+          >
+            Open the boards
+          </Button>
         </div>
       );
     }

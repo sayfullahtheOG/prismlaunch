@@ -254,6 +254,11 @@ function Linked({
 }) {
   return (
     <div className="flex flex-col gap-4">
+      {/*
+        Only reached when the folder linked but nothing could be opened —
+        every composition in it is unreadable and a blank one could not be
+        written. Normally landing happens on its own and this never shows.
+      */}
       {projects.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {projects.map((entry) => (

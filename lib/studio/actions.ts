@@ -25,6 +25,7 @@ import {
   type Placement,
 } from "./edits";
 import { blankProjectFile } from "./blank";
+import { pickLanding } from "./landing";
 import {
   agentMayPlaceClips,
   agentMayShapeElements,
@@ -68,6 +69,7 @@ import {
   renameProjectFolder,
   resolveWorkspace,
   writeProjectFile,
+  type ProjectEntry,
   type Workspace,
 } from "@/lib/workspace/fs";
 import {
@@ -407,11 +409,25 @@ export async function restoreWorkspace(): Promise<void> {
     return;
   }
 
-  setWorkspace({
-    kind: "linked",
-    workspace: resolved.value,
-    projects: await listProjects(resolved.value),
-  });
+  const projects = await listProjects(resolved.value);
+  setWorkspace({ kind: "linked", workspace: resolved.value, projects });
+  await land(projects);
+}
+
+/**
+ * End every successful link or re-grant with a composition open.
+ *
+ * The setup dialog closes on an open composition and on nothing else, so
+ * this is what turns "the folder is linked" into "the setup is done". See
+ * `pickLanding` for which one. Skipped when something is already open: a
+ * re-grant after a reload should not switch films under someone.
+ */
+async function land(projects: readonly ProjectEntry[]): Promise<void> {
+  if (useStudioStore.getState().project) return;
+
+  const landing = pickLanding(projects);
+  if (landing.kind === "open") await openProject(landing.slug);
+  else await createBlankProject();
 }
 
 /** The picker. HUMAN ONLY — `showDirectoryPicker` requires a user gesture. */
@@ -428,25 +444,22 @@ export async function linkFolder(): Promise<ActionResult> {
     .setWorkspace({ kind: "linked", workspace: linked.value, projects });
 
   /*
-   * Land somewhere useful rather than on a menu.
+   * Land in the editor, not on a menu.
    *
-   * An empty folder gets a blank composition made for it: there is nothing to
-   * choose between and nothing we need to ask, so asking is pure friction.
-   * A folder with exactly one gets that one opened, for the same reason. Only
-   * a folder with several actually poses a question worth putting to someone.
+   * The click that opened the picker was the whole setup; nothing after it
+   * should need another. An empty folder gets a blank composition, a folder
+   * with compositions gets the one most recently worked on, and the title
+   * bar's menu is where you switch. The first version stopped at a list
+   * whenever there were several, and a person who had just picked a folder
+   * saw the modal still up and read it as not having worked.
    */
-  if (projects.length === 0) {
-    await createBlankProject();
-    return ok(`Linked ${WORKSPACE_DIR}/ and started a blank composition.`);
-  }
+  await land(projects);
 
-  const only = projects.length === 1 ? projects[0] : undefined;
-  if (only && only.problem === null && only.name !== null) {
-    await openProject(only.slug);
-  }
-
+  const open = useStudioStore.getState().project;
   return ok(
-    `Linked. Found ${projects.length} composition${projects.length === 1 ? "" : "s"}.`,
+    projects.length === 0
+      ? `Linked ${WORKSPACE_DIR}/ and started a blank composition.`
+      : `Linked. Found ${projects.length} composition${projects.length === 1 ? "" : "s"}${open ? `; opened “${open.file.name}”` : ""}.`,
   );
 }
 

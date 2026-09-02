@@ -31,6 +31,19 @@ interface FileSystemDirectoryHandle {
   values(): AsyncIterableIterator<FileSystemHandle>;
 }
 
+interface FileSystemFileHandle {
+  /**
+   * Rename or relocate a file without rewriting its bytes.
+   *
+   * Chromium ships this for FILE handles only — `move` is absent from
+   * `FileSystemDirectoryHandle.prototype`, verified against the live API — so
+   * renaming a directory means moving its files one at a time. See
+   * `renameProjectFolder` in lib/workspace/fs.ts.
+   */
+  move(name: string): Promise<void>;
+  move(destination: FileSystemDirectoryHandle, name?: string): Promise<void>;
+}
+
 interface DirectoryPickerOptions {
   mode?: "read" | "readwrite";
   /** Remembers a starting directory per id, across visits. */

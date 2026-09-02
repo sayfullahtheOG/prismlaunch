@@ -41,6 +41,12 @@ file directly — it is the source of truth, and the studio picks up changes
 within a second of you saving. This is the fastest way to build anything with
 more than a few clips.
 
+The slug follows the composition's name: renaming "Untitled composition" to
+"First video" in the studio moves the folder to `first-video/`. **So do not
+cache a path.** If a write fails because the folder is gone, call
+`prism.get_project_context` — it always reports the current `path` — and write
+there instead.
+
 **The page.** The studio registers WebMCP tools on its own tab. Use them when
 you have no file access, and for the things a file cannot do: moving the
 playhead, playing the composition on the person's screen, proposing a render.

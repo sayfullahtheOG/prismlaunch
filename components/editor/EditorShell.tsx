@@ -123,7 +123,7 @@ export function EditorShell() {
         onRender={() => void exportFilm()}
         note={renderNote}
         busy={rendering}
-        onRename={(name) => renameProject(name)}
+        onRename={(name) => void renameProject(name)}
       />
 
       <div className="flex min-h-0 flex-1">

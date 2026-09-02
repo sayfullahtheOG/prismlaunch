@@ -30,6 +30,7 @@ import {
   SlugSchema,
   WORKSPACE_DIR,
 } from "./schema";
+import { slugForName } from "./slug";
 import { nowTimecode, useStudioStore } from "./store";
 import {
   linkWorkspace,
@@ -38,6 +39,7 @@ import {
   modifiedAt,
   projectExists,
   readProjectFile,
+  renameProjectFolder,
   resolveWorkspace,
   writeProjectFile,
   type Workspace,
@@ -535,42 +537,30 @@ export async function createProject(
   );
 }
 
-/**
- * The next free `untitled` folder name.
- *
- * Compositions get made without anyone naming them, so the name has to come
- * from somewhere. Numbering rather than a timestamp because these are folder
- * names in someone's repository, and `untitled-2` is a thing a person can find
- * again — `untitled-m8f2k1` is not.
- */
-function nextUntitledSlug(taken: readonly string[]): string {
-  if (!taken.includes("untitled")) return "untitled";
-  for (let n = 2; n < 1000; n += 1) {
-    const slug = `untitled-${n}`;
-    if (!taken.includes(slug)) return slug;
-  }
-  // A thousand untitled compositions in one folder. Not worth a nicer answer.
-  return `untitled-${Date.now().toString(36)}`;
+/** Folder names already in use, so a new one does not collide. */
+function takenSlugs(): string[] {
+  const { workspace } = useStudioStore.getState();
+  return workspace.kind === "linked"
+    ? workspace.projects.map((entry) => entry.slug)
+    : [];
 }
+
+const UNTITLED = "Untitled composition";
 
 /**
  * A new composition, with nothing asked of anyone.
  *
  * Naming a thing before making it is the wrong order — you find out what it is
  * by building it. So this creates and opens straight away, and the name is
- * changed in the title bar afterwards if it ever matters.
+ * changed in the title bar afterwards; the folder follows when it is.
  */
 export async function createBlankProject(): Promise<ActionResult> {
   const guard = requireWorkspace();
   if (!guard.ok) return guard.result;
 
-  const { workspace } = useStudioStore.getState();
-  const taken =
-    workspace.kind === "linked" ? workspace.projects.map((entry) => entry.slug) : [];
-
   return createProject({
-    slug: nextUntitledSlug(taken),
-    name: "Untitled composition",
+    slug: slugForName(UNTITLED, takenSlugs()) ?? "untitled",
+    name: UNTITLED,
   });
 }
 
@@ -1060,18 +1050,88 @@ export function fitDurationToContent(): ActionResult {
   return ok(`Trimmed to ${(next.durationInFrames / project.file.fps).toFixed(1)}s.`);
 }
 
-export function renameProject(name: string): ActionResult {
+/**
+ * Rename the composition, and its folder with it.
+ *
+ * The folder is what someone sees in Finder, so it has to say what the thing
+ * is — a composition called "First video" sitting in `untitled/` is a filing
+ * system that lies to you.
+ *
+ * The name always changes; the folder follows when it can. If the move fails —
+ * a permission dropped, a name already taken — the composition keeps working
+ * under its old folder and the person is told the folder did not follow. The
+ * two are allowed to disagree, because refusing the rename over a filesystem
+ * problem would be the wrong thing to protect.
+ */
+export async function renameProject(name: string): Promise<ActionResult> {
   const guard = requireProject();
   if (!guard.ok) return guard.result;
   const project = guard.value;
 
+  const trimmed = name.trim();
+  if (!trimmed) return fail("invalid-input", "A composition needs a name.");
+  if (trimmed === project.file.name) return ok("Unchanged.");
+
   const rejected = commit(
     project,
-    { ...project.file, name },
-    { origin: "human", label: "Renamed", detail: name },
+    { ...project.file, name: trimmed },
+    { origin: "human", label: "Renamed", detail: trimmed },
   );
   if (rejected) return rejected;
-  return ok(`Renamed to “${name}”.`);
+
+  const workspaceGuard = requireWorkspace();
+  const wanted = slugForName(
+    trimmed,
+    takenSlugs().filter((slug) => slug !== project.slug),
+  );
+
+  if (!workspaceGuard.ok || wanted === null || wanted === project.slug) {
+    return ok(`Renamed to “${trimmed}”.`);
+  }
+
+  // Everything pending has to be on disk before the files move out from under
+  // it, or the trailing write lands in a folder that no longer exists.
+  await flushWrites();
+
+  const moved = await renameProjectFolder(
+    workspaceGuard.value,
+    project.slug,
+    wanted,
+  );
+
+  if (!moved.ok) {
+    useStudioStore.getState().setLoadError(moved.message);
+    return ok(
+      `Renamed to “${trimmed}”, but the folder is still ${WORKSPACE_DIR}/${project.slug}/ — ${moved.message}`,
+    );
+  }
+
+  const current = useStudioStore.getState().project;
+  if (current) {
+    useStudioStore
+      .getState()
+      .setProject(
+        withActivity(
+          { ...current, slug: wanted },
+          {
+            origin: "human",
+            label: "Renamed folder",
+            detail: `${WORKSPACE_DIR}/${wanted}/`,
+          },
+        ),
+        0,
+      );
+  }
+
+  // The move preserved the file's mtime but changed its path, so the poller's
+  // baseline has to be re-read from the new location or the next tick sees a
+  // change that never happened.
+  useStudioStore.setState({
+    loadedAt: await modifiedAt(workspaceGuard.value, wanted),
+  });
+  await refreshProjects();
+
+  return ok(`Renamed to “${trimmed}” — now at ${WORKSPACE_DIR}/${wanted}/.`);
 }
 
 // ---------------------------------------------------------------------------

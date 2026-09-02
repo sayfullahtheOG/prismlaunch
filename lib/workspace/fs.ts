@@ -379,6 +379,85 @@ export async function listAssets(
   }
 }
 
+/**
+ * Rename a composition's folder.
+ *
+ * There is no `move()` on a directory handle — Chromium ships it for files
+ * only, verified against the live API — so this creates the destination, moves
+ * every file across, and removes the source. The files are *moved*, not copied:
+ * a project folder can hold a two-hundred-megabyte render, and rewriting those
+ * bytes because somebody changed a title would be absurd.
+ *
+ * The old folder is deleted only once it is confirmed empty. If any move fails
+ * we stop and report, which leaves files split across two folders — messy, but
+ * recoverable, and strictly better than deleting a directory we have not
+ * confirmed we emptied.
+ */
+export async function renameProjectFolder(
+  workspace: Workspace,
+  from: string,
+  to: string,
+): Promise<FsResult<void>> {
+  if (from === to) return { ok: true, value: undefined };
+
+  try {
+    await workspace.dir.getDirectoryHandle(to);
+    return fail("invalid", `${WORKSPACE_DIR}/${to}/ already exists.`);
+  } catch {
+    // Expected: the destination should not exist yet.
+  }
+
+  let source: FileSystemDirectoryHandle;
+  try {
+    source = await workspace.dir.getDirectoryHandle(from);
+  } catch {
+    return fail("not-found", `No ${WORKSPACE_DIR}/${from}/ to rename.`);
+  }
+
+  try {
+    const destination = await workspace.dir.getDirectoryHandle(to, {
+      create: true,
+    });
+    await moveContents(source, destination);
+
+    // Only now, and only if nothing was left behind.
+    for await (const _ of source.keys()) {
+      void _;
+      return fail(
+        "write-failed",
+        `Moved what it could into ${WORKSPACE_DIR}/${to}/, but ${WORKSPACE_DIR}/${from}/ still has files in it. Nothing was deleted.`,
+      );
+    }
+    await workspace.dir.removeEntry(from, { recursive: true });
+
+    return { ok: true, value: undefined };
+  } catch {
+    return fail(
+      "write-failed",
+      `Could not rename ${WORKSPACE_DIR}/${from}/ to ${to}/. Nothing was deleted.`,
+    );
+  }
+}
+
+/** Depth-first, moving files and recreating the directories that held them. */
+async function moveContents(
+  source: FileSystemDirectoryHandle,
+  destination: FileSystemDirectoryHandle,
+): Promise<void> {
+  for await (const [name, handle] of source.entries()) {
+    if (handle.kind === "file") {
+      await (handle as FileSystemFileHandle).move(destination, name);
+    } else {
+      const sourceChild = await source.getDirectoryHandle(name);
+      const destinationChild = await destination.getDirectoryHandle(name, {
+        create: true,
+      });
+      await moveContents(sourceChild, destinationChild);
+      await source.removeEntry(name, { recursive: true });
+    }
+  }
+}
+
 /** True when a folder of this name already exists, so create can refuse. */
 export async function projectExists(
   workspace: Workspace,

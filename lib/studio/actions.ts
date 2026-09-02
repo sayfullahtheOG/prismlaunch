@@ -628,6 +628,54 @@ export function closeProject(): ActionResult {
   return ok("Closed the composition. The folder is untouched.");
 }
 
+/**
+ * Delete a composition's folder, permanently.
+ *
+ * HUMAN ONLY, and deliberately never registered as a WebMCP tool. This is the
+ * one action here that destroys work that cannot be recovered — there is no
+ * trash to move it to, `removeEntry` is final, and the folder may hold renders
+ * that took minutes to encode. An agent that misread an instruction should not
+ * be able to reach it, for the same structural reason it cannot accept its own
+ * drafts: the function exists, and nothing exposes it.
+ *
+ * Afterwards, open whatever else is there rather than leaving a dead editor
+ * on screen. If nothing is left the start screen takes over, which is right —
+ * a person who just deleted their only composition should see the folder's
+ * real state, not have another one silently made for them.
+ */
+export async function deleteProject(slug: string): Promise<ActionResult> {
+  const guard = requireWorkspace();
+  if (!guard.ok) return guard.result;
+
+  const parsed = SlugSchema.safeParse(slug);
+  if (!parsed.success) {
+    return fail("invalid-input", explainZodError(parsed.error));
+  }
+
+  // Nothing queued may land in a folder that is about to stop existing.
+  await flushWrites();
+
+  try {
+    await guard.value.dir.removeEntry(parsed.data, { recursive: true });
+  } catch {
+    return fail(
+      "disk-error",
+      `Could not delete ${WORKSPACE_DIR}/${parsed.data}/. It may be open in another program.`,
+    );
+  }
+
+  const open = useStudioStore.getState().project;
+  if (open?.slug === parsed.data) useStudioStore.getState().closeProject();
+
+  await refreshProjects();
+
+  const remaining = takenSlugs();
+  const next = remaining[0];
+  if (open?.slug === parsed.data && next) await openProject(next);
+
+  return ok(`Deleted ${WORKSPACE_DIR}/${parsed.data}/ and everything in it.`);
+}
+
 // ---------------------------------------------------------------------------
 // Selection, playhead, zoom — tab state, safe for agents
 // ---------------------------------------------------------------------------

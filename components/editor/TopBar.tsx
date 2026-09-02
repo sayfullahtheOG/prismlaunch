@@ -1,30 +1,50 @@
 "use client";
 
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, FilePlus2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Menu, MenuItem, MenuNote, MenuSeparator } from "@/components/ui/Menu";
+
+/**
+ * The top bar: what the composition is called, what you can do to it, and
+ * Export.
+ *
+ * It used to also print "0.0s · 2 layers", which the timeline already says
+ * twice — once in its transport readout and once in the layer rows. A number
+ * repeated in three places is three chances to disagree, and none of them were
+ * the place anyone was looking.
+ *
+ * What is left is the project itself: name it, rename it, make another, delete
+ * it. The name is both the label and the menu trigger, which is the shape every
+ * editor uses because the name is what you are acting on.
+ */
 
 type Props = {
-  productName: string;
-  duration: string;
+  /** The composition's name, or a standing-in phrase when none is open. */
+  name: string;
+  /** Absent when nothing is open — and then there is no project to act on. */
+  project?:
+    | {
+        onRename: (name: string) => void;
+        onCreate: () => void;
+        onDelete: () => void;
+      }
+    | undefined;
   /** Render is blocked while any clip is still a draft. */
   renderBlockedReason: string | null;
   onRender: () => void;
   /** Last render outcome. Shown inline so failures are never silent. */
   note?: string | null;
   busy?: boolean;
-  /** Absent when nothing is open, which is also when there is nothing to name. */
-  onRename?: ((name: string) => void) | undefined;
 };
 
 export function TopBar({
-  productName,
-  duration,
+  name,
+  project,
   renderBlockedReason,
   onRender,
   note,
   busy = false,
-  onRename,
 }: Props) {
   const blocked = renderBlockedReason !== null;
 
@@ -37,13 +57,11 @@ export function TopBar({
 
       <span className="h-6 w-px bg-line-soft" aria-hidden />
 
-      {onRename ? (
-        <Title name={productName} onRename={onRename} />
+      {project ? (
+        <ProjectMenu name={name} {...project} />
       ) : (
-        <span className="px-2.5 text-sm text-muted">{productName}</span>
+        <span className="px-2.5 text-sm text-muted">{name}</span>
       )}
-
-      <span className="tabular font-mono text-xs text-subtle">{duration}</span>
 
       {note ? (
         <span
@@ -78,28 +96,27 @@ export function TopBar({
   );
 }
 
-/**
- * The composition's name, edited in place.
- *
- * Compositions are created without being named — you find out what a thing is
- * by building it — so this is where the name eventually happens. Click to
- * edit, Enter or blur to keep, Escape to abandon.
- *
- * `draft` is null when nobody is editing, which is also what "not editing"
- * means: the two were separate pieces of state in the first version, kept in
- * step by an effect that copied the prop down. That is the shape React warns
- * about, and it was wrong for a better reason than performance — the agent can
- * rename the composition in the file while this is open, and a mirrored copy
- * has to decide whether to clobber what someone is typing. With one piece of
- * state there is no question: while you are editing, your text wins.
- */
-function Title({
+function ProjectMenu({
   name,
   onRename,
+  onCreate,
+  onDelete,
 }: {
   name: string;
   onRename: (name: string) => void;
+  onCreate: () => void;
+  onDelete: () => void;
 }) {
+  /**
+   * Null when nobody is editing, which is also what "not editing" means.
+   *
+   * These were two pieces of state kept in step by an effect that copied the
+   * name down, which React's lint flags — and which was wrong for a better
+   * reason than cascading renders: the agent can rename the composition in the
+   * file while this field is open, and a mirrored copy has to decide whether to
+   * clobber what someone is typing. With one piece of state there is no
+   * question. While you are editing, your text wins.
+   */
   const [draft, setDraft] = useState<string | null>(null);
 
   function commit() {
@@ -121,20 +138,94 @@ function Title({
           if (event.key === "Enter") commit();
           if (event.key === "Escape") setDraft(null);
         }}
-        className="ds-focus ds-inset min-h-11 w-56 rounded-sm bg-sunken px-2.5 text-sm text-ink"
+        className="ds-focus ds-inset min-h-11 w-64 rounded-sm bg-sunken px-2.5 text-sm font-semibold text-ink"
       />
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => setDraft(name)}
-      title="Rename"
-      className="ds-focus flex min-h-11 items-center rounded-sm px-2.5 text-sm text-muted transition-colors duration-140 hover:bg-sunken hover:text-ink"
-    >
-      {name}
-    </button>
+    <Menu label={name} width={240}>
+      <ProjectMenuItems
+        name={name}
+        onStartRename={() => setDraft(name)}
+        onCreate={onCreate}
+        onDelete={onDelete}
+      />
+    </Menu>
+  );
+}
+
+/**
+ * The menu's contents, including its own delete confirmation.
+ *
+ * Confirming in place rather than in a dialog: the menu is already a surface
+ * over the thing being deleted, and a dialog on top of it would be a second
+ * layer for a question with two answers. The confirmation names the folder and
+ * says the word "permanently", because `removeEntry` is final — there is no
+ * trash on the File System Access API, and the folder may hold renders that
+ * took minutes to encode.
+ */
+function ProjectMenuItems({
+  name,
+  onStartRename,
+  onCreate,
+  onDelete,
+}: {
+  name: string;
+  onStartRename: () => void;
+  onCreate: () => void;
+  onDelete: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+
+  if (confirming) {
+    return (
+      <>
+        <MenuNote>
+          Permanently delete <strong className="text-ink">{name}</strong>, its
+          folder, and any renders inside it. This cannot be undone.
+        </MenuNote>
+        <MenuItem
+          tone="danger"
+          icon={<Trash2 size={14} strokeWidth={1.9} aria-hidden />}
+          ariaLabel={`Permanently delete ${name}, its folder and any renders inside it. This cannot be undone.`}
+          onSelect={onDelete}
+        >
+          Delete permanently
+        </MenuItem>
+        <MenuItem keepOpen onSelect={() => setConfirming(false)}>
+          Cancel
+        </MenuItem>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <MenuItem
+        icon={<Pencil size={14} strokeWidth={1.9} aria-hidden />}
+        onSelect={onStartRename}
+      >
+        Rename
+      </MenuItem>
+      <MenuItem
+        icon={<FilePlus2 size={14} strokeWidth={1.9} aria-hidden />}
+        onSelect={onCreate}
+      >
+        New composition
+      </MenuItem>
+
+      <MenuSeparator />
+
+      <MenuItem
+        tone="danger"
+        icon={<Trash2 size={14} strokeWidth={1.9} aria-hidden />}
+        keepOpen
+        onSelect={() => setConfirming(true)}
+      >
+        Delete composition
+      </MenuItem>
+    </>
   );
 }
 

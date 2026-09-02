@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import {
+  createBlankProject,
   deleteClip,
+  deleteProject,
   duplicateSelected,
   renameProject,
   seek,
@@ -75,8 +77,7 @@ export function EditorShell() {
     return (
       <div className="chrome-select-none relative flex h-dvh min-h-0 flex-col bg-canvas">
         <TopBar
-          productName="No composition open"
-          duration="—"
+          name="No composition open"
           renderBlockedReason="Open a composition to export one"
           onRender={() => undefined}
         />
@@ -113,8 +114,12 @@ export function EditorShell() {
   return (
     <div className="chrome-select-none relative flex h-dvh min-h-0 flex-col bg-app">
       <TopBar
-        productName={file.name}
-        duration={`${(file.durationInFrames / file.fps).toFixed(1)}s · ${file.tracks.length} layers`}
+        name={file.name}
+        project={{
+          onRename: (next) => void renameProject(next),
+          onCreate: () => void createBlankProject(),
+          onDelete: () => void deleteProject(project.slug),
+        }}
         renderBlockedReason={
           drafts > 0
             ? `${drafts} clip${drafts === 1 ? "" : "s"} still unreviewed`
@@ -123,7 +128,6 @@ export function EditorShell() {
         onRender={() => void exportFilm()}
         note={renderNote}
         busy={rendering}
-        onRename={(name) => void renameProject(name)}
       />
 
       <div className="flex min-h-0 flex-1">

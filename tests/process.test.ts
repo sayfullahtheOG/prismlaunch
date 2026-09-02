@@ -65,6 +65,24 @@ beforeEach(() => {
 });
 
 describe("the file", () => {
+  /**
+   * The bug that was on screen: a file written by the eight-stage build has a
+   * process without `storyboard`, and defaulting only the outer object refused
+   * it. Each stage must fill itself in.
+   */
+  it("opens a project.json whose process predates a stage", () => {
+    const file = projectFile();
+    const { storyboard: _dropped, ...older } = file.process;
+    void _dropped;
+    const parsed = ProjectFileSchema.safeParse({ ...file, process: older });
+
+    expect(parsed.success, parsed.success ? "" : JSON.stringify(parsed.error.issues[0])).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.process.storyboard.status).toBe("pending");
+      expect(parsed.data.process.storyboard.panels).toEqual([]);
+    }
+  });
+
   it("opens an older project.json with every stage pending", () => {
     const { process: _dropped, ...withoutProcess } = projectFile();
     void _dropped;

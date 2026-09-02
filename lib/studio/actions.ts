@@ -17,6 +17,7 @@ import {
   updateClip,
   updateTrack,
 } from "./edits";
+import { blankProjectFile } from "./blank";
 import {
   agentMayPlaceClips,
   currentStage,
@@ -545,45 +546,24 @@ export async function createProject(
   }
 
   const fps = inputs.fps ?? DEFAULT_FPS;
-  const draft: ProjectFile = {
-    version: PROJECT_FILE_VERSION,
-    name: inputs.name,
-    width: inputs.width ?? DEFAULT_WIDTH,
-    height: inputs.height ?? DEFAULT_HEIGHT,
+  /*
+   * One frame of runtime — as close to zero as a composition can be.
+   *
+   * Not a default length someone has to trim back afterwards: `fitDuration`
+   * grows the film whenever a clip lands past the end, so the duration is
+   * always exactly as long as what is in it unless somebody sets it
+   * deliberately. Asking a person to guess how long their video will be before
+   * they have made any of it is a question with no good answer.
+   */
+  const draft: ProjectFile = blankProjectFile(inputs.name, {
     fps,
-    /*
-     * One frame — as close to zero as a composition can be.
-     *
-     * Not a default length someone has to trim back afterwards: `fitDuration`
-     * grows the film whenever a clip lands past the end, so the duration is
-     * always exactly as long as what is in it unless somebody sets it
-     * deliberately. Asking a person to guess how long their video will be
-     * before they have made any of it is a question with no good answer.
-     */
-    durationInFrames: inputs.durationInFrames ?? 1,
-    background: inputs.background ?? { kind: "solid", color: "#0A0A0C" },
-    process: structuredClone(EMPTY_PROCESS),
-    tracks: [
-      {
-        id: "track-main",
-        kind: "visual",
-        name: "Layer 1",
-        hidden: false,
-        locked: false,
-        volume: 1,
-        clips: [],
-      },
-      {
-        id: "audio-main",
-        kind: "audio",
-        name: "Audio 1",
-        hidden: false,
-        locked: false,
-        volume: 1,
-        clips: [],
-      },
-    ],
-  };
+    ...(inputs.width !== undefined ? { width: inputs.width } : {}),
+    ...(inputs.height !== undefined ? { height: inputs.height } : {}),
+    ...(inputs.durationInFrames !== undefined
+      ? { durationInFrames: inputs.durationInFrames }
+      : {}),
+    ...(inputs.background !== undefined ? { background: inputs.background } : {}),
+  });
 
   const checked = ProjectFileSchema.safeParse(draft);
   if (!checked.success) {

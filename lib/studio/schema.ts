@@ -537,16 +537,25 @@ export const PolishStageSchema = z.object({
   checklist: z.array(z.string().max(200)).max(80).default([]),
 });
 
+/**
+ * Every stage defaults independently, not just the process as a whole.
+ *
+ * A stage added later — the storyboard was — must not make every file written
+ * before it unreadable. Defaulting only the outer object handled a file with
+ * no `process` at all and refused one with a process missing one key, which
+ * is exactly the file the previous build wrote. This is the fix: each stage
+ * fills itself in as pending when absent.
+ */
 export const ProcessSchema = z.object({
-  brief: BriefStageSchema,
-  concept: ConceptStageSchema,
-  script: ScriptStageSchema,
-  storyboard: StoryboardStageSchema,
-  animatic: AnimaticStageSchema,
-  style: StyleStageSchema,
-  build: BuildStageSchema,
-  sound: SoundStageSchema,
-  polish: PolishStageSchema,
+  brief: BriefStageSchema.default({ status: "pending" }),
+  concept: ConceptStageSchema.default({ status: "pending", directions: [] }),
+  script: ScriptStageSchema.default({ status: "pending", beats: [] }),
+  storyboard: StoryboardStageSchema.default({ status: "pending", panels: [] }),
+  animatic: AnimaticStageSchema.default({ status: "pending", beats: [] }),
+  style: StyleStageSchema.default({ status: "pending", clipIds: [] }),
+  build: BuildStageSchema.default({ status: "pending" }),
+  sound: SoundStageSchema.default({ status: "pending" }),
+  polish: PolishStageSchema.default({ status: "pending", checklist: [] }),
 });
 
 /** A fresh process: every stage pending, nothing submitted. */

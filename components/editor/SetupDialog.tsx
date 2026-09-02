@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Check,
   Copy,
@@ -21,26 +21,35 @@ import { WORKSPACE_DIR } from "@/lib/studio/schema";
 import { useStudioStore } from "@/lib/studio/store";
 
 /**
- * What a first-time visitor sees.
+ * The setup, over the editor.
  *
- * PrismLaunch has no model. It cannot look at a repository, and it does not
- * try — the agent already knows the product, and it is sitting in the person's
- * editor with file tools. So the first screen is not an input box asking for a
- * repo URL. It is a handoff: here is the one line that teaches your agent to
- * use this, and here is the folder we will both work in.
+ * The editor is the page. It renders behind this, blank and inert, so the
+ * first thing a person sees is the tool they are about to use — the timeline,
+ * the layers, the process — rather than a landing page standing in for it.
+ * This dialog is the one thing between them and it: the line to give an
+ * agent, and the folder to link. It closes itself the moment a composition is
+ * open, because that is the only thing it was waiting for.
  *
- * The command is the primary object on the page for that reason. Everything
- * else follows from someone having pasted it.
+ * Not dismissable while nothing is open. There is nothing behind it to go back
+ * to yet; an inert editor is not a place to leave someone.
  */
 
 const SKILL_URL = "https://prismlaunch-doddlesoft.vercel.app/SKILL.md";
 const SKILL_COMMAND = `set up ${SKILL_URL}`;
 
-export function StartScreen() {
+export function SetupDialog() {
   const workspace = useStudioStore((state) => state.workspace);
   const loadError = useStudioStore((state) => state.loadError);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const surface = useRef<HTMLDivElement>(null);
+
+  // Focus lands in the dialog on open. There is no trigger to return to.
+  useEffect(() => {
+    surface.current
+      ?.querySelector<HTMLElement>("button:not([disabled])")
+      ?.focus();
+  }, []);
 
   async function run(action: () => Promise<{ ok: boolean; message: string }>) {
     setBusy(true);
@@ -51,10 +60,22 @@ export function StartScreen() {
   }
 
   return (
-    <div className="thin-scroll flex min-h-0 flex-1 flex-col items-center overflow-y-auto bg-sunken px-8 py-12">
-      <div className="flex w-full max-w-[520px] flex-col gap-7">
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-canvas/45 p-6 backdrop-blur-[2px]"
+      aria-hidden={false}
+    >
+      <div
+        ref={surface}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="setup-title"
+        className="ds-floating thin-scroll flex max-h-full w-full max-w-[600px] flex-col gap-7 overflow-y-auto rounded-md bg-raised p-8"
+      >
         <header>
-          <h1 className="text-center text-xl font-bold tracking-[var(--ds-tracking-tight)]">
+          <h1
+            id="setup-title"
+            className="text-center text-xl font-bold tracking-[var(--ds-tracking-tight)]"
+          >
             Give this to your agent
           </h1>
           <p className="mt-2 text-center text-sm leading-[var(--ds-leading-body)] text-muted">
@@ -119,9 +140,8 @@ export function StartScreen() {
  * The command, and a button that copies it.
  *
  * Rendered as a terminal line because that is where it is going: `set up <url>`
- * is how a coding agent is handed a skill. Selecting it by hand from a page is
- * the kind of small friction that stops people trying something, so the copy
- * button confirms in place rather than silently succeeding.
+ * is how a coding agent is handed a skill. The copy button confirms in place
+ * rather than silently succeeding.
  */
 function CopyCommand() {
   const [copied, setCopied] = useState(false);
@@ -132,13 +152,12 @@ function CopyCommand() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch {
-      // Clipboard blocked. The text is right there and selectable, so there is
-      // nothing useful to say — a failure toast would be noise.
+      // Clipboard blocked. The text is right there and selectable.
     }
   }
 
   return (
-    <div className="ds-raised flex items-center gap-3 rounded-sm bg-ink p-3.5">
+    <div className="ds-raised flex items-center gap-2.5 rounded-sm bg-ink py-2.5 pr-2.5 pl-3.5">
       <span aria-hidden className="font-mono text-xs text-inverse opacity-50">
         $
       </span>
@@ -267,11 +286,6 @@ function Linked({
         </ul>
       ) : null}
 
-      {/*
-        One click, no form. Naming a thing before making it is the wrong order —
-        you find out what it is by building it — so this creates and opens
-        straight away, and the title is editable in the top bar afterwards.
-      */}
       <Button
         variant={projects.length === 0 ? "primary" : "secondary"}
         onClick={onCreate}

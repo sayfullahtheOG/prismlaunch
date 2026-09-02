@@ -79,7 +79,7 @@ The studio is at [http://localhost:3000](http://localhost:3000).
 
 **`public/PRISM_METHOD.md`** is what to make with it. This is the product. It is the end-to-end craft of a promo film — concept, script, storyboard, timing locked to music before design, colour and type, motion in frame counts, sound in beats and gain, four rounds of review — synthesised from what Sandwich, Giant Ant, Buck, Ordinary Folk and the in-house teams at Apple, Linear and Raycast say they actually do, and from the perceptual research underneath. Every number in it is theirs. `tests/method.test.ts` checks that every transition, colour, font and tool it names is one the renderer really has, and that its tempo table is actually frame-locked at 30fps.
 
-The tool without the method produces the video everyone has seen. The method is why it doesn't.
+The tool without the method produces the video everyone has seen. The method is why it doesn't — and it is not left as advice. The eight stages are eight fields in `project.json` and eight `submit_*` tools; each refuses until the person has approved the stage before it, and approving the animatic locks every visual clip's window so the agent can fill the beats but not move them. The Process panel is where the person reads each stage's artifact and approves it or sends it back with a note. `tests/process.test.ts` pins both rules.
 
 ## The tools
 

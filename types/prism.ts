@@ -11,7 +11,14 @@ import type {
   FitSchema,
   FontFamilySchema,
   ImageClipSchema,
+  ProcessSchema,
   ProjectFileSchema,
+  ScriptBeatSchema,
+  DirectionSchema,
+  LockedBeatSchema,
+  LookSchema,
+  StageIdSchema,
+  StageStatusSchema,
   ShapeClipSchema,
   TextAlignSchema,
   TextClipSchema,
@@ -51,6 +58,14 @@ export type ClipKind = Clip["kind"];
 export type TrackKind = z.infer<typeof TrackKindSchema>;
 export type Track = z.infer<typeof TrackSchema>;
 export type Background = z.infer<typeof BackgroundSchema>;
+
+export type StageId = z.infer<typeof StageIdSchema>;
+export type StageStatus = z.infer<typeof StageStatusSchema>;
+export type Process = z.infer<typeof ProcessSchema>;
+export type Direction = z.infer<typeof DirectionSchema>;
+export type ScriptBeat = z.infer<typeof ScriptBeatSchema>;
+export type LockedBeat = z.infer<typeof LockedBeatSchema>;
+export type Look = z.infer<typeof LookSchema>;
 
 /** What lives in `.prismlaunch/<slug>/project.json`. The agent writes this. */
 export type ProjectFile = z.infer<typeof ProjectFileSchema>;

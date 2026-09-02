@@ -66,18 +66,55 @@ look like every other AI-made video, which is the thing this exists to stop.
 1. Ask the person to open the studio and click **Link project folder**, then
    choose the repository you are both working in. You cannot do this for them —
    browsers only open a folder picker for a real click.
-2. Call `prism.get_project_context`. It tells you whether a folder is linked and
-   what is already in it.
+2. Call `prism.get_project_context`. Read its `process` block first: it says
+   which stage the film is at, what the person said about the last thing you
+   submitted, and exactly what to do next.
 3. There is probably already a blank composition open — linking an empty folder
    makes one, because there is nothing to ask. If you want another, or a
    specific folder name, call `prism.create_project`; or write the file
    yourself and call `prism.open_project`.
-4. Build it — the way PRISM_METHOD.md says to: concept before script, script
-   before storyboard, timing before design.
-5. Ask the person to review. **You cannot accept your own work** — there is no
-   tool for it, by design.
-6. Once every clip is accepted, call `prism.request_render`. That renders
-   nothing; it raises a confirmation the person has to approve.
+4. Work the stages, in order, one at a time. Each has a `submit_*` tool. After
+   each submit, **stop** — the person approves it in the Process panel, or
+   sends it back with a note you will find in `process`. You cannot approve a
+   stage yourself; there is no tool for it.
+5. The timeline opens up once the script is approved. Approving the animatic
+   locks the timing.
+6. Every clip you add is a draft the person accepts or rejects.
+   **You cannot accept your own work** — there is no tool for it, by design.
+7. When polish is approved, call `prism.request_render`. That renders nothing;
+   it raises a confirmation the person has to approve.
+
+## The process
+
+The eight stages of PRISM_METHOD.md are eight fields in `project.json` and
+eight tools. The tool for a stage refuses until the person has approved every
+stage before it, so you cannot skip ahead — not because a document says so,
+but because the tool says no.
+
+| Stage | Tool | What you submit | Approving it… |
+| --- | --- | --- | --- |
+| 1 Brief | `prism.submit_brief` | audience, message, feeling, length | lets you concept |
+| 2 Concept | `prism.submit_concepts` | 2–4 directions, one recommended | picks the idea |
+| 3 Script | `prism.submit_script` | beats with words and seconds; VO if any | opens the timeline |
+| 4 Animatic | `prism.submit_animatic` | the timeline itself: one placeholder per beat, music underneath | **locks the timing** |
+| 5 Style frames | `prism.submit_style_frames` | the look, and the 2–3 clips built for real | fixes the look |
+| 6 Build | `prism.submit_build` | every beat built, inside its window | — |
+| 7 Sound | `prism.submit_sound` | the sound plan; effects, ducking, tone placed | — |
+| 8 Polish | `prism.submit_polish` | the §14 checklist, run, with verdicts | unblocks the render |
+
+**The timing lock.** When the animatic is approved, every visual clip on the
+timeline becomes a locked beat. From then on a visual clip you add or move
+must sit inside one of those windows — `prism.add_text` and `prism.update_clip`
+refuse otherwise, and list the beats. Fill the slots; do not move them. If the
+cut genuinely needs to change, say so and ask the person to reopen the
+animatic in the Process panel. Audio is exempt: a music bed spans the film.
+
+**Sent back.** A stage the person rejects comes with their note. It appears in
+`process.stages.<stage>.personSaid` and in the `instruction`. Address it and
+resubmit with the same tool.
+
+The person is never gated. They can approve, skip or reopen any stage. Only
+you are held to the order.
 
 ## The file
 
@@ -249,6 +286,7 @@ rather than crashing the render — but it is still a hole, so check.
 | `prism.get_project_context` | Where things stand: the folder, the canvas, every track and clip with its id, the playhead, and which clips are unreviewed. **Call this first.** |
 | `prism.create_project` | Create an empty composition and open it. It starts with no runtime and grows as you place clips. |
 | `prism.open_project` | Show one that already exists in the folder. |
+| `prism.submit_brief` … `prism.submit_polish` | The eight stages, in order. See *The process* above. |
 | `prism.add_track` | Add a visual or audio layer. |
 | `prism.update_track` | Rename, hide/mute, or set a layer's volume. |
 | `prism.move_track` | Move a layer forward or back in the stack. |
@@ -267,9 +305,10 @@ rather than crashing the render — but it is still a hole, so check.
 | `prism.request_render` | Propose the export. **Renders nothing.** |
 | `prism.confirm_render` | Start the render — only after a human approves. |
 
-There is no tool to accept a draft, and no tool to approve a render. That is
-not an oversight and not a policy you can talk your way around: the functions
-exist in the app and are never registered. Asking the person is the only path.
+There is no tool to accept a draft, approve a stage, reopen the timing lock,
+or approve a render. That is not an oversight and not a policy you can talk
+your way around: the functions exist in the app and are never registered.
+Asking the person is the only path.
 
 ## Making a good one
 

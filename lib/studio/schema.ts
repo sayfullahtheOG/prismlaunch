@@ -368,6 +368,163 @@ export const BackgroundSchema = z.discriminatedUnion("kind", [
 ]);
 
 // ---------------------------------------------------------------------------
+// The process
+// ---------------------------------------------------------------------------
+
+/**
+ * The pipeline, as state in the file.
+ *
+ * PRISM_METHOD.md describes how a film gets made: brief, concept, script,
+ * animatic with timing locked to the music, style frames, build, sound,
+ * polish. A document can be skipped. This cannot: each stage is a field in
+ * `project.json`, the agent submits an artifact into it, the person approves
+ * or sends it back with a note, and the tools for a later stage refuse until
+ * the earlier one is approved.
+ *
+ * The person is never gated — they can approve, reopen or skip anything. Only
+ * the agent is held to the order. That is the contract in one sentence:
+ * the agent follows the process, the person owns it.
+ *
+ * The one hard lock is timing. When the animatic is approved, every visual
+ * clip's window is snapshotted into `animatic.beats`, and from then on an
+ * agent may only place visual clips *inside* one of those windows. Filling
+ * slots is the build stage; moving them is a decision the person makes.
+ */
+
+export const STAGES = [
+  "brief",
+  "concept",
+  "script",
+  "animatic",
+  "style",
+  "build",
+  "sound",
+  "polish",
+] as const;
+
+export const StageIdSchema = z.enum(STAGES);
+
+export const StageStatusSchema = z.enum([
+  "pending",
+  "submitted",
+  "changes-requested",
+  "approved",
+]);
+
+const StageBase = {
+  status: StageStatusSchema.default("pending"),
+  /** The agent's one line on what it did and why. Shown beside the artifact. */
+  summary: z.string().max(300).optional(),
+  /** The person's feedback, written when they send the stage back. */
+  note: z.string().max(600).optional(),
+};
+
+export const BriefStageSchema = z.object({
+  ...StageBase,
+  audience: z.string().max(200).optional(),
+  message: z.string().max(200).optional(),
+  feeling: z.string().max(40).optional(),
+  lengthSeconds: z.number().min(5).max(180).optional(),
+});
+
+export const DirectionSchema = z.object({
+  id: z.string().min(1).max(40),
+  title: z.string().min(1).max(60),
+  /** The idea in one sentence. No "and". */
+  line: z.string().min(1).max(200),
+  /** Which angle produced it — "the enemy", "before/after", "the contrast"… */
+  angle: z.string().max(40).optional(),
+  /** The one-word feeling it is going for. */
+  feel: z.string().max(24).optional(),
+  /** Out of 12, from the six tests in the method. */
+  score: z.number().int().min(0).max(12).optional(),
+});
+
+export const ConceptStageSchema = z.object({
+  ...StageBase,
+  directions: z.array(DirectionSchema).max(4).default([]),
+  recommended: z.string().max(40).optional(),
+  /** Set by the person on approval. Which one the film is. */
+  chosen: z.string().max(40).optional(),
+});
+
+export const ScriptBeatSchema = z.object({
+  id: z.string().min(1).max(40),
+  label: z.string().min(1).max(40),
+  /** On-screen text, or the VO line. Under seven words if on screen. */
+  words: z.string().max(160),
+  seconds: z.number().min(0.3).max(20),
+  /** What the sound does here. */
+  sound: z.string().max(140).optional(),
+});
+
+export const ScriptStageSchema = z.object({
+  ...StageBase,
+  beats: z.array(ScriptBeatSchema).max(14).default([]),
+  voiceover: z.string().max(800).optional(),
+});
+
+/** A beat's window, frozen when the animatic is approved. */
+export const LockedBeatSchema = z.object({
+  id: z.string().min(1).max(60),
+  label: z.string().max(60),
+  from: z.number().int().min(0).max(MAX_FRAMES),
+  durationInFrames: z.number().int().min(1).max(MAX_FRAMES),
+});
+
+export const AnimaticStageSchema = z.object({
+  ...StageBase,
+  /** Empty until approval; then the timing lock. */
+  beats: z.array(LockedBeatSchema).max(40).default([]),
+});
+
+export const LookSchema = z.enum(["void", "paper", "editorial", "spec", "custom"]);
+
+export const StyleStageSchema = z.object({
+  ...StageBase,
+  look: LookSchema.optional(),
+  /** The two or three clips built for real, as the reference for everything else. */
+  clipIds: z.array(z.string().max(60)).max(12).default([]),
+});
+
+export const BuildStageSchema = z.object({ ...StageBase });
+
+export const SoundStageSchema = z.object({
+  ...StageBase,
+  /** The filled-in sound plan from the method, as text. */
+  plan: z.string().max(1600).optional(),
+});
+
+export const PolishStageSchema = z.object({
+  ...StageBase,
+  /** The pre-ship checklist as the agent ran it — one line per item, with a verdict. */
+  checklist: z.array(z.string().max(200)).max(80).default([]),
+});
+
+export const ProcessSchema = z.object({
+  brief: BriefStageSchema,
+  concept: ConceptStageSchema,
+  script: ScriptStageSchema,
+  animatic: AnimaticStageSchema,
+  style: StyleStageSchema,
+  build: BuildStageSchema,
+  sound: SoundStageSchema,
+  polish: PolishStageSchema,
+});
+
+/** A fresh process: every stage pending, nothing submitted. */
+export const EMPTY_PROCESS: z.infer<typeof ProcessSchema> = {
+  brief: { status: "pending" },
+  concept: { status: "pending", directions: [] },
+  script: { status: "pending", beats: [] },
+  animatic: { status: "pending", beats: [] },
+  style: { status: "pending", clipIds: [] },
+  build: { status: "pending" },
+  sound: { status: "pending" },
+  polish: { status: "pending", checklist: [] },
+};
+
+// ---------------------------------------------------------------------------
 // The file on disk
 // ---------------------------------------------------------------------------
 
@@ -391,6 +548,12 @@ export const ProjectFileSchema = z
     durationInFrames: z.number().int().min(1).max(MAX_FRAMES),
     background: BackgroundSchema.default({ kind: "solid", color: "#0A0A0C" }),
     tracks: z.array(TrackSchema).max(MAX_TRACKS).default([]),
+    /**
+     * Defaulted, so a file written before this existed still opens — every
+     * stage simply reads as pending. Not a version bump: nothing old becomes
+     * unreadable, it just has less in it.
+     */
+    process: ProcessSchema.default(EMPTY_PROCESS),
   })
   .superRefine((project, ctx) => {
     // Visual tracks must precede audio ones, so the array order IS the stacking

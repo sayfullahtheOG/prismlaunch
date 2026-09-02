@@ -1,5 +1,10 @@
 import { Composition } from "remotion";
-import { DEFAULT_ANIMATION, DEFAULT_BOX, PROJECT_FILE_VERSION } from "@/lib/studio/schema";
+import {
+  DEFAULT_ANIMATION,
+  DEFAULT_BOX,
+  EMPTY_PROCESS,
+  PROJECT_FILE_VERSION,
+} from "@/lib/studio/schema";
 import type { ProjectFile } from "@/types/prism";
 import { Film, type FilmProps } from "./Film";
 
@@ -21,6 +26,7 @@ const FIXTURE: ProjectFile = {
   fps: 30,
   durationInFrames: 150,
   background: { kind: "gradient", from: "#0A0A0C", to: "#1B1B22", angle: 160 },
+  process: EMPTY_PROCESS,
   tracks: [
     {
       id: "track-1",

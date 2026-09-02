@@ -829,13 +829,22 @@ VO      none — the interface says it
 
 ## 10. Build — in the tool
 
+Every stage above is a field in `project.json` and a `submit_*` tool, and the
+tool for a stage refuses until the person has approved the one before. Submit
+the brief; stop. Submit the concepts; stop. The person reads each in the
+Process panel and approves it or sends it back with a note, which reaches you
+through `prism.get_project_context`. You do not decide when a stage is done.
+
 Timing is locked, style frames are approved. Now, and only now, replace each
 board clip with real clips.
 
-- **Never move an in or out point.** A board's slot is a contract. If a beat
-  genuinely needs 12 more frames, that is a decision for the person, not a
-  thing you do: "this needs 12 more frames, which pushes the endcard — accept
-  or re-cut?"
+- **Never move an in or out point.** A board's slot is a contract, and the
+  tool enforces it: after the animatic is approved, a visual clip you add or
+  move must sit inside one locked beat, or `prism.add_text` and
+  `prism.update_clip` refuse and list the beats. If a beat genuinely needs 12
+  more frames, that is a decision for the person, not a thing you do: "this
+  needs 12 more frames, which pushes the endcard — reopen the animatic, or
+  re-cut inside it?"
 - **One layer per role.** Name them: `Titles`, `Support`, `Accent`, `Product`,
   `Music`, `Voice`, `SFX`, `Tone`. A person reading the timeline should see
   the film's structure in the layer list.
@@ -911,8 +920,9 @@ last 10%. Do not be the final reviewer.
 You propose. They decide, clip by clip, and only they can approve the render.
 That is the product's contract, and the process above is shaped to fit it.
 
-- **Batch by stage, never by clip.** All three concepts at once. The whole
-  animatic at once. All the style frames at once.
+- **Batch by stage, never by clip.** All three concepts in one
+  `prism.submit_concepts`. The whole animatic, then one `prism.submit_animatic`.
+  All the style frames, then one `prism.submit_style_frames`.
 - **Recommend; don't enumerate.** Three directions, one marked, one sentence
   on why.
 - **Show, don't describe.** After you build, `prism.preview` so they watch it.
@@ -1039,6 +1049,7 @@ Run all of it. Every line is a thing that has shipped wrong.
 **Delivery**
 - [ ] Watched three times: sound on, muted, half size
 - [ ] Every clip you added carries a `revisionNote`
+- [ ] Submitted through `prism.submit_polish`, with a verdict on every line
 - [ ] The person has seen it, and you are not the final reviewer
 
 ---

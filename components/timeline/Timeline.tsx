@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef } from "react";
-import { Layers, Music, Palette, Plus } from "lucide-react";
+import { Layers, Lock, Music, Palette, Plus } from "lucide-react";
 import { createTrack, seek } from "@/lib/studio/actions";
+import { timingLocked } from "@/lib/studio/process";
 import { useStudioStore } from "@/lib/studio/store";
 import { shortTimecode } from "@/lib/studio/timing";
 import type { ProjectFile, Track } from "@/types/prism";
@@ -35,6 +36,8 @@ import {
 const HEADER_WIDTH = 176;
 const ROW_HEIGHT = 56;
 const BACKGROUND_ROW_HEIGHT = 34;
+/** The locked-beat bands, shown only once the animatic is approved. */
+const BEATS_ROW_HEIGHT = 22;
 /** Empty space past the end, so the last clip is not flush against the wall. */
 const TAIL_PADDING = 240;
 
@@ -118,6 +121,18 @@ export function Timeline({ file }: { file: ProjectFile }) {
             </button>
           </div>
 
+          {timingLocked(file.process) ? (
+            <div
+              className="flex items-center gap-1.5 border-b border-line-soft bg-sunken px-2.5"
+              style={{ height: BEATS_ROW_HEIGHT }}
+            >
+              <Lock size={11} strokeWidth={2.2} className="text-subtle" aria-hidden />
+              <span className="text-2xs font-semibold text-subtle">
+                Beats · locked
+              </span>
+            </div>
+          ) : null}
+
           {visual.map((track, index) => (
             <div key={track.id} style={{ height: ROW_HEIGHT }}>
               <TrackHeader
@@ -154,6 +169,10 @@ export function Timeline({ file }: { file: ProjectFile }) {
               playhead={playhead}
               onPointerDown={onRulerDown}
             />
+
+            {timingLocked(file.process) ? (
+              <BeatBands file={file} pixelsPerSecond={pixelsPerSecond} />
+            ) : null}
 
             {visual.map((track) => (
               <Lane key={track.id} track={track} file={file} width={width} />
@@ -266,6 +285,44 @@ function Lane({
           trackId={track.id}
           locked={track.locked}
         />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The locked beats, drawn as bands above the lanes.
+ *
+ * This is the timing lock made visible: once the animatic is approved, these
+ * are the windows an agent may build inside, and they do not move unless the
+ * person reopens the stage. Drawn as a row of their own rather than on the
+ * ruler so the ruler stays a ruler.
+ */
+function BeatBands({
+  file,
+  pixelsPerSecond,
+}: {
+  file: ProjectFile;
+  pixelsPerSecond: number;
+}) {
+  return (
+    <div
+      className="relative border-b border-line-soft bg-sunken"
+      style={{ height: BEATS_ROW_HEIGHT }}
+      aria-label="Locked beats"
+    >
+      {file.process.animatic.beats.map((beat) => (
+        <span
+          key={beat.id}
+          title={`${beat.label || beat.id} · ${beat.from}–${beat.from + beat.durationInFrames}`}
+          className="absolute inset-y-1 flex items-center overflow-hidden rounded-xs border border-line px-1.5 font-mono text-2xs text-subtle"
+          style={{
+            left: frameToX(beat.from, pixelsPerSecond, file.fps),
+            width: Math.max(2, frameToX(beat.durationInFrames, pixelsPerSecond, file.fps)),
+          }}
+        >
+          <span className="truncate">{beat.label || beat.id}</span>
+        </span>
       ))}
     </div>
   );

@@ -16,6 +16,14 @@ import {
   setDuration,
   setPlaying,
   shiftTrack,
+  submitAnimatic,
+  submitBrief,
+  submitBuild,
+  submitConcepts,
+  submitPolish,
+  submitScript,
+  submitSound,
+  submitStyleFrames,
   type ActionResult,
 } from "@/lib/studio/actions";
 import {
@@ -42,6 +50,14 @@ import {
   SeekInput,
   SetBackgroundInput,
   SetDurationInput,
+  SubmitAnimaticInput,
+  SubmitBriefInput,
+  SubmitBuildInput,
+  SubmitConceptsInput,
+  SubmitPolishInput,
+  SubmitScriptInput,
+  SubmitSoundInput,
+  SubmitStyleFramesInput,
   TrackIdInput,
   UpdateClipInput,
   UpdateTrackInput,
@@ -205,6 +221,72 @@ export function buildTools(): ModelContextTool[] {
         "Show a composition that already exists in the linked folder, by its folder name. Use the slugs from get_project_context.",
       schema: OpenProjectInput,
       execute: (input) => openProject(input.slug),
+    }),
+
+    // ---- the process ---------------------------------------------------
+
+    tool({
+      name: "prism.submit_brief",
+      description:
+        "Stage 1 of 8. Submit the brief: one audience, one message, one feeling, one length. The person approves it in the Process panel before you go further. PRISM_METHOD.md §2.",
+      schema: SubmitBriefInput,
+      execute: ({ summary, ...brief }) => submitBrief(brief, summary),
+    }),
+
+    tool({
+      name: "prism.submit_concepts",
+      description:
+        "Stage 2 of 8. Submit two to four directions with one recommended — generated from 8–12 angles, scored on the six tests, not the first idea. Refuses until the brief is approved. PRISM_METHOD.md §3.",
+      schema: SubmitConceptsInput,
+      execute: ({ summary, ...concept }) => submitConcepts(concept, summary),
+    }),
+
+    tool({
+      name: "prism.submit_script",
+      description:
+        "Stage 3 of 8. Submit the beats with their words and seconds, and the voiceover if there is one. Read it aloud against the length first. Refuses until the concept is approved. PRISM_METHOD.md §5.",
+      schema: SubmitScriptInput,
+      execute: ({ summary, ...script }) => submitScript(script, summary),
+    }),
+
+    tool({
+      name: "prism.submit_animatic",
+      description:
+        "Stage 4 of 8. The animatic IS the timeline: one labelled placeholder clip per script beat, at real timings, with the music underneath. Call this when it is laid out. Approving it LOCKS the timing — after that, visual clips must sit inside the approved beats. Refuses until the script is approved. PRISM_METHOD.md §6.",
+      schema: SubmitAnimaticInput,
+      execute: (input) => submitAnimatic(input.summary),
+    }),
+
+    tool({
+      name: "prism.submit_style_frames",
+      description:
+        "Stage 5 of 8. Name the look and the two or three clips you built for real — the hook, the reveal, the endcard. Everything else will copy them. Refuses until the animatic is approved. PRISM_METHOD.md §7.",
+      schema: SubmitStyleFramesInput,
+      execute: ({ summary, ...style }) => submitStyleFrames(style, summary),
+    }),
+
+    tool({
+      name: "prism.submit_build",
+      description:
+        "Stage 6 of 8. Every remaining placeholder replaced with real clips, inside their locked windows, in the approved look. Refuses until the style frames are approved. PRISM_METHOD.md §10.",
+      schema: SubmitBuildInput,
+      execute: (input) => submitBuild(input.summary),
+    }),
+
+    tool({
+      name: "prism.submit_sound",
+      description:
+        "Stage 7 of 8. Effects on the transitions, ducking under any voice, room tone under everything. Include the filled-in sound plan. Refuses until the build is approved. PRISM_METHOD.md §9.",
+      schema: SubmitSoundInput,
+      execute: ({ summary, ...sound }) => submitSound(sound, summary),
+    }),
+
+    tool({
+      name: "prism.submit_polish",
+      description:
+        "Stage 8 of 8. The §14 checklist, run and reported line by line with a verdict on each. Watched three times: sound on, muted, half size. After the person approves this, prism.request_render. PRISM_METHOD.md §11 and §14.",
+      schema: SubmitPolishInput,
+      execute: ({ summary, ...polish }) => submitPolish(polish, summary),
     }),
 
     tool({

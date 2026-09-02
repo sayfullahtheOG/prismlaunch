@@ -18,16 +18,29 @@ import {
   updateTrack,
 } from "./edits";
 import {
+  agentMayPlaceClips,
+  currentStage,
+  fitsLockedBeats,
+  nextInstruction,
+  previousApproved,
+  snapshotBeats,
+  STAGE_LABELS,
+  timingLocked,
+} from "./process";
+import {
   ClipSchema,
   DEFAULT_FPS,
   DEFAULT_HEIGHT,
   DEFAULT_WIDTH,
+  EMPTY_PROCESS,
   explainZodError,
   FilmProjectSchema,
   MAX_FRAMES,
   PROJECT_FILE_VERSION,
+  ProcessSchema,
   ProjectFileSchema,
   SlugSchema,
+  STAGES,
   WORKSPACE_DIR,
 } from "./schema";
 import { slugForName } from "./slug";
@@ -57,7 +70,9 @@ import type {
   Background,
   Clip,
   FilmProject,
+  Process,
   ProjectFile,
+  StageId,
   Track,
   TrackKind,
 } from "@/types/prism";
@@ -103,6 +118,8 @@ export type ActionErrorCode =
   | "invalid-input"
   | "no-draft"
   | "locked"
+  | "stage-gated"
+  | "timing-locked"
   | "graph-invalid"
   | "disk-error";
 
@@ -151,6 +168,51 @@ function requireProject(): Guard<FilmProject> {
     };
   }
   return { ok: true, value: project };
+}
+
+/**
+ * The stage gate, for agents only.
+ *
+ * Clips exist from the animatic onward; before an approved script there are
+ * no beats and a clip is a guess. The person can always place clips — they own
+ * the process — so this checks `origin` and lets a human through untouched.
+ */
+function requireStageForClips(
+  project: FilmProject,
+  origin: "human" | "agent",
+): ActionResult | null {
+  if (origin === "human") return null;
+  if (agentMayPlaceClips(project.file.process)) return null;
+
+  const stage = currentStage(project.file.process);
+  return fail(
+    "stage-gated",
+    `Clips come after the script is approved. The process is at ${stage ? STAGE_LABELS[stage] : "the end"}${stage ? ` — ${nextInstruction(project.file.process).instruction}` : ""}`,
+  );
+}
+
+/**
+ * The timing lock, for agents only.
+ *
+ * Once the animatic is approved, a visual clip an agent places or moves must
+ * sit inside one locked beat. Filling a slot is the build; moving a slot is a
+ * decision the person makes, in the Process panel, by reopening the animatic.
+ */
+function requireInsideBeats(
+  project: FilmProject,
+  clip: Clip,
+  origin: "human" | "agent",
+): ActionResult | null {
+  if (origin === "human") return null;
+  if (fitsLockedBeats(project.file.process, clip)) return null;
+
+  const beats = project.file.process.animatic.beats
+    .map((beat) => `${beat.label || beat.id} ${beat.from}–${beat.from + beat.durationInFrames}`)
+    .join(", ");
+  return fail(
+    "timing-locked",
+    `Timing is locked: the animatic was approved, and a visual clip has to sit inside one of its beats. Frames ${clip.from}–${clip.from + clip.durationInFrames} do not. Beats: ${beats}. To change the timing itself, ask the person to reopen the animatic.`,
+  );
 }
 
 /**
@@ -499,6 +561,7 @@ export async function createProject(
      */
     durationInFrames: inputs.durationInFrames ?? 1,
     background: inputs.background ?? { kind: "solid", color: "#0A0A0C" },
+    process: structuredClone(EMPTY_PROCESS),
     tracks: [
       {
         id: "track-main",
@@ -843,6 +906,9 @@ export function createClip(
   const locked = requireUnlocked(track);
   if (locked) return locked;
 
+  const gated = requireStageForClips(project, origin);
+  if (gated) return gated;
+
   const parsed = ClipSchema.safeParse({
     ...clip,
     id: mintId(clip.kind),
@@ -854,6 +920,9 @@ export function createClip(
   if (!parsed.success) {
     return fail("invalid-input", explainZodError(parsed.error));
   }
+
+  const outside = requireInsideBeats(project, parsed.data, origin);
+  if (outside) return outside;
 
   const rejected = commit(project, addClip(project.file, trackId, parsed.data), {
     origin,
@@ -917,6 +986,12 @@ export function patchClip(
   const parsed = ClipSchema.safeParse(merged);
   if (!parsed.success) {
     return fail("invalid-input", explainZodError(parsed.error));
+  }
+
+  // Only a timing change can break the lock; a colour change never does.
+  if ("from" in patch || "durationInFrames" in patch) {
+    const outside = requireInsideBeats(project, parsed.data, origin);
+    if (outside) return outside;
   }
 
   const rejected = commit(
@@ -1041,6 +1116,300 @@ export function duplicateSelected(): ActionResult {
 
   select(result.newClipId);
   return ok("Duplicated.");
+}
+
+// ---------------------------------------------------------------------------
+// The process — the agent submits, the person decides
+// ---------------------------------------------------------------------------
+
+type StagePatch<S extends StageId> = Partial<Omit<Process[S], "status" | "note">>;
+
+/**
+ * An agent submitting a stage's artifact.
+ *
+ * Refuses unless every earlier stage is approved — that is the whole point.
+ * Resubmitting a stage the person sent back is allowed, and clears their note
+ * so the panel does not keep showing feedback that has been acted on.
+ */
+async function submitStage<S extends StageId>(
+  stage: S,
+  artifact: StagePatch<S>,
+  summary: string | undefined,
+): Promise<ActionResult> {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+  const process = project.file.process;
+
+  if (!previousApproved(process, stage)) {
+    const current = currentStage(process) ?? stage;
+    return fail(
+      "stage-gated",
+      `${STAGE_LABELS[stage]} comes after ${STAGE_LABELS[current]}, which is not approved yet. ${nextInstruction(process).instruction}`,
+    );
+  }
+
+  if (process[stage].status === "approved") {
+    return fail(
+      "stage-gated",
+      `${STAGE_LABELS[stage]} is already approved. To change it, ask the person to reopen it in the Process panel.`,
+    );
+  }
+
+  const next: Process = {
+    ...process,
+    [stage]: {
+      ...process[stage],
+      ...artifact,
+      status: "submitted" as const,
+      ...(summary ? { summary } : {}),
+      note: undefined,
+    },
+  };
+
+  const checked = ProcessSchema.safeParse(next);
+  if (!checked.success) {
+    return fail("invalid-input", explainZodError(checked.error));
+  }
+
+  const rejected = commit(
+    project,
+    { ...project.file, process: checked.data },
+    {
+      origin: "agent",
+      label: `prism.submit_${stage}`,
+      detail: summary ?? `Submitted ${STAGE_LABELS[stage].toLowerCase()}`,
+    },
+  );
+  if (rejected) return rejected;
+
+  await flushWrites();
+  return ok(
+    `${STAGE_LABELS[stage]} submitted. It is waiting for the person in the Process panel — do not move on until they approve it.`,
+  );
+}
+
+export function submitBrief(
+  artifact: StagePatch<"brief">,
+  summary?: string,
+): Promise<ActionResult> {
+  return submitStage("brief", artifact, summary);
+}
+
+export function submitConcepts(
+  artifact: StagePatch<"concept">,
+  summary?: string,
+): Promise<ActionResult> {
+  return submitStage("concept", artifact, summary);
+}
+
+export function submitScript(
+  artifact: StagePatch<"script">,
+  summary?: string,
+): Promise<ActionResult> {
+  return submitStage("script", artifact, summary);
+}
+
+/**
+ * The animatic's artifact is the timeline itself, so this checks that there
+ * is one: at least one visual clip per script beat, and music underneath.
+ */
+export async function submitAnimatic(summary?: string): Promise<ActionResult> {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const { file } = guard.value;
+
+  const visual = file.tracks
+    .filter((track) => track.kind === "visual")
+    .reduce((n, track) => n + track.clips.length, 0);
+  const audio = file.tracks
+    .filter((track) => track.kind === "audio")
+    .reduce((n, track) => n + track.clips.length, 0);
+  const beats = file.process.script.beats.length;
+
+  if (visual === 0) {
+    return fail(
+      "invalid-input",
+      "The animatic is the timeline, and the timeline is empty. Place one labelled placeholder clip per script beat first.",
+    );
+  }
+  if (beats > 0 && visual < beats) {
+    return fail(
+      "invalid-input",
+      `The script has ${beats} beats but the timeline has ${visual} visual clip${visual === 1 ? "" : "s"}. One placeholder per beat, then submit.`,
+    );
+  }
+
+  const note =
+    audio === 0
+      ? " There is no music on the timeline — the method locks timing to the music, so the person may send this back."
+      : "";
+
+  const result = await submitStage("animatic", {}, summary);
+  return result.ok ? ok(result.message + note) : result;
+}
+
+export function submitStyleFrames(
+  artifact: StagePatch<"style">,
+  summary?: string,
+): Promise<ActionResult> {
+  return submitStage("style", artifact, summary);
+}
+
+export function submitBuild(summary?: string): Promise<ActionResult> {
+  return submitStage("build", {}, summary);
+}
+
+export function submitSound(
+  artifact: StagePatch<"sound">,
+  summary?: string,
+): Promise<ActionResult> {
+  return submitStage("sound", artifact, summary);
+}
+
+export function submitPolish(
+  artifact: StagePatch<"polish">,
+  summary?: string,
+): Promise<ActionResult> {
+  return submitStage("polish", artifact, summary);
+}
+
+/**
+ * HUMAN ONLY. Approve a stage — and for the animatic, lock the timing.
+ *
+ * Never a tool, for the same reason accepting a clip is not: the whole process
+ * is the agent proposing and a person deciding. A person can approve anything
+ * in any order; skipping a stage is their call.
+ */
+export function approveStage(
+  stage: StageId,
+  extra: { chosen?: string } = {},
+): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+  const process = project.file.process;
+
+  const next: Process = {
+    ...process,
+    [stage]: {
+      ...process[stage],
+      status: "approved" as const,
+      note: undefined,
+      ...(stage === "animatic" ? { beats: snapshotBeats(project.file) } : {}),
+      ...(stage === "concept" && extra.chosen ? { chosen: extra.chosen } : {}),
+    },
+  };
+
+  const checked = ProcessSchema.safeParse(next);
+  if (!checked.success) {
+    return fail("invalid-input", explainZodError(checked.error));
+  }
+
+  const rejected = commit(
+    project,
+    { ...project.file, process: checked.data },
+    {
+      origin: "human",
+      label: `Approved ${STAGE_LABELS[stage].toLowerCase()}`,
+      detail:
+        stage === "animatic"
+          ? `Timing locked: ${checked.data.animatic.beats.length} beats`
+          : (extra.chosen ?? ""),
+    },
+  );
+  if (rejected) return rejected;
+
+  return ok(
+    stage === "animatic"
+      ? `Animatic approved. Timing is locked across ${checked.data.animatic.beats.length} beats.`
+      : `${STAGE_LABELS[stage]} approved.`,
+  );
+}
+
+/** HUMAN ONLY. Send a stage back with a note the agent will read. */
+export function requestChanges(stage: StageId, note: string): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const trimmed = note.trim();
+  if (!trimmed) return fail("invalid-input", "Say what should change.");
+
+  const next: Process = {
+    ...project.file.process,
+    [stage]: {
+      ...project.file.process[stage],
+      status: "changes-requested" as const,
+      note: trimmed,
+      // Reopening the animatic unlocks the timing; the beats are re-snapshotted
+      // on the next approval.
+      ...(stage === "animatic" ? { beats: [] } : {}),
+    },
+  };
+
+  const checked = ProcessSchema.safeParse(next);
+  if (!checked.success) {
+    return fail("invalid-input", explainZodError(checked.error));
+  }
+
+  const rejected = commit(
+    project,
+    { ...project.file, process: checked.data },
+    {
+      origin: "human",
+      label: `Sent ${STAGE_LABELS[stage].toLowerCase()} back`,
+      detail: trimmed,
+    },
+  );
+  if (rejected) return rejected;
+
+  return ok(`${STAGE_LABELS[stage]} sent back.`);
+}
+
+/**
+ * HUMAN ONLY. Reopen an approved stage.
+ *
+ * The escape hatch the method calls "surface it as a decision": timing is
+ * locked, and the only way to move a beat is for the person to say so here.
+ * Later stages are left as they are — the person decides what else to redo.
+ */
+export function reopenStage(stage: StageId): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const next: Process = {
+    ...project.file.process,
+    [stage]: {
+      ...project.file.process[stage],
+      status: "pending" as const,
+      note: undefined,
+      ...(stage === "animatic" ? { beats: [] } : {}),
+    },
+  };
+
+  const checked = ProcessSchema.safeParse(next);
+  if (!checked.success) {
+    return fail("invalid-input", explainZodError(checked.error));
+  }
+
+  const rejected = commit(
+    project,
+    { ...project.file, process: checked.data },
+    {
+      origin: "human",
+      label: `Reopened ${STAGE_LABELS[stage].toLowerCase()}`,
+      detail: stage === "animatic" ? "Timing unlocked" : "",
+    },
+  );
+  if (rejected) return rejected;
+
+  return ok(
+    stage === "animatic"
+      ? "Animatic reopened. Timing is unlocked until it is approved again."
+      : `${STAGE_LABELS[stage]} reopened.`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1266,6 +1635,17 @@ export function acceptAllDrafts(): ActionResult {
 // Read model — what a WebMCP read tool returns
 // ---------------------------------------------------------------------------
 
+/** A stage's artifact without its bookkeeping, for the context dump. */
+function strip<T extends { status: unknown; summary?: unknown; note?: unknown }>(
+  stage: T,
+): Omit<T, "status" | "summary" | "note"> {
+  const { status, summary, note, ...artifact } = stage;
+  void status;
+  void summary;
+  void note;
+  return artifact;
+}
+
 export function getProjectContext() {
   const { workspace, project, loadError, playhead, missingAssets } =
     useStudioStore.getState();
@@ -1300,9 +1680,43 @@ export function getProjectContext() {
   }
 
   const { file } = project;
+  const next = nextInstruction(file.process);
 
   return {
     workspace: workspaceSummary,
+    /*
+     * First, because it is what the agent should read first: where the
+     * process is, what the person said, and what to do now. Everything below
+     * is the material; this is the instruction.
+     */
+    process: {
+      stage: next.stage,
+      status: next.status,
+      instruction: next.instruction,
+      timingLocked: timingLocked(file.process),
+      stages: Object.fromEntries(
+        STAGES.map((stage) => {
+          const state = file.process[stage];
+          return [
+            stage,
+            {
+              status: state.status,
+              ...(state.summary ? { summary: state.summary } : {}),
+              ...(state.note ? { personSaid: state.note } : {}),
+            },
+          ];
+        }),
+      ),
+      artifacts: {
+        brief: strip(file.process.brief),
+        concept: strip(file.process.concept),
+        script: strip(file.process.script),
+        animatic: { beats: file.process.animatic.beats },
+        style: strip(file.process.style),
+        sound: strip(file.process.sound),
+        polish: strip(file.process.polish),
+      },
+    },
     composition: {
       slug: project.slug,
       path: `${WORKSPACE_DIR}/${project.slug}/project.json`,

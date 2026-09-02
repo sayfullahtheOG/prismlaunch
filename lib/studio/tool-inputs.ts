@@ -278,3 +278,135 @@ export const ConfirmRenderInput = z.object({
       "The id request_render returned. Only works once a human approves it.",
     ),
 });
+
+// ---------------------------------------------------------------------------
+// The process
+// ---------------------------------------------------------------------------
+
+/**
+ * One submit tool per stage. Each carries the stage's artifact plus a one-line
+ * `summary` the person reads beside it. None carries a status: an agent
+ * submits, and only the person approves.
+ */
+
+const summary = z
+  .string()
+  .max(300)
+  .optional()
+  .describe("One sentence on what you did and why. Shown to the person beside the artifact.");
+
+export const SubmitBriefInput = z.object({
+  audience: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe("One kind of person, specifically. Not 'developers'."),
+  message: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe("The one sentence the film has to land. No commas, no 'and'."),
+  feeling: z
+    .string()
+    .min(1)
+    .max(40)
+    .describe("One word: what they should feel. Relief, envy, recognition, calm."),
+  lengthSeconds: z
+    .number()
+    .min(5)
+    .max(180)
+    .describe("15 is one idea, 30 is one idea with a turn, 45 is an idea with an escalation."),
+  summary,
+});
+
+export const SubmitConceptsInput = z.object({
+  directions: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(40).describe("Short handle, e.g. 'c1'."),
+        title: z.string().min(1).max(60),
+        line: z
+          .string()
+          .min(1)
+          .max(200)
+          .describe("The idea in one sentence with no 'and'."),
+        angle: z
+          .string()
+          .max(40)
+          .optional()
+          .describe("Which lever produced it: 'the enemy', 'before/after', 'the contrast'…"),
+        feel: z.string().max(24).optional().describe("The one-word feeling."),
+        score: z
+          .number()
+          .int()
+          .min(0)
+          .max(12)
+          .optional()
+          .describe("Out of 12, from the six tests in PRISM_METHOD.md §3."),
+      }),
+    )
+    .min(2)
+    .max(4)
+    .describe("Two to four directions. Three is right. Generated from 8–12 angles, not the first one."),
+  recommended: z.string().min(1).max(40).describe("The id of the one you recommend."),
+  summary,
+});
+
+export const SubmitScriptInput = z.object({
+  beats: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(40),
+        label: z.string().min(1).max(40).describe("'Hook', 'Reveal', 'Proof 1'…"),
+        words: z
+          .string()
+          .max(160)
+          .describe("The on-screen text, or the VO line. Under seven words if on screen."),
+        seconds: z.number().min(0.3).max(20),
+        sound: z.string().max(140).optional().describe("What the music or SFX does here."),
+      }),
+    )
+    .min(2)
+    .max(14)
+    .describe("The film, beat by beat. Five to seven for 30 seconds."),
+  voiceover: z
+    .string()
+    .max(800)
+    .optional()
+    .describe("The full VO if there is one. Never the same words as on screen."),
+  summary,
+});
+
+export const SubmitAnimaticInput = z.object({ summary });
+
+export const SubmitStyleFramesInput = z.object({
+  look: z
+    .enum(["void", "paper", "editorial", "spec", "custom"])
+    .describe("Which look from PRISM_METHOD.md §7, or 'custom' if you built your own."),
+  clipIds: z
+    .array(z.string().min(1).max(60))
+    .min(1)
+    .max(12)
+    .describe("The clips you built for real — the hook, the reveal, the endcard. Everything else copies these."),
+  summary,
+});
+
+export const SubmitBuildInput = z.object({ summary });
+
+export const SubmitSoundInput = z.object({
+  plan: z
+    .string()
+    .max(1600)
+    .optional()
+    .describe("The filled-in sound plan from PRISM_METHOD.md §9, as text."),
+  summary,
+});
+
+export const SubmitPolishInput = z.object({
+  checklist: z
+    .array(z.string().min(1).max(200))
+    .min(1)
+    .max(80)
+    .describe("Each line of the §14 checklist you ran, with its verdict: '✓ first frame has content', '✗ two clips exit at 12f — fixed'."),
+  summary,
+});

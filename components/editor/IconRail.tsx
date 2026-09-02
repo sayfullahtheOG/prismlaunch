@@ -1,11 +1,11 @@
 "use client";
 
-import { Frame, FolderOpen, Layers, Sparkles } from "lucide-react";
+import { Frame, FolderOpen, Layers, ListChecks, Sparkles } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { RailTab } from "./rail-tabs";
 import { RAIL_TABS } from "./rail-tabs";
 
-const ICONS = { Layers, Frame, FolderOpen, Sparkles } as const;
+const ICONS = { ListChecks, Layers, Frame, FolderOpen, Sparkles } as const;
 
 type Props = {
   active: RailTab;
@@ -67,7 +67,7 @@ export function IconRail({
               <Icon size={19} strokeWidth={selected && !off ? 2 : 1.6} aria-hidden />
               <span className="text-2xs leading-none">{label}</span>
 
-              {id === "agent" && agentPending ? (
+              {(id === "agent" || id === "process") && agentPending ? (
                 <span
                   className="absolute top-2 right-3 size-2 rounded-pill bg-warning ring-2 ring-surface"
                   aria-label="Waiting for your decision"

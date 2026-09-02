@@ -1,5 +1,5 @@
-import { PROJECT_FILE_VERSION } from "@/lib/studio/schema";
-import type { Clip, FilmProject, ProjectFile, Track } from "@/types/prism";
+import { EMPTY_PROCESS, PROJECT_FILE_VERSION, STAGES } from "@/lib/studio/schema";
+import type { Clip, FilmProject, Process, ProjectFile, StageId, Track } from "@/types/prism";
 
 /**
  * The shared test fixture.
@@ -78,6 +78,26 @@ export function audioTrack(clips: Clip[], overrides: Partial<Track> = {}): Track
   };
 }
 
+/**
+ * A process with every stage up to and including `through` approved.
+ *
+ * `null` leaves everything pending. The default fixture is approved through
+ * the script, because most tests are about what happens on the timeline and
+ * the timeline only opens to an agent once the script is — a fixture that
+ * starts at the brief would have every clip test fail on the stage gate,
+ * which is the gate working, not the thing under test.
+ */
+export function approvedThrough(through: StageId | null): Process {
+  const process = structuredClone(EMPTY_PROCESS) as Process;
+  if (through) {
+    for (const stage of STAGES) {
+      process[stage].status = "approved";
+      if (stage === through) break;
+    }
+  }
+  return process;
+}
+
 export function projectFile(overrides: Partial<ProjectFile> = {}): ProjectFile {
   return {
     version: PROJECT_FILE_VERSION,
@@ -87,6 +107,7 @@ export function projectFile(overrides: Partial<ProjectFile> = {}): ProjectFile {
     fps: FPS,
     durationInFrames: 300,
     background: { kind: "solid", color: "#0A0A0C" },
+    process: approvedThrough("script"),
     tracks: [
       visualTrack([
         textClip({ id: "clip-a", from: 0, durationInFrames: 60 }),

@@ -15,6 +15,7 @@ import {
   startRenderAsHuman,
 } from "@/lib/studio/actions";
 import { useStudioStore } from "@/lib/studio/store";
+import { currentStage } from "@/lib/studio/process";
 import { draftCount } from "@/lib/studio/timing";
 import { Timeline } from "@/components/timeline/Timeline";
 import { Canvas } from "./Canvas";
@@ -30,9 +31,14 @@ import { AgentPanel } from "./panels/AgentPanel";
 import { CanvasPanel } from "./panels/CanvasPanel";
 import { FolderPanel } from "./panels/FolderPanel";
 import { LayersPanel } from "./panels/LayersPanel";
+import { ProcessPanel } from "./panels/ProcessPanel";
 
 /** Sections that describe a composition, so have nothing to describe before one is open. */
-const NO_FILM_TABS: ReadonlySet<RailTab> = new Set<RailTab>(["layers", "canvas"]);
+const NO_FILM_TABS: ReadonlySet<RailTab> = new Set<RailTab>([
+  "process",
+  "layers",
+  "canvas",
+]);
 
 /**
  * The editor shell reads from the store and writes only through actions.
@@ -58,7 +64,8 @@ export function EditorShell() {
   useDiskSync();
   useTimelineKeys();
 
-  const [tab, setTab] = useState<RailTab>("layers");
+  // The process is where a film starts, so it is where the panel starts.
+  const [tab, setTab] = useState<RailTab>("process");
   const [rendering, setRendering] = useState(false);
 
   const webmcp = useWebMcp();
@@ -115,6 +122,11 @@ export function EditorShell() {
   const drafts = draftCount(file.tracks);
   const compositions = workspace.kind === "linked" ? workspace.projects : [];
 
+  // A stage waiting on the person is the same kind of thing as a draft clip:
+  // the agent has proposed, and nothing moves until they answer.
+  const stage = currentStage(file.process);
+  const stageWaiting = stage !== null && file.process[stage].status === "submitted";
+
   return (
     <div className="chrome-select-none relative flex h-dvh min-h-0 flex-col bg-app">
       <TopBar
@@ -145,10 +157,11 @@ export function EditorShell() {
         <IconRail
           active={tab}
           onChange={setTab}
-          agentPending={drafts > 0 || Boolean(pendingRender)}
+          agentPending={drafts > 0 || stageWaiting || Boolean(pendingRender)}
         />
 
         <div className="flex w-[300px] shrink-0 flex-col border-r border-line-soft bg-surface">
+          {tab === "process" ? <ProcessPanel file={file} /> : null}
           {tab === "layers" ? <LayersPanel file={file} /> : null}
           {tab === "canvas" ? <CanvasPanel file={file} /> : null}
           {tab === "folder" ? <FolderPanel /> : null}

@@ -26,7 +26,6 @@ import type { FilmProject, Scene } from "@/types/prism";
 export type RenderSnapshot = {
   scenes: Scene[];
   artDirection: FilmProject["brief"]["artDirection"];
-  candidates: FilmProject["product"]["componentCandidates"];
   productName: string;
 };
 
@@ -192,7 +191,6 @@ export function snapshotAccepted(project: FilmProject): RenderSnapshot | null {
   return {
     scenes: project.scenes.map((scene) => ({ ...scene })),
     artDirection: project.brief.artDirection,
-    candidates: project.product.componentCandidates,
-    productName: project.product.productName,
+    productName: project.product.name,
   };
 }

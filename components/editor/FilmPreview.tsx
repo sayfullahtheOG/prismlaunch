@@ -5,12 +5,11 @@ import { useEffect, useRef } from "react";
 import { FPS } from "@/lib/studio/schema";
 import { elapsedThrough, totalFrames } from "@/lib/studio/timing";
 import { LaunchFilm } from "@/remotion/LaunchFilm";
-import type { ArtDirection, ComponentCandidate, Scene, SceneId } from "@/types/prism";
+import type { ArtDirection, Scene, SceneId } from "@/types/prism";
 
 type Props = {
   scenes: Scene[];
   artDirection: ArtDirection;
-  candidates: ComponentCandidate[];
   /** Which scene the editor is focused on. */
   activeSceneId: SceneId;
   /** Bumped by actions to replay from the start of the active scene. */
@@ -28,7 +27,6 @@ type Props = {
 export function FilmPreview({
   scenes,
   artDirection,
-  candidates,
   activeSceneId,
   playToken,
 }: Props) {
@@ -54,7 +52,7 @@ export function FilmPreview({
     <Player
       ref={player}
       component={LaunchFilm}
-      inputProps={{ scenes, artDirection, candidates }}
+      inputProps={{ scenes, artDirection }}
       durationInFrames={duration}
       fps={FPS}
       compositionWidth={960}

@@ -4,35 +4,37 @@ import { enter, typedLength } from "../motion";
 import type { SceneProps } from "./types";
 
 /**
- * Scene 03 — Proof. Animates a component-inspired UI, not the customer's
- * actual component.
+ * Scene 03 — Proof. A suggestion of an interface, built from the words the
+ * agent chose.
  *
- * PrismLaunch never runs a user's code, so this is deliberately *inspired by*
- * the source rather than a render of it: the label comes from the manifest,
- * and the surrounding chrome is ours. The UI states this plainly next to the
- * evidence; the film should not imply more than the inspection can support.
+ * This scene used to draw a hardcoded issue tracker: three fixed rows, a fixed
+ * search query, invented keyboard shortcuts. That made every film about the
+ * same imaginary product, which is precisely the thing PrismLaunch should not
+ * do. The chrome is still ours — it has to be, since we never run anyone's
+ * code — but everything inside it now comes from `scene.feature`.
+ *
+ * It is a *suggestion*, not a screenshot, and the film never claims otherwise.
+ * The label sits under it in the accent colour so what is being shown is named.
  */
 
-const ROWS = [
-  { label: "Assign issue to me", key: "↵", hit: true },
-  { label: "Assign to teammate", key: "⌥A", hit: false },
-  { label: "Move to current cycle", key: "⌥C", hit: false },
-] as const;
+/** Enough to fill the panel; more than four rows and the type gets small. */
+const MAX_ROWS = 4;
 
-const QUERY = "assign to me";
-
-export function ComponentSpotlight({
-  scene,
-  palette,
-  componentLabel,
-}: SceneProps) {
+export function FeatureSpotlight({ scene, palette }: SceneProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const preset = scene.motionPreset;
 
-  const shell = enter({ frame, fps, preset, delay: 2 });
-  const typed = QUERY.slice(0, typedLength(frame, QUERY.length, 16, 2));
+  const label = scene.feature?.label ?? "";
+  const tokens = (scene.feature?.visualTokens ?? []).slice(0, MAX_ROWS);
+
+  // The query types itself out. The feature's own name is the honest thing to
+  // put in a search field we invented.
+  const query = label.toLowerCase();
+  const typed = query.slice(0, typedLength(frame, query.length, 16, 2));
   const caretOn = Math.floor(frame / 8) % 2 === 0;
+
+  const shell = enter({ frame, fps, preset, delay: 2 });
 
   /**
    * Surfaces are tinted from palette.text, never a hardcoded white:
@@ -80,7 +82,7 @@ export function ComponentSpotlight({
             alignItems: "center",
             gap: 14,
             padding: "20px 22px",
-            borderBottom: `1px solid ${edge}`,
+            borderBottom: tokens.length > 0 ? `1px solid ${edge}` : "none",
           }}
         >
           <div
@@ -107,9 +109,15 @@ export function ComponentSpotlight({
           </span>
         </div>
 
-        {ROWS.map((row, index) => (
+        {/*
+         * One row per visual token. The first is highlighted, so the panel
+         * reads as a result being chosen rather than a static list. An agent
+         * that supplied no tokens gets the search field alone, which is still
+         * a coherent frame — better than filling it with words nobody wrote.
+         */}
+        {tokens.map((token, index) => (
           <div
-            key={row.label}
+            key={`${token}-${index}`}
             style={{
               display: "flex",
               alignItems: "center",
@@ -118,7 +126,7 @@ export function ComponentSpotlight({
               fontFamily: FONT_BODY,
               fontSize: 23,
               color: palette.text,
-              background: row.hit ? `${palette.accent}1f` : "transparent",
+              background: index === 0 ? `${palette.accent}1f` : "transparent",
               ...enter({ frame, fps, preset, delay: 44 + index * 4 }),
             }}
           >
@@ -127,26 +135,16 @@ export function ComponentSpotlight({
                 width: 22,
                 height: 22,
                 borderRadius: 5,
-                background: row.hit ? palette.accent : chip,
+                background: index === 0 ? palette.accent : chip,
                 flexShrink: 0,
               }}
             />
-            {row.label}
-            <span
-              style={{
-                marginLeft: "auto",
-                fontFamily: FONT_MONO,
-                fontSize: 17,
-                opacity: 0.45,
-              }}
-            >
-              {row.key}
-            </span>
+            {token}
           </div>
         ))}
       </div>
 
-      {componentLabel ? (
+      {label ? (
         <span
           style={{
             marginTop: 22,
@@ -158,7 +156,7 @@ export function ComponentSpotlight({
             ...enter({ frame, fps, preset, delay: 62 }),
           }}
         >
-          {componentLabel}
+          {label}
         </span>
       ) : null}
     </AbsoluteFill>

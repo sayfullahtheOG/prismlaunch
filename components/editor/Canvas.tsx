@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ArtDirection, ComponentCandidate, Scene, SceneId } from "@/types/prism";
+import type { ArtDirection, Scene, SceneId } from "@/types/prism";
 
 /**
  * The Player is loaded client-only, deliberately.
@@ -23,7 +23,6 @@ const FilmPreview = dynamic(
 type Props = {
   scenes: Scene[];
   artDirection: ArtDirection;
-  candidates: ComponentCandidate[];
   activeSceneId: SceneId;
   playToken: number;
 };
@@ -31,7 +30,6 @@ type Props = {
 export function Canvas({
   scenes,
   artDirection,
-  candidates,
   activeSceneId,
   playToken,
 }: Props) {
@@ -47,7 +45,6 @@ export function Canvas({
           <FilmPreview
             scenes={scenes}
             artDirection={artDirection}
-            candidates={candidates}
             activeSceneId={activeSceneId}
             playToken={playToken}
           />

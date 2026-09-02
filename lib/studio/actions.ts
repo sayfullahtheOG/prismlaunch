@@ -1,25 +1,39 @@
-import { generateStoryboard } from "./generator";
-import {
-  createFilmProject,
-  DEFAULT_ART_DIRECTION,
-  initialBrief,
-} from "./new-project";
-import { PALETTES } from "./palettes";
+import { scaffoldProject } from "./scaffold";
 import {
   ArtDirectionSchema,
   explainZodError,
   FilmProjectSchema,
+  ProjectFileSchema,
   SceneIdSchema,
   SceneSchema,
+  SlugSchema,
+  WORKSPACE_DIR,
 } from "./schema";
 import { nowTimecode, useStudioStore, type PlaybackMode } from "./store";
+import {
+  linkWorkspace,
+  listProjects,
+  modifiedAt,
+  projectExists,
+  readProjectFile,
+  resolveWorkspace,
+  writeProjectFile,
+  type Workspace,
+} from "@/lib/workspace/fs";
+import {
+  canLinkFolder,
+  checkPermission,
+  forgetWorkspace,
+  recallWorkspace,
+  requestPermission,
+} from "@/lib/workspace/handle-store";
 import type { RenderSnapshot } from "@/lib/render/job";
 import type {
   ActivityEvent,
   ArtDirection,
-  Brief,
+  Feature,
   FilmProject,
-  ProductManifest,
+  ProjectFile,
   Scene,
   SceneId,
 } from "@/types/prism";
@@ -32,10 +46,22 @@ import type {
  * executor can call it with no component context
  * (context/architecture.md invariant 1, context/code-standards.md §State).
  *
- * On the approval boundary: `acceptDraft` and `keepCurrent` are the only
- * actions that clear a draft, and they are deliberately never wrapped as
- * WebMCP tools. That is structural, not a rule written in a tool description —
- * the agent has no function to call (invariant 2).
+ * Two things are true here that were not true before the app read folders:
+ *
+ * 1. **Every commit reaches disk.** The store is a view of
+ *    `.prismlaunch/<slug>/project.json`; if the two disagree the file wins.
+ *    Writes are debounced so typing does not thrash a file the agent may have
+ *    open, and `flushWrites()` forces the queue for callers that must not
+ *    return before the bytes land — every tool executor does.
+ *
+ * 2. **The app writes no copy.** The agent decides what the film says, with
+ *    its own file tools or through `writeStoryboard`. What is enforced here is
+ *    structure, and the approval boundary.
+ *
+ * On that boundary: `acceptDraft` and `keepCurrent` are the only actions that
+ * clear a draft, and they are deliberately never wrapped as WebMCP tools. That
+ * is structural, not a rule in a description — the agent has no function to
+ * call (invariant 2).
  */
 
 export type ActionOrigin = "human" | "agent";
@@ -45,13 +71,13 @@ export type ActionResult =
   | { ok: false; code: ActionErrorCode; message: string };
 
 export type ActionErrorCode =
+  | "no-workspace"
   | "no-project"
-  | "inspection-failed"
   | "unknown-scene"
   | "invalid-input"
-  | "unknown-component"
   | "no-draft"
-  | "graph-invalid";
+  | "graph-invalid"
+  | "disk-error";
 
 function ok(message: string): ActionResult {
   return { ok: true, message };
@@ -61,25 +87,43 @@ function fail(code: ActionErrorCode, message: string): ActionResult {
   return { ok: false, code, message };
 }
 
+// ---------------------------------------------------------------------------
+// Guards
+// ---------------------------------------------------------------------------
+
+type Guard<T> = { ok: true; value: T } | { ok: false; result: ActionResult };
+
 /**
- * Every action that edits a film needs one to exist. Rather than each caller
- * re-checking, this returns a ready-made corrective message that tells an agent
- * exactly what to do next — which is the whole contract for a tool result.
+ * Every filesystem action needs a linked folder. The message names the gesture
+ * that fixes it, because an agent cannot open the picker itself: that call
+ * requires a user activation, and a tool call is not one.
  */
-function requireProject():
-  | { ok: true; project: FilmProject }
-  | { ok: false; result: ActionResult } {
+function requireWorkspace(): Guard<Workspace> {
+  const { workspace } = useStudioStore.getState();
+  if (workspace.kind !== "linked") {
+    return {
+      ok: false,
+      result: fail(
+        "no-workspace",
+        "No folder is linked yet. Ask the person to click “Link project folder” in PrismLaunch and choose the folder you are working in — the browser only opens that picker for a real click, so you cannot do it for them.",
+      ),
+    };
+  }
+  return { ok: true, value: workspace.workspace };
+}
+
+function requireProject(): Guard<FilmProject> {
   const { project } = useStudioStore.getState();
   if (!project) {
     return {
       ok: false,
       result: fail(
         "no-project",
-        "There is no film yet. Inspect a source first — the built-in demo product, a public GitHub repository, or a local folder.",
+        `No film is open. Create one with prism.create_project, or write ${WORKSPACE_DIR}/<slug>/project.json yourself and open it with prism.open_project.`,
       ),
     };
   }
-  return { ok: true, project };
+  return { ok: true, value: project };
 }
 
 function findScene(project: FilmProject, sceneId: SceneId): Scene | undefined {
@@ -93,7 +137,9 @@ function sceneLabel(scene: Scene): string {
 /**
  * Append an activity event. Every mutation records one, so the rail is a
  * complete account of who changed what — the thing that makes agent work
- * legible rather than magical.
+ * legible rather than magical. Events carry origin "disk" when the change
+ * arrived from the agent's own editor: that was made by neither the person
+ * watching nor a tool call, and saying so is more useful than guessing.
  */
 function withActivity(
   project: FilmProject,
@@ -101,26 +147,98 @@ function withActivity(
 ): FilmProject {
   return {
     ...project,
-    updatedAt: new Date().toISOString(),
     activity: [
       ...project.activity,
       { ...event, id: `ev-${project.activity.length + 1}`, at: nowTimecode() },
-    ],
+    ].slice(-200),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Persistence
+// ---------------------------------------------------------------------------
+
+/** Strip the tab-local fields. Only what the film IS reaches the file. */
+export function toProjectFile(project: FilmProject): ProjectFile {
+  return {
+    version: project.version,
+    name: project.name,
+    product: project.product,
+    brief: project.brief,
+    scenes: project.scenes,
+  };
+}
+
+const WRITE_DEBOUNCE_MS = 350;
+let writeTimer: ReturnType<typeof setTimeout> | null = null;
+let writePending: Promise<void> | null = null;
+
+/**
+ * Queue a write of the current project.
+ *
+ * Debounced because dragging a duration slider would otherwise write the file
+ * thirty times a second, and that file may be open in the agent's editor. The
+ * trailing write always carries the latest state, so coalescing loses nothing.
+ */
+function schedulePersist(): void {
+  if (writeTimer) clearTimeout(writeTimer);
+  writeTimer = setTimeout(() => {
+    writeTimer = null;
+    writePending = persistNow();
+  }, WRITE_DEBOUNCE_MS);
+}
+
+async function persistNow(): Promise<void> {
+  const { project, workspace } = useStudioStore.getState();
+  if (!project || workspace.kind !== "linked") return;
+
+  const written = await writeProjectFile(
+    workspace.workspace,
+    project.slug,
+    toProjectFile(project),
+  );
+
+  if (!written.ok) {
+    useStudioStore.getState().setLoadError(written.message);
+    return;
+  }
+
+  // Our own write moves the mtime. Record it, or the next poll reads the file
+  // back as an external change and announces the person's own edit to them.
+  useStudioStore.setState({
+    loadedAt: await modifiedAt(workspace.workspace, project.slug),
+  });
+}
+
+/**
+ * Force the queue and wait for it. Every tool executor awaits this before
+ * returning, so an agent told a change landed can immediately read the file
+ * back and find it there (invariant 3, extended to disk).
+ */
+export async function flushWrites(): Promise<void> {
+  if (writeTimer) {
+    clearTimeout(writeTimer);
+    writeTimer = null;
+    writePending = persistNow();
+  }
+  await writePending;
 }
 
 /**
  * Commit a new project, re-validating the whole graph first.
  *
  * Rejecting here means a bad tool call leaves the board untouched rather than
- * putting the UI into a state the renderer would refuse.
+ * putting the UI into a state the renderer would refuse — and, now, rather
+ * than writing a file the app could not read back.
  */
 function commit(next: FilmProject): ActionResult | null {
   const parsed = FilmProjectSchema.safeParse(next);
   if (!parsed.success) {
     return fail("graph-invalid", explainZodError(parsed.error));
   }
-  useStudioStore.getState().setProject(parsed.data);
+  const { loadedAt } = useStudioStore.getState();
+  useStudioStore.getState().setProject(parsed.data, loadedAt);
+  schedulePersist();
   return null;
 }
 
@@ -129,187 +247,454 @@ function replay(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Selection and playback — UI state, safe for agents
+// The workspace
 // ---------------------------------------------------------------------------
 
-export function focusScene(sceneId: SceneId): ActionResult {
-  const idCheck = SceneIdSchema.safeParse(sceneId);
-  if (!idCheck.success) {
-    return fail("unknown-scene", `unknown scene "${String(sceneId)}"`);
+/**
+ * Called once on mount. Restores a folder linked on a previous visit, but only
+ * as far as the browser allows without a gesture: the handle comes back, the
+ * permission usually does not, and `needs-permission` is an honest state to
+ * sit in until someone clicks.
+ */
+export async function restoreWorkspace(): Promise<void> {
+  const { setWorkspace } = useStudioStore.getState();
+
+  if (!canLinkFolder()) {
+    setWorkspace({ kind: "unsupported" });
+    return;
   }
 
-  const guard = requireProject();
-  if (!guard.ok) return guard.result;
-  const { project } = guard;
-  const { setPlayback } = useStudioStore.getState();
-  const scene = findScene(project, idCheck.data);
-  if (!scene) return fail("unknown-scene", `unknown scene "${sceneId}"`);
+  const root = await recallWorkspace();
+  if (!root) {
+    setWorkspace({ kind: "unlinked" });
+    return;
+  }
 
-  useStudioStore.getState().setProject({ ...project, activeSceneId: scene.id });
-  setPlayback({ kind: "scene", sceneId: scene.id });
-  replay();
+  if ((await checkPermission(root)) !== "granted") {
+    setWorkspace({ kind: "needs-permission", root });
+    return;
+  }
 
-  return ok(`Focused ${sceneLabel(scene)}. Headline: "${scene.headline}"`);
+  const resolved = await resolveWorkspace(root);
+  if (!resolved.ok) {
+    setWorkspace({ kind: "unlinked" });
+    return;
+  }
+
+  setWorkspace({
+    kind: "linked",
+    workspace: resolved.value,
+    projects: await listProjects(resolved.value),
+  });
 }
 
-export function setPlayback(mode: PlaybackMode): ActionResult {
-  useStudioStore.getState().setPlayback(mode);
-  replay();
+/** The picker. HUMAN ONLY — `showDirectoryPicker` requires a user gesture. */
+export async function linkFolder(): Promise<ActionResult> {
+  const linked = await linkWorkspace();
+  if (!linked.ok) {
+    if (linked.code === "cancelled") return ok("No folder chosen.");
+    return fail("disk-error", linked.message);
+  }
+
+  const projects = await listProjects(linked.value);
+  useStudioStore
+    .getState()
+    .setWorkspace({ kind: "linked", workspace: linked.value, projects });
+
+  // One readable film and nothing open: skip a list of one and just show it.
+  const only = projects.length === 1 ? projects[0] : undefined;
+  if (only && only.problem === null && only.name !== null) {
+    await openProject(only.slug);
+  }
+
   return ok(
-    mode.kind === "film"
-      ? "Playing the full board."
-      : `Playing ${mode.sceneId}.`,
+    projects.length === 0
+      ? `Linked. No films in ${WORKSPACE_DIR}/ yet.`
+      : `Linked. Found ${projects.length} film${projects.length === 1 ? "" : "s"}.`,
   );
 }
 
-export function replayCurrent(): ActionResult {
-  replay();
-  return ok("Restarted playback.");
+/** Re-grant permission on a folder we remember. HUMAN ONLY, same reason. */
+export async function regrantWorkspace(): Promise<ActionResult> {
+  const { workspace } = useStudioStore.getState();
+  if (workspace.kind !== "needs-permission") {
+    return fail("no-workspace", "Nothing to re-open.");
+  }
+
+  if ((await requestPermission(workspace.root)) !== "granted") {
+    return fail("disk-error", "Permission refused.");
+  }
+
+  await restoreWorkspace();
+  return ok("Folder re-opened.");
+}
+
+export async function unlinkFolder(): Promise<ActionResult> {
+  await forgetWorkspace();
+  useStudioStore.getState().closeProject();
+  useStudioStore.getState().setWorkspace({ kind: "unlinked" });
+  return ok("Folder unlinked. Nothing on disk was touched.");
+}
+
+export async function refreshProjects(): Promise<ActionResult> {
+  const guard = requireWorkspace();
+  if (!guard.ok) return guard.result;
+
+  const projects = await listProjects(guard.value);
+  useStudioStore.getState().setProjects(projects);
+  return ok(
+    `${projects.length} film${projects.length === 1 ? "" : "s"} in ${WORKSPACE_DIR}/.`,
+  );
 }
 
 // ---------------------------------------------------------------------------
-// Scene edits
+// Opening, creating, syncing
 // ---------------------------------------------------------------------------
 
+export async function openProject(slug: string): Promise<ActionResult> {
+  const guard = requireWorkspace();
+  if (!guard.ok) return guard.result;
+
+  const parsedSlug = SlugSchema.safeParse(slug);
+  if (!parsedSlug.success) {
+    return fail("invalid-input", explainZodError(parsedSlug.error));
+  }
+
+  const read = await readProjectFile(guard.value, parsedSlug.data);
+  if (!read.ok) {
+    useStudioStore.getState().setLoadError(read.message);
+    return fail("disk-error", read.message);
+  }
+
+  const project: FilmProject = {
+    ...read.value.file,
+    slug: parsedSlug.data,
+    activeSceneId: "scene-01",
+    activity: [
+      {
+        id: "ev-1",
+        origin: "disk",
+        label: "Opened from folder",
+        detail: `${WORKSPACE_DIR}/${parsedSlug.data}/project.json`,
+        at: nowTimecode(),
+      },
+    ],
+  };
+
+  useStudioStore.getState().setProject(project, read.value.modifiedAt);
+  useStudioStore.getState().setPendingRender(null);
+  replay();
+
+  const drafts = project.scenes.filter((s) => s.approval === "draft").length;
+  return ok(
+    `Opened “${project.name}”. ${
+      drafts === 0
+        ? "All four scenes are accepted."
+        : `${drafts} of 4 scenes are unreviewed drafts.`
+    }`,
+  );
+}
+
+export type CreateProjectInputs = {
+  slug: string;
+  name: string;
+  productName: string;
+  productDescription?: string;
+  promise: string;
+  artDirection?: ArtDirection;
+};
+
 /**
- * Fields a caller may change. Everything else is structural and fixed.
+ * Create the folder and write the scaffold.
  *
- * Explicitly `| undefined` on each key: under `exactOptionalPropertyTypes`, an
- * absent property and one set to `undefined` are different types, and a patch
- * assembled from optional tool input always carries the latter.
+ * The four scenes come out as obvious placeholders marked `draft`, so a film
+ * nobody has written cannot be exported. Filling them is the agent's job —
+ * either through `writeStoryboard` or by editing the file it just made.
  */
+export async function createProject(
+  inputs: CreateProjectInputs,
+): Promise<ActionResult> {
+  const guard = requireWorkspace();
+  if (!guard.ok) return guard.result;
+
+  const parsedSlug = SlugSchema.safeParse(inputs.slug);
+  if (!parsedSlug.success) {
+    return fail("invalid-input", explainZodError(parsedSlug.error));
+  }
+  const slug = parsedSlug.data;
+
+  if (await projectExists(guard.value, slug)) {
+    return fail(
+      "invalid-input",
+      `${WORKSPACE_DIR}/${slug}/ already exists. Open it with prism.open_project, or choose another name.`,
+    );
+  }
+
+  const checked = ProjectFileSchema.safeParse(scaffoldProject(inputs));
+  if (!checked.success) {
+    return fail("invalid-input", explainZodError(checked.error));
+  }
+
+  const written = await writeProjectFile(guard.value, slug, checked.data);
+  if (!written.ok) return fail("disk-error", written.message);
+
+  await refreshProjects();
+  await openProject(slug);
+
+  return ok(
+    `Created ${WORKSPACE_DIR}/${slug}/project.json with four empty scenes. Write them with prism.write_storyboard, or edit the file directly — the app is watching it.`,
+  );
+}
+
+/**
+ * Re-read the file and adopt it if it changed underneath us.
+ *
+ * This is what makes the agent's own editor a first-class way to work: it
+ * writes project.json, and the board updates without anyone calling a tool.
+ * Selection and the session log survive, because those describe the tab rather
+ * than the film.
+ */
+export async function reloadFromDisk(): Promise<ActionResult> {
+  const workspaceGuard = requireWorkspace();
+  if (!workspaceGuard.ok) return workspaceGuard.result;
+  const projectGuard = requireProject();
+  if (!projectGuard.ok) return projectGuard.result;
+
+  const current = projectGuard.value;
+  const read = await readProjectFile(workspaceGuard.value, current.slug);
+
+  if (!read.ok) {
+    useStudioStore.getState().setLoadError(read.message);
+    return fail("disk-error", read.message);
+  }
+
+  const next = withActivity(
+    {
+      ...read.value.file,
+      slug: current.slug,
+      activeSceneId: current.activeSceneId,
+      activity: current.activity,
+    },
+    {
+      origin: "disk",
+      label: "Reloaded from folder",
+      detail: "project.json changed outside the app",
+    },
+  );
+
+  const parsed = FilmProjectSchema.safeParse(next);
+  if (!parsed.success) {
+    const message = explainZodError(parsed.error);
+    useStudioStore.getState().setLoadError(message);
+    return fail("graph-invalid", message);
+  }
+
+  useStudioStore.getState().setProject(parsed.data, read.value.modifiedAt);
+  useStudioStore.getState().setLoadError(null);
+  replay();
+  return ok("Reloaded from the folder.");
+}
+
+/**
+ * Poll for an external edit. Cheap — one `getFile()` and an mtime compare, with
+ * no read of the contents unless something moved.
+ *
+ * There is no watch API for File System Access, so polling is the whole story.
+ * A one-second interval is fast enough to feel live next to an agent typing,
+ * and light enough to leave running.
+ */
+export async function checkForDiskChanges(): Promise<boolean> {
+  const { workspace, project, loadedAt } = useStudioStore.getState();
+  if (workspace.kind !== "linked" || !project) return false;
+
+  const at = await modifiedAt(workspace.workspace, project.slug);
+  if (at === 0 || at === loadedAt) return false;
+
+  await reloadFromDisk();
+  return true;
+}
+
+export function closeProject(): ActionResult {
+  useStudioStore.getState().closeProject();
+  return ok("Closed the film. The folder is untouched.");
+}
+
+// ---------------------------------------------------------------------------
+// Writing the film
+// ---------------------------------------------------------------------------
+
+export type SceneDraft = {
+  headline: string;
+  body?: string;
+  durationFrames: number;
+  motionPreset: Scene["motionPreset"];
+  emphasis: Scene["emphasis"];
+  feature?: Feature;
+};
+
+/**
+ * The agent's main authoring call: all four scenes at once.
+ *
+ * Whole-board rather than scene-by-scene because a launch film is one argument
+ * — the hook only works if the resolve pays it off — and because the 16–22s
+ * budget is a property of the set. An agent writing one scene per call would
+ * discover the total was wrong on the fourth one.
+ *
+ * Everything lands as `draft`. There is no argument that makes this accept.
+ */
+export async function writeStoryboard(
+  drafts: readonly [SceneDraft, SceneDraft, SceneDraft, SceneDraft],
+  note?: string,
+): Promise<ActionResult> {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const scenes: Scene[] = project.scenes.map((existing, index) => {
+    const draft = drafts[index]!;
+    return {
+      id: existing.id,
+      order: existing.order,
+      template: existing.template,
+      durationFrames: draft.durationFrames,
+      headline: draft.headline,
+      motionPreset: draft.motionPreset,
+      emphasis: draft.emphasis,
+      approval: "draft" as const,
+      revisionNote: note ?? "Storyboard written by your agent.",
+      ...(draft.body ? { body: draft.body } : {}),
+      ...(draft.feature ? { feature: draft.feature } : {}),
+      // Only worth keeping if there was something real there to restore.
+      ...(existing.approval === "accepted"
+        ? { previousHeadline: existing.headline }
+        : {}),
+    };
+  });
+
+  const rejected = commit(
+    withActivity(
+      { ...project, scenes, activeSceneId: "scene-01" },
+      {
+        origin: "agent",
+        label: "prism.write_storyboard",
+        detail: note ?? "Wrote all four scenes",
+      },
+    ),
+  );
+  if (rejected) return rejected;
+
+  await flushWrites();
+  replay();
+
+  const seconds = (
+    scenes.reduce((total, s) => total + s.durationFrames, 0) / 24
+  ).toFixed(1);
+
+  return ok(
+    `Wrote four scenes, ${seconds}s total. All four are drafts on the person's screen now — they accept or reject each one, and you cannot do it for them.`,
+  );
+}
+
 export type ScenePatch = {
-  [K in "headline" | "body" | "componentId" | "motionPreset" | "emphasis"]?:
-    | Scene[K]
-    | undefined;
+  headline?: string | undefined;
+  body?: string | undefined;
+  feature?: Feature | undefined;
+  motionPreset?: Scene["motionPreset"] | undefined;
+  emphasis?: Scene["emphasis"] | undefined;
+  durationFrames?: number | undefined;
 };
 
-type EditOptions = {
-  origin: ActionOrigin;
-  /** Agent edits land as drafts; human edits keep the current approval. */
-  revisionNote?: string;
-};
-
-/**
- * Drop keys whose value is `undefined`.
- *
- * A tool's optional field arrives as an explicit `undefined` when the agent
- * omitted it, and spreading that over the scene would erase a required value.
- * Omitted means "leave it alone"; clearing an optional line is done by passing
- * an empty string.
- */
-type AppliedPatch = {
-  [K in keyof ScenePatch]?: Scene[K];
-};
-
-function defined(patch: ScenePatch): AppliedPatch {
+/** Drop undefined keys so `exactOptionalPropertyTypes` stays satisfied. */
+function defined(patch: ScenePatch): Partial<Scene> {
   return Object.fromEntries(
     Object.entries(patch).filter(([, value]) => value !== undefined),
-  ) as AppliedPatch;
+  ) as Partial<Scene>;
 }
 
 function applyPatch(
   sceneId: SceneId,
-  rawPatch: ScenePatch,
-  options: EditOptions,
+  patch: ScenePatch,
+  origin: { origin: "human" } | { origin: "agent"; revisionNote: string },
 ): ActionResult {
-  const patch = defined(rawPatch);
   const guard = requireProject();
   if (!guard.ok) return guard.result;
-  const { project } = guard;
+  const project = guard.value;
+
   const scene = findScene(project, sceneId);
   if (!scene) return fail("unknown-scene", `unknown scene "${sceneId}"`);
 
-  const isAgent = options.origin === "agent";
+  const changes = defined(patch);
+  if (Object.keys(changes).length === 0) {
+    return ok(`Nothing to change on ${sceneLabel(scene)}.`);
+  }
 
-  const candidate: Scene = {
+  const agent = origin.origin === "agent";
+  const next: Scene = {
     ...scene,
-    ...patch,
-    ...(isAgent
+    ...changes,
+    // A person editing their own film is not proposing anything, so their edit
+    // never creates a draft. An agent's always does.
+    ...(agent
       ? {
           approval: "draft" as const,
-          ...(options.revisionNote !== undefined
-            ? { revisionNote: options.revisionNote }
-            : {}),
-          // Remember the headline being replaced so the diff is showable and
-          // "Keep current" can restore it.
-          ...(patch.headline !== undefined && patch.headline !== scene.headline
-            ? { previousHeadline: scene.previousHeadline ?? scene.headline }
+          revisionNote: origin.revisionNote,
+          ...(scene.approval === "accepted"
+            ? { previousHeadline: scene.headline }
             : {}),
         }
       : {}),
   };
 
-  // Field-level validation first, so the caller gets a precise message rather
-  // than a whole-graph complaint.
-  const sceneCheck = SceneSchema.safeParse(candidate);
-  if (!sceneCheck.success) {
-    return fail("invalid-input", explainZodError(sceneCheck.error));
+  const parsed = SceneSchema.safeParse(next);
+  if (!parsed.success) {
+    return fail("invalid-input", explainZodError(parsed.error));
   }
 
-  if (patch.componentId !== undefined) {
-    const known = project.product.componentCandidates.some(
-      (c) => c.id === patch.componentId,
-    );
-    if (!known) {
-      const available = project.product.componentCandidates
-        .map((c) => c.id)
-        .join(", ");
-      return fail(
-        "unknown-component",
-        `unknown componentId "${patch.componentId}". Available: ${available}`,
-      );
-    }
-  }
-
-  const changed = Object.keys(patch).filter(
-    (key) =>
-      patch[key as keyof ScenePatch] !== scene[key as keyof ScenePatch],
+  const rejected = commit(
+    withActivity(
+      {
+        ...project,
+        scenes: project.scenes.map((s) => (s.id === sceneId ? parsed.data : s)),
+      },
+      agent
+        ? {
+            origin: "agent",
+            label: "prism.revise_scene",
+            detail: origin.revisionNote,
+            sceneId,
+          }
+        : {
+            origin: "human",
+            label: "Edited scene",
+            detail: Object.keys(changes).join(", "),
+            sceneId,
+          },
+    ),
   );
-  if (changed.length === 0) return ok(`No change to ${sceneLabel(scene)}.`);
-
-  const next = withActivity(
-    {
-      ...project,
-      scenes: project.scenes.map((s) =>
-        s.id === sceneId ? sceneCheck.data : s,
-      ),
-      activeSceneId: sceneId,
-    },
-    {
-      origin: options.origin,
-      label: isAgent ? "prism.revise_scene_draft" : "Edited scene",
-      detail: `${sceneLabel(scene)} · ${changed.join(", ")}`,
-      sceneId,
-    },
-  );
-
-  const rejected = commit(next);
   if (rejected) return rejected;
 
   replay();
   return ok(
-    isAgent
-      ? `Drafted changes to ${sceneLabel(scene)} (${changed.join(", ")}). Awaiting human approval.`
-      : `Updated ${sceneLabel(scene)} (${changed.join(", ")}).`,
+    agent
+      ? `Proposed a change to ${sceneLabel(scene)}. It is a draft — the person accepts or rejects it.`
+      : `Updated ${sceneLabel(scene)}.`,
   );
 }
 
-/** A human editing directly. Approval state is untouched. */
+/** A person editing their own film. Never creates a draft. */
 export function updateScene(sceneId: SceneId, patch: ScenePatch): ActionResult {
   return applyPatch(sceneId, patch, { origin: "human" });
 }
 
-/**
- * An agent proposing a change. Always lands as a draft — there is no argument
- * that makes this accept.
- */
-export function reviseSceneDraft(
+/** An agent proposing one change. Always lands as a draft. */
+export async function reviseSceneDraft(
   sceneId: SceneId,
   patch: ScenePatch,
   revisionNote: string,
-): ActionResult {
-  return applyPatch(sceneId, patch, { origin: "agent", revisionNote });
+): Promise<ActionResult> {
+  const result = applyPatch(sceneId, patch, { origin: "agent", revisionNote });
+  await flushWrites();
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -319,7 +704,8 @@ export function reviseSceneDraft(
 function resolveDraft(sceneId: SceneId, accepted: boolean): ActionResult {
   const guard = requireProject();
   if (!guard.ok) return guard.result;
-  const { project } = guard;
+  const project = guard.value;
+
   const scene = findScene(project, sceneId);
   if (!scene) return fail("unknown-scene", `unknown scene "${sceneId}"`);
   if (scene.approval !== "draft") {
@@ -329,30 +715,26 @@ function resolveDraft(sceneId: SceneId, accepted: boolean): ActionResult {
   const restored =
     !accepted && scene.previousHeadline ? scene.previousHeadline : scene.headline;
 
-  const settled: Scene = {
-    ...scene,
-    approval: "accepted",
-    headline: restored,
-  };
+  const settled: Scene = { ...scene, approval: "accepted", headline: restored };
   delete settled.revisionNote;
   delete settled.previousHeadline;
 
-  const next = withActivity(
-    {
-      ...project,
-      scenes: project.scenes.map((s) => (s.id === sceneId ? settled : s)),
-      // Drop the blocked render proposal — the human has now answered it.
-      activity: project.activity.filter((event) => !event.blocked),
-    },
-    {
-      origin: "human",
-      label: accepted ? "Accepted draft" : "Kept current",
-      detail: sceneLabel(scene),
-      sceneId,
-    },
+  const rejected = commit(
+    withActivity(
+      {
+        ...project,
+        scenes: project.scenes.map((s) => (s.id === sceneId ? settled : s)),
+        // Drop the blocked render proposal — the human has now answered it.
+        activity: project.activity.filter((event) => !event.blocked),
+      },
+      {
+        origin: "human",
+        label: accepted ? "Accepted draft" : "Kept current",
+        detail: sceneLabel(scene),
+        sceneId,
+      },
+    ),
   );
-
-  const rejected = commit(next);
   if (rejected) return rejected;
 
   replay();
@@ -371,6 +753,24 @@ export function keepCurrent(sceneId: SceneId): ActionResult {
   return resolveDraft(sceneId, false);
 }
 
+/**
+ * Accept every pending draft at once.
+ *
+ * Reviewing four scenes one at a time is the right default, but a person who
+ * has watched the film and likes it should not have to click four times to say
+ * so. Still human-only, and still never a tool.
+ */
+export function acceptAllDrafts(): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+
+  const drafts = guard.value.scenes.filter((s) => s.approval === "draft");
+  if (drafts.length === 0) return ok("Nothing is waiting for review.");
+
+  for (const scene of drafts) resolveDraft(scene.id, true);
+  return ok(`Accepted ${drafts.length} draft${drafts.length === 1 ? "" : "s"}.`);
+}
+
 // ---------------------------------------------------------------------------
 // Film-level settings
 // ---------------------------------------------------------------------------
@@ -378,30 +778,26 @@ export function keepCurrent(sceneId: SceneId): ActionResult {
 export function setArtDirection(direction: ArtDirection): ActionResult {
   const parsed = ArtDirectionSchema.safeParse(direction);
   if (!parsed.success) {
-    const available = Object.keys(PALETTES).join(", ");
     return fail(
       "invalid-input",
-      `unknown art direction "${String(direction)}". Available: ${available}`,
+      `unknown art direction "${String(direction)}" — expected ${ArtDirectionSchema.options.join(", ")}`,
     );
   }
 
   const guard = requireProject();
   if (!guard.ok) return guard.result;
-  const { project } = guard;
+  const project = guard.value;
+
   if (project.brief.artDirection === parsed.data) {
     return ok(`Already using ${parsed.data}.`);
   }
 
-  const next = withActivity(
-    { ...project, brief: { ...project.brief, artDirection: parsed.data } },
-    {
-      origin: "human",
-      label: "Changed art direction",
-      detail: parsed.data,
-    },
+  const rejected = commit(
+    withActivity(
+      { ...project, brief: { ...project.brief, artDirection: parsed.data } },
+      { origin: "human", label: "Changed art direction", detail: parsed.data },
+    ),
   );
-
-  const rejected = commit(next);
   if (rejected) return rejected;
 
   replay();
@@ -409,53 +805,111 @@ export function setArtDirection(direction: ArtDirection): ActionResult {
 }
 
 // ---------------------------------------------------------------------------
+// Selection and playback — UI state, safe for agents
+// ---------------------------------------------------------------------------
+
+export function focusScene(sceneId: SceneId): ActionResult {
+  const idCheck = SceneIdSchema.safeParse(sceneId);
+  if (!idCheck.success) {
+    return fail("unknown-scene", `unknown scene "${String(sceneId)}"`);
+  }
+
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const scene = findScene(project, idCheck.data);
+  if (!scene) return fail("unknown-scene", `unknown scene "${sceneId}"`);
+
+  const { loadedAt } = useStudioStore.getState();
+  useStudioStore
+    .getState()
+    .setProject({ ...project, activeSceneId: scene.id }, loadedAt);
+  useStudioStore.getState().setPlayback({ kind: "scene", sceneId: scene.id });
+  replay();
+
+  return ok(`Focused ${sceneLabel(scene)}. Headline: "${scene.headline}"`);
+}
+
+export function setPlayback(mode: PlaybackMode): ActionResult {
+  useStudioStore.getState().setPlayback(mode);
+  replay();
+  return ok(
+    mode.kind === "film" ? "Playing the full board." : `Playing ${mode.sceneId}.`,
+  );
+}
+
+export function replayCurrent(): void {
+  replay();
+}
+
+// ---------------------------------------------------------------------------
 // Read model — what a WebMCP read tool returns
 // ---------------------------------------------------------------------------
 
 /**
- * A small, structured summary of the board. Deliberately excludes raw source
- * text: evidence snippets are untrusted and belong behind the
- * `untrustedContentHint` annotation, not in a general context dump
- * (invariant 6).
+ * A small, structured summary of where things stand.
  *
- * `film` is null before anyone has inspected a source. It is a key rather than
- * an absence so the agent reads a fact with a remedy attached, instead of
- * having to infer one from a missing field.
+ * Always reports the workspace, even when a film is open, because the agent's
+ * next move is often a file write and it needs to know the folder is there.
+ * `film` is null before one is opened — a key rather than an absence, so the
+ * agent reads a fact with a remedy attached instead of inferring one from a
+ * missing field.
  */
 export function getProjectContext() {
-  const { project } = useStudioStore.getState();
+  const { workspace, project, loadError } = useStudioStore.getState();
 
-  // Told plainly, with the remedy attached: an agent reading this is one tool
-  // call away from fixing it, and should not have to infer that from a null.
+  const workspaceSummary =
+    workspace.kind === "linked"
+      ? {
+          linked: true as const,
+          directory: WORKSPACE_DIR,
+          films: workspace.projects.map((entry) => ({
+            slug: entry.slug,
+            name: entry.name,
+            ...(entry.problem ? { problem: entry.problem } : {}),
+          })),
+        }
+      : {
+          linked: false as const,
+          reason:
+            workspace.kind === "unsupported"
+              ? "This browser has no File System Access API. PrismLaunch needs Chrome or Edge."
+              : workspace.kind === "needs-permission"
+                ? "A folder is remembered but the browser dropped its permission. The person needs to click “Re-open folder”."
+                : "Nobody has linked a folder yet. The person must click “Link project folder” — the browser only opens that picker for a real click.",
+        };
+
   if (!project) {
     return {
+      workspace: workspaceSummary,
       film: null,
-      note: "No film exists yet. Call prism.inspect_public_repo with a repository the person named, or ask them to pick a source in the app.",
+      ...(loadError ? { fileError: loadError } : {}),
     };
   }
 
   return {
+    workspace: workspaceSummary,
     film: {
-      productName: project.product.productName,
+      slug: project.slug,
+      path: `${WORKSPACE_DIR}/${project.slug}/project.json`,
+      name: project.name,
+      productName: project.product.name,
       promise: project.brief.promise,
       artDirection: project.brief.artDirection,
       activeSceneId: project.activeSceneId,
-      pendingDraftSceneId:
-        project.scenes.find((s) => s.approval === "draft")?.id ?? null,
-      candidates: project.product.componentCandidates.map((candidate) => ({
-        id: candidate.id,
-        label: candidate.label,
-        kind: candidate.kind,
-      })),
+      pendingDraftSceneIds: project.scenes
+        .filter((s) => s.approval === "draft")
+        .map((s) => s.id),
+      totalSeconds:
+        project.scenes.reduce((total, s) => total + s.durationFrames, 0) / 24,
       scenes: project.scenes.map((scene) => ({
         id: scene.id,
         order: scene.order,
         template: scene.template,
         headline: scene.headline,
         ...(scene.body !== undefined ? { body: scene.body } : {}),
-        ...(scene.componentId !== undefined
-          ? { componentId: scene.componentId }
-          : {}),
+        ...(scene.feature !== undefined ? { feature: scene.feature } : {}),
         motionPreset: scene.motionPreset,
         emphasis: scene.emphasis,
         approval: scene.approval,
@@ -465,192 +919,10 @@ export function getProjectContext() {
   };
 }
 
-
-// ---------------------------------------------------------------------------
-// Source inspection
-// ---------------------------------------------------------------------------
-
-export type InspectKind = "demo" | "github" | "local";
-
-/**
- * Replace the product manifest by inspecting a source, then regenerate the
- * board from it.
- *
- * This is the action `prism.inspect_public_repo` will wrap in Phase 3 — the
- * agent gets no separate code path, so whatever a human can inspect, an agent
- * can, with identical validation and identical visible results.
- *
- * Regenerating is the right call rather than keeping the old scenes: the
- * previous board referenced components from a different product, and a
- * spotlight pointing at a componentId that no longer exists would fail
- * validation anyway.
- */
-export async function inspectSource(
-  kind: InspectKind,
-  ref: string,
-  focus = "",
-): Promise<ActionResult> {
-  let response: Response;
-  try {
-    response = await fetch("/api/inspect", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind, ref, focus }),
-    });
-  } catch {
-    return fail("inspection-failed", "Could not reach the inspection service.");
-  }
-
-  const body: unknown = await response.json().catch(() => null);
-
-  if (!response.ok || !body || typeof body !== "object" || !("ok" in body)) {
-    const message =
-      body && typeof body === "object" && "message" in body
-        ? String((body as { message: unknown }).message)
-        : "Inspection failed.";
-    return fail("inspection-failed", message);
-  }
-
-  const payload = body as
-    | { ok: true; manifest: ProductManifest }
-    | { ok: false; message: string };
-
-  if (!payload.ok) return fail("inspection-failed", payload.message);
-
-  const manifest = payload.manifest;
-  const { project } = useStudioStore.getState();
-
-  // Art direction is the one thing worth carrying across an inspection: it is
-  // a taste decision about the film, not a fact about the product. Everything
-  // else is rebuilt, because the previous board described a different product.
-  const brief: Brief = initialBrief(
-    manifest,
-    project?.brief.artDirection ?? DEFAULT_ART_DIRECTION,
-  );
-
-  const base: FilmProject = project ?? createFilmProject(manifest, brief);
-
-  const next = withActivity(
-    {
-      ...base,
-      product: manifest,
-      brief,
-      scenes: generateStoryboard(manifest, brief),
-      activeSceneId: "scene-01",
-    },
-    {
-      origin: "human",
-      label: project ? "Inspected source" : "Started a film",
-      detail: `${manifest.productName} · ${manifest.componentCandidates.length} candidates`,
-    },
-  );
-
-  const rejected = commit(next);
-  if (rejected) return rejected;
-
-  replay();
-
-  const warnings = manifest.inspectionWarnings.length;
-  return ok(
-    `Inspected ${manifest.productName}: found ${manifest.componentCandidates.length} component candidate${manifest.componentCandidates.length === 1 ? "" : "s"}${warnings > 0 ? `, ${warnings} warning${warnings === 1 ? "" : "s"}` : ""}. Storyboard regenerated.`,
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Storyboard regeneration
-// ---------------------------------------------------------------------------
-
-export type RegenerateOptions = {
-  artDirection?: ArtDirection | undefined;
-  focusComponentId?: string | undefined;
-  promise?: string | undefined;
-};
-
-/**
- * Rebuild all four scenes from the current manifest and brief.
- *
- * Every scene comes back `accepted`, because the generator is deterministic
- * and authored by us — there is nothing for a human to review that they did
- * not already ask for. An agent adjusting one shot afterwards goes through
- * `reviseSceneDraft`, which does create a draft.
- */
-export function regenerateStoryboard(
-  options: RegenerateOptions = {},
-): ActionResult {
-  const guard = requireProject();
-  if (!guard.ok) return guard.result;
-  const { project } = guard;
-
-  if (options.artDirection && !ArtDirectionSchema.safeParse(options.artDirection).success) {
-    return fail(
-      "invalid-input",
-      `unknown art direction "${options.artDirection}". Available: ${Object.keys(PALETTES).join(", ")}`,
-    );
-  }
-
-  if (options.focusComponentId) {
-    const known = project.product.componentCandidates.some(
-      (candidate) => candidate.id === options.focusComponentId,
-    );
-    if (!known) {
-      const available = project.product.componentCandidates
-        .map((candidate) => candidate.id)
-        .join(", ");
-      return fail(
-        "unknown-component",
-        `unknown componentId "${options.focusComponentId}". Available: ${available || "none — inspect a source first"}`,
-      );
-    }
-  }
-
-  const brief = {
-    ...project.brief,
-    ...(options.artDirection ? { artDirection: options.artDirection } : {}),
-    ...(options.promise ? { promise: options.promise } : {}),
-    ...(options.focusComponentId
-      ? { selectedComponentIds: [options.focusComponentId] }
-      : {}),
-  };
-
-  let scenes;
-  try {
-    scenes = generateStoryboard(project.product, brief);
-  } catch (error) {
-    return fail(
-      "graph-invalid",
-      error instanceof Error ? error.message : "Could not build a storyboard.",
-    );
-  }
-
-  const next = withActivity(
-    { ...project, brief, scenes, activeSceneId: "scene-01" },
-    {
-      origin: "agent",
-      label: "prism.create_storyboard_draft",
-      detail: `Rebuilt 4 scenes · ${brief.artDirection}`,
-    },
-  );
-
-  const rejected = commit(next);
-  if (rejected) return rejected;
-
-  replay();
-  return ok(
-    `Rebuilt the storyboard in ${brief.artDirection}: ${scenes.map((s) => `${s.id} "${s.headline}"`).join(", ")}. All four scenes are accepted and ready to review.`,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // The render gate — two phases, and the agent can only take the first
 // ---------------------------------------------------------------------------
 
-/**
- * Phase 1. Renders nothing.
- *
- * Posts the accepted board to the server, which records a snapshot and mints a
- * short-lived confirmation. The confirm sheet then appears in the app for a
- * human to approve. The returned message deliberately tells the agent to wait.
- */
 type Proposal =
   | { ok: true; confirmationId: string; summary: string }
   | { ok: false; result: ActionResult };
@@ -667,7 +939,7 @@ type Proposal =
 async function proposeRenderOnServer(reason?: string): Promise<Proposal> {
   const guard = requireProject();
   if (!guard.ok) return { ok: false, result: guard.result };
-  const { project } = guard;
+  const project = guard.value;
 
   const draft = project.scenes.find((scene) => scene.approval === "draft");
   if (draft) {
@@ -696,17 +968,14 @@ async function proposeRenderOnServer(reason?: string): Promise<Proposal> {
   } catch {
     return {
       ok: false,
-      result: fail("inspection-failed", "Could not reach the render service."),
+      result: fail("disk-error", "Could not reach the render service."),
     };
   }
 
   if (!body.ok || !body.confirmationId) {
     return {
       ok: false,
-      result: fail(
-        "invalid-input",
-        body.message ?? "Could not propose a render.",
-      ),
+      result: fail("invalid-input", body.message ?? "Could not propose a render."),
     };
   }
 
@@ -736,7 +1005,7 @@ export async function requestRender(reason?: string): Promise<ActionResult> {
   });
 
   commit(
-    withActivity(guard.project, {
+    withActivity(guard.value, {
       origin: "agent",
       label: "prism.request_render",
       detail: "Proposed a render — needs your confirmation",
@@ -755,9 +1024,7 @@ export async function requestRender(reason?: string): Promise<ActionResult> {
  * approved that exact confirmation.
  *
  * The server authorises and returns the recorded snapshot; the browser then
- * encodes it with WebCodecs. Splitting it this way keeps the gate structural
- * (only the server can release a snapshot) while the work happens locally, so
- * no endpoint spends CPU on video.
+ * encodes it with WebCodecs and writes the file into the project's own folder.
  */
 export async function confirmRender(
   confirmationId: string,
@@ -771,13 +1038,12 @@ export async function confirmRender(
       body: JSON.stringify({ action: "confirm", confirmationId }),
     });
   } catch {
-    return fail("inspection-failed", "Could not reach the render service.");
+    return fail("disk-error", "Could not reach the render service.");
   }
 
   const body: {
     ok: boolean;
     message?: string;
-    jobId?: string;
     snapshot?: RenderSnapshot;
   } = await response.json().catch(() => ({ ok: false }));
 
@@ -795,11 +1061,27 @@ export async function confirmRender(
 
   if (!outcome.ok) return fail("invalid-input", outcome.message);
 
-  downloadBlob(outcome.blob, outcome.filename);
   useStudioStore.getState().setPendingRender(null);
-
   const megabytes = (outcome.blob.size / 1_000_000).toFixed(1);
-  return ok(`Rendered ${outcome.filename} (${megabytes} MB). The download has started.`);
+
+  // Into the project's own folder, beside the file that describes it. The
+  // downloads directory is where a video goes to be lost.
+  const { workspace, project } = useStudioStore.getState();
+  if (workspace.kind === "linked" && project) {
+    const { writeRender } = await import("@/lib/workspace/fs");
+    const saved = await writeRender(
+      workspace.workspace,
+      project.slug,
+      outcome.filename,
+      outcome.blob,
+    );
+    if (saved.ok) return ok(`Rendered ${megabytes} MB to ${saved.value}.`);
+  }
+
+  downloadBlob(outcome.blob, outcome.filename);
+  return ok(
+    `Rendered ${outcome.filename} (${megabytes} MB). The download has started.`,
+  );
 }
 
 /**
@@ -808,7 +1090,9 @@ export async function confirmRender(
  * Deliberately not exported through any tool. This is the click the whole gate
  * turns on.
  */
-export async function approveRender(confirmationId: string): Promise<ActionResult> {
+export async function approveRender(
+  confirmationId: string,
+): Promise<ActionResult> {
   try {
     await fetch("/api/render", {
       method: "POST",
@@ -816,7 +1100,7 @@ export async function approveRender(confirmationId: string): Promise<ActionResul
       body: JSON.stringify({ action: "approve", confirmationId }),
     });
   } catch {
-    return fail("inspection-failed", "Could not reach the render service.");
+    return fail("disk-error", "Could not reach the render service.");
   }
   return ok("Render approved.");
 }

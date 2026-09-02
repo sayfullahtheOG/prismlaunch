@@ -2,175 +2,180 @@ import { describe, expect, it } from "vitest";
 import {
   explainZodError,
   FilmProjectSchema,
+  ProjectFileSchema,
   SceneGraphSchema,
-  toolInputJsonSchema,
   SceneSchema,
+  SlugSchema,
+  toolInputJsonSchema,
+  WriteStoryboardInput,
 } from "@/lib/studio/schema";
 import type { Scene } from "@/types/prism";
-import { film } from "./fixture";
+import { film, projectFile, scenes } from "./fixture";
 
-/** A fresh film per call, so no test can mutate another's. */
-const clone = film;
+/**
+ * The schema is now a file format as well as a runtime guard: an agent writes
+ * `project.json` by hand, so every rule here is a rule someone will hit while
+ * typing JSON into an editor. These tests pin the ones that matter and, just
+ * as importantly, that the failure message names the field.
+ */
 
 describe("SceneGraphSchema", () => {
-  it("accepts a freshly generated film", () => {
-    expect(SceneGraphSchema.safeParse(clone().scenes).success).toBe(true);
+  it("accepts the fixture", () => {
+    expect(SceneGraphSchema.safeParse(scenes()).success).toBe(true);
   });
 
   it("rejects a fifth scene", () => {
-    const scenes = [...clone().scenes, clone().scenes[3]!];
-    expect(SceneGraphSchema.safeParse(scenes).success).toBe(false);
+    expect(SceneGraphSchema.safeParse([...scenes(), scenes()[3]!]).success).toBe(
+      false,
+    );
   });
 
   it("rejects three scenes", () => {
-    const scenes = clone().scenes.slice(0, 3);
-    expect(SceneGraphSchema.safeParse(scenes).success).toBe(false);
+    expect(SceneGraphSchema.safeParse(scenes().slice(0, 3)).success).toBe(false);
   });
 
   it("rejects a reordered board", () => {
-    const scenes = clone().scenes;
-    [scenes[0], scenes[1]] = [scenes[1]!, scenes[0]!];
+    const swapped = scenes();
+    [swapped[0], swapped[1]] = [swapped[1]!, swapped[0]!];
+    expect(SceneGraphSchema.safeParse(swapped).success).toBe(false);
+  });
 
-    const result = SceneGraphSchema.safeParse(scenes);
+  it("rejects a scene using the wrong template for its slot", () => {
+    const wrong = scenes();
+    wrong[0] = { ...wrong[0]!, template: "outcome-cta" };
+
+    const result = SceneGraphSchema.safeParse(wrong);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(explainZodError(result.error)).toContain("scene-01");
+      expect(explainZodError(result.error)).toMatch(/kinetic-type/);
     }
   });
 
-  it("rejects a swapped template even in the right slot", () => {
-    const scenes = clone().scenes;
-    scenes[0] = { ...scenes[0]!, template: "outcome-cta" };
+  it("requires a feature on the spotlight scene", () => {
+    const bare = scenes();
+    const { feature, ...withoutFeature } = bare[2]!;
+    void feature;
+    bare[2] = withoutFeature as Scene;
 
-    const result = SceneGraphSchema.safeParse(scenes);
+    const result = SceneGraphSchema.safeParse(bare);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(explainZodError(result.error)).toContain("kinetic-type");
+      expect(explainZodError(result.error)).toMatch(/feature/);
     }
   });
 
   it("rejects a film shorter than 16 seconds", () => {
-    // 4 × 72 frames = 288 frames = 12s
-    const scenes = clone().scenes.map((scene) => ({
-      ...scene,
-      durationFrames: 72,
-    }));
-
-    const result = SceneGraphSchema.safeParse(scenes);
+    const short = scenes().map((scene) => ({ ...scene, durationFrames: 72 }));
+    const result = SceneGraphSchema.safeParse(short);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(explainZodError(result.error)).toContain("16–22s");
+      expect(explainZodError(result.error)).toMatch(/16–22s/);
     }
   });
 
   it("rejects a film longer than 22 seconds", () => {
-    // 4 × 144 frames = 576 frames = 24s
-    const scenes = clone().scenes.map((scene) => ({
-      ...scene,
-      durationFrames: 144,
-    }));
-    expect(SceneGraphSchema.safeParse(scenes).success).toBe(false);
-  });
-
-  it("rejects a scene shorter than the per-scene minimum", () => {
-    const scenes = clone().scenes;
-    scenes[0] = { ...scenes[0]!, durationFrames: 24 };
-    expect(SceneGraphSchema.safeParse(scenes).success).toBe(false);
+    const long = scenes().map((scene) => ({ ...scene, durationFrames: 144 }));
+    expect(SceneGraphSchema.safeParse(long).success).toBe(false);
   });
 });
 
 describe("SceneSchema", () => {
-  it("rejects a headline over 56 characters", () => {
-    const scene: Scene = clone().scenes[0]!;
+  it("caps the headline at 56 characters", () => {
     const result = SceneSchema.safeParse({
-      ...scene,
+      ...scenes()[0]!,
       headline: "x".repeat(57),
     });
     expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(explainZodError(result.error)).toMatch(/headline/);
+    }
   });
 
-  it("accepts a headline at exactly the limit", () => {
-    const scene: Scene = clone().scenes[0]!;
+  it("rejects a duration outside the per-scene bounds", () => {
     expect(
-      SceneSchema.safeParse({ ...scene, headline: "x".repeat(56) }).success,
-    ).toBe(true);
-  });
-
-  it("rejects an empty headline", () => {
-    const scene: Scene = clone().scenes[0]!;
-    expect(SceneSchema.safeParse({ ...scene, headline: "" }).success).toBe(false);
-  });
-
-  it("rejects a body over 110 characters", () => {
-    const scene: Scene = clone().scenes[1]!;
-    expect(
-      SceneSchema.safeParse({ ...scene, body: "x".repeat(111) }).success,
+      SceneSchema.safeParse({ ...scenes()[0]!, durationFrames: 12 }).success,
     ).toBe(false);
   });
 });
 
-describe("FilmProjectSchema component binding", () => {
-  it("accepts the demo project", () => {
-    expect(FilmProjectSchema.safeParse(clone()).success).toBe(true);
+describe("ProjectFileSchema", () => {
+  it("accepts the fixture file", () => {
+    expect(ProjectFileSchema.safeParse(projectFile()).success).toBe(true);
   });
 
-  it("rejects component-spotlight with no componentId", () => {
-    const project = clone();
-    delete project.scenes[2]!.componentId;
-
-    const result = FilmProjectSchema.safeParse(project);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(explainZodError(result.error)).toContain("requires a componentId");
-    }
+  it("rejects a file with no version", () => {
+    const { version, ...withoutVersion } = projectFile();
+    void version;
+    expect(ProjectFileSchema.safeParse(withoutVersion).success).toBe(false);
   });
 
-  it("rejects a componentId that is not in the manifest", () => {
-    const project = clone();
-    project.scenes[2]!.componentId = "cmp-does-not-exist";
+  /**
+   * The in-app project carries selection and a session log; the file must not.
+   * Round-tripping proves the extra fields are additive rather than a fork.
+   */
+  it("is the film project minus the tab-local fields", () => {
+    const project = film();
+    const { slug, activeSceneId, activity, ...rest } = project;
+    void slug;
+    void activeSceneId;
+    void activity;
 
-    const result = FilmProjectSchema.safeParse(project);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(explainZodError(result.error)).toContain("unknown componentId");
-    }
-  });
-
-  it("does not require a componentId on other templates", () => {
-    const project = clone();
-    delete project.scenes[0]!.componentId;
+    expect(ProjectFileSchema.safeParse(rest).success).toBe(true);
     expect(FilmProjectSchema.safeParse(project).success).toBe(true);
   });
 });
 
-describe("toolInputJsonSchema", () => {
-  it("produces a JSON Schema object a WebMCP tool can advertise", () => {
-    const json = toolInputJsonSchema(SceneSchema) as {
-      type?: string;
-      properties?: Record<string, unknown>;
-      required?: string[];
-    };
-
-    expect(json.type).toBe("object");
-    expect(json.properties).toHaveProperty("headline");
-    expect(json.required).toContain("headline");
-    // Optional fields must not be advertised as required.
-    expect(json.required).not.toContain("body");
+describe("SlugSchema", () => {
+  it("accepts an ordinary folder name", () => {
+    expect(SlugSchema.safeParse("vector-launch").success).toBe(true);
   });
 
-  it("is JSON-serialisable, since it crosses the WebMCP boundary as JSON", () => {
-    expect(() => JSON.stringify(toolInputJsonSchema(SceneSchema))).not.toThrow();
+  /**
+   * The slug is interpolated into a filesystem path, so these are the cases
+   * that matter most: anything that could climb out of the workspace or write
+   * a hidden file has to be refused before it reaches `getDirectoryHandle`.
+   */
+  it.each([
+    ["..", "parent directory"],
+    ["../escape", "traversal"],
+    ["a/b", "a slash"],
+    [".hidden", "a leading dot"],
+    ["-leading", "a leading dash"],
+    ["Upper", "uppercase"],
+    ["with space", "a space"],
+    ["", "empty"],
+  ])("rejects %s (%s)", (value) => {
+    expect(SlugSchema.safeParse(value).success).toBe(false);
+  });
+});
+
+describe("tool input schemas", () => {
+  it("produce object JSON Schemas for the model to read", () => {
+    const json = toolInputJsonSchema(WriteStoryboardInput);
+    expect(json.type).toBe("object");
+    expect(json).toHaveProperty("properties.scenes");
+  });
+
+  it("require exactly four scenes in a storyboard", () => {
+    const one = {
+      headline: "Only one",
+      durationFrames: 96,
+      motionPreset: "drift",
+      emphasis: "problem",
+    };
+    expect(WriteStoryboardInput.safeParse({ scenes: [one] }).success).toBe(false);
+    expect(
+      WriteStoryboardInput.safeParse({ scenes: [one, one, one, one] }).success,
+    ).toBe(true);
   });
 });
 
 describe("explainZodError", () => {
-  it("returns a short corrective sentence rather than a dump", () => {
-    const result = SceneSchema.safeParse({ id: "scene-01" });
+  it("names the field so an agent can fix it", () => {
+    const result = SceneSchema.safeParse({ ...scenes()[0]!, headline: "" });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const message = explainZodError(result.error);
-      expect(message.length).toBeGreaterThan(0);
-      expect(message.split(";").length).toBeLessThanOrEqual(4);
+      expect(explainZodError(result.error)).toContain("headline");
     }
   });
 });

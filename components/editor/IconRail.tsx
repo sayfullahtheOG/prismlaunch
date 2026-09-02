@@ -1,11 +1,11 @@
 "use client";
 
-import { Clapperboard, FileCode2, Palette, Sparkles } from "lucide-react";
+import { Clapperboard, FolderOpen, Palette, Sparkles } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { RailTab } from "./rail-tabs";
 import { RAIL_TABS } from "./rail-tabs";
 
-const ICONS = { Clapperboard, Palette, FileCode2, Sparkles } as const;
+const ICONS = { Clapperboard, Palette, FolderOpen, Sparkles } as const;
 
 type Props = {
   active: RailTab;

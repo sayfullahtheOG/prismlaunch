@@ -1,7 +1,7 @@
 import { AbsoluteFill, Series } from "remotion";
 import { PALETTES } from "@/lib/studio/palettes";
-import type { ArtDirection, ComponentCandidate, Scene } from "@/types/prism";
-import { ComponentSpotlight } from "./scenes/ComponentSpotlight";
+import type { ArtDirection, Scene } from "@/types/prism";
+import { FeatureSpotlight } from "./scenes/FeatureSpotlight";
 import { KineticType } from "./scenes/KineticType";
 import { OutcomeCta } from "./scenes/OutcomeCta";
 import { ProductReveal } from "./scenes/ProductReveal";
@@ -17,17 +17,16 @@ import type { SceneProps } from "./scenes/types";
 export type LaunchFilmProps = {
   scenes: Scene[];
   artDirection: ArtDirection;
-  candidates: ComponentCandidate[];
 };
 
 const RENDERERS: Record<Scene["template"], (props: SceneProps) => React.JSX.Element> = {
   "kinetic-type": KineticType,
   "product-reveal": ProductReveal,
-  "component-spotlight": ComponentSpotlight,
+  "feature-spotlight": FeatureSpotlight,
   "outcome-cta": OutcomeCta,
 };
 
-export function LaunchFilm({ scenes, artDirection, candidates }: LaunchFilmProps) {
+export function LaunchFilm({ scenes, artDirection }: LaunchFilmProps) {
   const palette = PALETTES[artDirection];
 
   return (
@@ -35,18 +34,13 @@ export function LaunchFilm({ scenes, artDirection, candidates }: LaunchFilmProps
       <Series>
         {scenes.map((scene) => {
           const Renderer = RENDERERS[scene.template];
-          const label = candidates.find((c) => c.id === scene.componentId)?.label;
 
           return (
             <Series.Sequence
               key={scene.id}
               durationInFrames={scene.durationFrames}
             >
-              <Renderer
-                scene={scene}
-                palette={palette}
-                componentLabel={label}
-              />
+              <Renderer scene={scene} palette={palette} />
             </Series.Sequence>
           );
         })}

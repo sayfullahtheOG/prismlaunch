@@ -3,11 +3,19 @@ import { z } from "zod";
 /**
  * The scene graph — the single source of truth for the whole product.
  *
- * The canvas preview, the scene inspector, the WebMCP tool executors, and the
- * render route all consume exactly these schemas. There is no second
- * definition of the graph anywhere: TypeScript types are derived with
- * `z.infer` (see types/prism.ts), and the JSON Schema handed to agents is
- * derived with `z.toJSONSchema` (see toolInputJsonSchema below).
+ * These schemas are now a *file format* as well as a runtime guard. An agent
+ * writes `.prismlaunch/<slug>/project.json` with its own file tools;
+ * `ProjectFileSchema` is exactly what it must write, and public/SKILL.md is
+ * the prose version of the same thing. If the two ever disagree, this file is
+ * right and SKILL.md is stale.
+ *
+ * PrismLaunch has no model of its own and does not read anyone's source. The
+ * agent decides what the film says; we validate the structure, render it,
+ * hold the approval gate, and write the result back to disk.
+ *
+ * Everything else derives from here: TypeScript types with `z.infer` (see
+ * types/prism.ts), and the JSON Schema handed to agents with `z.toJSONSchema`
+ * (see toolInputJsonSchema below).
  *
  * Why one definition matters: WebMCP's `inputSchema` is a *hint to the model*
  * and enforces nothing at runtime — verified against live Chrome, which passes
@@ -31,6 +39,22 @@ export const MAX_FILM_SECONDS = 22;
 export const HEADLINE_MAX = 56;
 export const BODY_MAX = 110;
 
+/**
+ * Bumped only when a change would make an older `project.json` unreadable.
+ * A file carrying a version we do not know is refused with its number quoted,
+ * rather than parsed optimistically into something subtly wrong.
+ */
+export const PROJECT_FILE_VERSION = 1;
+
+/** The directory an agent writes into, at the root of whatever it is working on. */
+export const WORKSPACE_DIR = ".prismlaunch";
+
+/** The one file that defines a film. */
+export const PROJECT_FILE = "project.json";
+
+/** Finished MP4s land here, beside the project that produced them. */
+export const RENDERS_DIR = "renders";
+
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
@@ -41,10 +65,15 @@ export const ArtDirectionSchema = z.enum([
   "warm-playful",
 ]);
 
+/**
+ * Four templates in a fixed order. Renamed from `component-spotlight`: the app
+ * no longer reads anyone's source, so a scene spotlights a *feature the agent
+ * names*, not a component we found.
+ */
 export const SceneTemplateSchema = z.enum([
   "kinetic-type",
   "product-reveal",
-  "component-spotlight",
+  "feature-spotlight",
   "outcome-cta",
 ]);
 
@@ -77,6 +106,22 @@ export const SceneOrderSchema = z.union([
   z.literal(4),
 ]);
 
+/**
+ * A project's folder name under `.prismlaunch`, and its identity everywhere.
+ *
+ * Constrained hard because it is interpolated into a filesystem path: no dots,
+ * no slashes, no leading dash, so it cannot climb out of the workspace or
+ * collide with a hidden file.
+ */
+export const SlugSchema = z
+  .string()
+  .min(1)
+  .max(48)
+  .regex(
+    /^[a-z0-9][a-z0-9-]*$/,
+    "use lowercase letters, digits and dashes, starting with a letter or digit",
+  );
+
 // ---------------------------------------------------------------------------
 // Leaf objects
 // ---------------------------------------------------------------------------
@@ -91,47 +136,36 @@ export const PaletteSchema = z.object({
 });
 
 /**
- * Everything here is derived from a user's repository and is therefore
- * untrusted. It is truncated and escaped at the extraction layer
- * (lib/source/sanitize.ts); the caps below are a second line of defence so an
- * oversized snippet can never reach a tool result or the DOM.
+ * What the spotlight scene is about.
+ *
+ * `visualTokens` are short words the renderer arranges into a suggestion of an
+ * interface — "command", "search", "results" draws something palette-shaped.
+ * They are decoration, not a screenshot, and the film never claims otherwise.
  */
-export const SourceEvidenceSchema = z.object({
-  path: z.string().min(1).max(300),
-  exportName: z.string().max(120).optional(),
-  snippet: z.string().max(400),
-  reason: z.string().max(240),
+export const FeatureSchema = z.object({
+  label: z.string().min(1).max(40),
+  visualTokens: z.array(z.string().min(1).max(24)).max(6).default([]),
 });
 
-export const ComponentCandidateSchema = z.object({
-  id: z.string().min(1).max(80),
-  name: z.string().min(1).max(120),
-  label: z.string().min(1).max(80),
-  kind: z.enum(["page", "component", "feature"]),
-  evidence: z.array(SourceEvidenceSchema).max(5),
-  visualTokens: z.array(z.string().max(40)).max(8),
+export const ProductSchema = z.object({
+  name: z.string().min(1).max(60),
+  description: z.string().max(300).default(""),
 });
 
-export const ProductManifestSchema = z.object({
-  source: z.enum(["demo", "github-public", "local"]),
-  repository: z
-    .object({
-      owner: z.string().max(120),
-      repo: z.string().max(120),
-      defaultBranch: z.string().max(120),
-    })
-    .optional(),
-  productName: z.string().min(1).max(80),
-  description: z.string().max(300),
-  framework: z.enum(["next", "react", "unknown"]),
-  componentCandidates: z.array(ComponentCandidateSchema).max(6),
-  inspectionWarnings: z.array(z.string().max(240)).max(10),
+export const BriefSchema = z.object({
+  promise: z.string().min(1).max(160),
+  artDirection: ArtDirectionSchema,
 });
 
+/**
+ * The session log. Not written to disk — it describes what happened in this
+ * tab, not what the film is. The file is the film; this is the account of who
+ * touched it while you were watching.
+ */
 export const ActivityEventSchema = z.object({
   id: z.string().min(1),
-  origin: z.enum(["human", "agent"]),
-  /** Tool name for agent events, plain label for human ones. */
+  origin: z.enum(["human", "agent", "disk"]),
+  /** Tool name for agent events, plain label for the others. */
   label: z.string().min(1).max(120),
   detail: z.string().max(240),
   at: z.string().min(1).max(40),
@@ -155,7 +189,8 @@ export const SceneSchema = z.object({
     .max(MAX_SCENE_FRAMES),
   headline: z.string().min(1).max(HEADLINE_MAX),
   body: z.string().max(BODY_MAX).optional(),
-  componentId: z.string().max(80).optional(),
+  /** Required on `feature-spotlight`, meaningless elsewhere. */
+  feature: FeatureSchema.optional(),
   motionPreset: MotionPresetSchema,
   emphasis: EmphasisSchema,
   approval: ApprovalStateSchema,
@@ -168,9 +203,11 @@ export const SceneSchema = z.object({
 /**
  * The fixed four-scene structure.
  *
- * Constraint is what makes the output good in the available time: exactly four
- * scenes, in a fixed template order, totalling 16–22 seconds. There is no
- * reordering and no fifth scene (context/project-overview.md §Scope).
+ * Constraint is what makes the output good, and it is most of what PrismLaunch
+ * contributes now that the agent writes the words: exactly four scenes, in a
+ * fixed template order, totalling 16–22 seconds. There is no reordering and no
+ * fifth scene. An agent that tries to write a nine-minute slideshow gets a
+ * validation error naming the rule it broke.
  */
 export const SceneGraphSchema = z
   .array(SceneSchema)
@@ -183,7 +220,7 @@ export const SceneGraphSchema = z
     }> = [
       { id: "scene-01", order: 1, template: "kinetic-type" },
       { id: "scene-02", order: 2, template: "product-reveal" },
-      { id: "scene-03", order: 3, template: "component-spotlight" },
+      { id: "scene-03", order: 3, template: "feature-spotlight" },
       { id: "scene-04", order: 4, template: "outcome-cta" },
     ];
 
@@ -206,6 +243,17 @@ export const SceneGraphSchema = z
       }
     });
 
+    // The spotlight scene is the only one that needs more than words.
+    const spotlight = scenes[2];
+    if (spotlight && spotlight.template === "feature-spotlight" && !spotlight.feature) {
+      ctx.addIssue({
+        code: "custom",
+        path: [2, "feature"],
+        message:
+          "scene-03 needs a feature: { label, visualTokens } naming what it shows",
+      });
+    }
+
     const seconds = scenes.reduce((sum, s) => sum + s.durationFrames, 0) / FPS;
     if (seconds < MIN_FILM_SECONDS || seconds > MAX_FILM_SECONDS) {
       ctx.addIssue({
@@ -216,55 +264,38 @@ export const SceneGraphSchema = z
     }
   });
 
-export const BriefSchema = z.object({
-  promise: z.string().min(1).max(160),
-  selectedComponentIds: z.array(z.string().max(80)).max(3),
-  artDirection: ArtDirectionSchema,
+// ---------------------------------------------------------------------------
+// The file on disk
+// ---------------------------------------------------------------------------
+
+/**
+ * `.prismlaunch/<slug>/project.json`, in full.
+ *
+ * This is the contract between the agent and the app. It holds only what the
+ * film IS — no selection state, no session history, nothing about the browser
+ * — so two people opening the same folder see the same film, and a diff of
+ * this file is a diff of the video.
+ */
+export const ProjectFileSchema = z.object({
+  version: z
+    .literal(PROJECT_FILE_VERSION)
+    .describe("File format version. Always 1."),
+  name: z.string().min(1).max(80).describe("Human-readable title for the film."),
+  product: ProductSchema,
+  brief: BriefSchema,
+  scenes: SceneGraphSchema,
 });
 
 /**
- * `component-spotlight` is the only template that requires a component, and
- * that component must actually exist in the manifest. This can only be checked
- * once the scenes and the manifest are together, so it lives here rather than
- * on SceneSchema.
+ * A film as the app holds it: the file, plus where it came from and what is
+ * selected. The extra fields never reach disk — see `toProjectFile`.
  */
-export const FilmProjectSchema = z
-  .object({
-    id: z.string().min(1),
-    product: ProductManifestSchema,
-    brief: BriefSchema,
-    scenes: SceneGraphSchema,
-    activeSceneId: SceneIdSchema,
-    activity: z.array(ActivityEventSchema).max(200),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-  })
-  .superRefine((project, ctx) => {
-    const known = new Set(
-      project.product.componentCandidates.map((candidate) => candidate.id),
-    );
-
-    project.scenes.forEach((scene, index) => {
-      if (scene.template !== "component-spotlight") return;
-
-      if (!scene.componentId) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["scenes", index, "componentId"],
-          message: "component-spotlight requires a componentId",
-        });
-        return;
-      }
-
-      if (!known.has(scene.componentId)) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["scenes", index, "componentId"],
-          message: `unknown componentId "${scene.componentId}" — not in the manifest`,
-        });
-      }
-    });
-  });
+export const FilmProjectSchema = ProjectFileSchema.extend({
+  /** The folder under `.prismlaunch` this was read from. */
+  slug: SlugSchema,
+  activeSceneId: SceneIdSchema,
+  activity: z.array(ActivityEventSchema).max(200),
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -285,9 +316,9 @@ export function toolInputJsonSchema(schema: z.ZodType): Record<string, unknown> 
 /**
  * Flatten a Zod error into a short, corrective sentence an agent can act on.
  *
- * Tool executors return this instead of throwing: the spec's contract is that
- * a tool surfaces a meaningful validation failure rather than silently
- * truncating or failing opaquely.
+ * Tool executors and the file reader both return this instead of throwing: an
+ * agent that wrote a bad `project.json` needs to be told which field is wrong,
+ * not handed a stack trace.
  */
 export function explainZodError(error: z.ZodError): string {
   return error.issues
@@ -312,18 +343,84 @@ export function explainZodError(error: z.ZodError): string {
  * cheapest place to prevent a malformed call.
  */
 
-export const FocusSceneInput = z.object({
-  sceneId: SceneIdSchema.describe("Which of the four scenes to select."),
+export const EmptyInput = z.object({});
+
+export const OpenProjectInput = z.object({
+  slug: SlugSchema.describe(
+    "Folder name under .prismlaunch, as listed by get_project_context.",
+  ),
 });
 
-export const PreviewInput = z.object({
-  mode: z
-    .enum(["scene", "film"])
-    .default("film")
-    .describe("Play just the active scene, or the whole board."),
-  sceneId: SceneIdSchema.optional().describe(
-    "Scene to play. Required when mode is 'scene'.",
+export const CreateProjectInput = z.object({
+  slug: SlugSchema.describe(
+    "Folder name to create under .prismlaunch, e.g. 'vector-launch'.",
   ),
+  name: z
+    .string()
+    .min(1)
+    .max(80)
+    .describe("Human-readable title, e.g. 'Vector launch video'."),
+  productName: z.string().min(1).max(60).describe("What the product is called."),
+  productDescription: z
+    .string()
+    .max(300)
+    .optional()
+    .describe("One or two sentences on what the product does."),
+  promise: z
+    .string()
+    .min(1)
+    .max(160)
+    .describe("The one sentence the film has to land."),
+  artDirection: ArtDirectionSchema.optional().describe(
+    "Visual treatment. Defaults to minimal-dark.",
+  ),
+});
+
+/** A scene as an agent submits it — no approval state; the app decides that. */
+const SceneDraftInput = z.object({
+  headline: z
+    .string()
+    .min(1)
+    .max(HEADLINE_MAX)
+    .describe(`The scene's main line. At most ${HEADLINE_MAX} characters.`),
+  body: z
+    .string()
+    .max(BODY_MAX)
+    .optional()
+    .describe(`Optional supporting line. At most ${BODY_MAX} characters.`),
+  durationFrames: z
+    .number()
+    .int()
+    .min(MIN_SCENE_FRAMES)
+    .max(MAX_SCENE_FRAMES)
+    .describe(
+      `How long the scene runs, in frames at ${FPS}fps. ${MIN_SCENE_FRAMES}–${MAX_SCENE_FRAMES}. The four must total ${MIN_FILM_SECONDS}–${MAX_FILM_SECONDS} seconds.`,
+    ),
+  motionPreset: MotionPresetSchema.describe(
+    "drift is slow and premium, snap is decisive, orbit is playful.",
+  ),
+  emphasis: EmphasisSchema,
+  feature: FeatureSchema.optional().describe(
+    "Required on scene-03 only: what the spotlight shows.",
+  ),
+});
+
+export const WriteStoryboardInput = z.object({
+  scenes: z
+    .tuple([
+      SceneDraftInput,
+      SceneDraftInput,
+      SceneDraftInput,
+      SceneDraftInput,
+    ])
+    .describe(
+      "All four scenes in order: the hook, the product reveal, one feature, the outcome.",
+    ),
+  note: z
+    .string()
+    .max(240)
+    .optional()
+    .describe("One sentence on your approach. Shown to the human."),
 });
 
 export const ReviseSceneInput = z.object({
@@ -339,16 +436,10 @@ export const ReviseSceneInput = z.object({
     .max(BODY_MAX)
     .optional()
     .describe(`Optional supporting line. At most ${BODY_MAX} characters.`),
-  componentId: z
-    .string()
-    .max(80)
-    .optional()
-    .describe(
-      "Component to feature. Must be an id from get_project_context. Only meaningful on the component-spotlight scene.",
-    ),
-  motionPreset: MotionPresetSchema.optional().describe(
-    "drift is slow and premium, snap is decisive, orbit is playful.",
+  feature: FeatureSchema.optional().describe(
+    "Only meaningful on the feature-spotlight scene.",
   ),
+  motionPreset: MotionPresetSchema.optional(),
   emphasis: EmphasisSchema.optional(),
   revisionNote: z
     .string()
@@ -357,35 +448,18 @@ export const ReviseSceneInput = z.object({
     .describe("One sentence on what you changed and why. Shown to the human."),
 });
 
-export const InspectRepoInput = z.object({
-  repositoryUrl: z
-    .string()
-    .min(1)
-    .max(300)
-    .describe(
-      "A public GitHub repository URL, e.g. https://github.com/owner/repo. Ask the person for this — never guess one.",
-    ),
-  focus: z
-    .string()
-    .max(120)
-    .optional()
-    .describe("What the person wants featured, e.g. 'command palette'."),
+export const FocusSceneInput = z.object({
+  sceneId: SceneIdSchema.describe("Which of the four scenes to select."),
 });
 
-export const CreateStoryboardInput = z.object({
-  artDirection: ArtDirectionSchema.optional().describe(
-    "Visual treatment for the whole film.",
+export const PreviewInput = z.object({
+  mode: z
+    .enum(["scene", "film"])
+    .default("film")
+    .describe("Play just the active scene, or the whole board."),
+  sceneId: SceneIdSchema.optional().describe(
+    "Scene to play. Required when mode is 'scene'.",
   ),
-  focusComponentId: z
-    .string()
-    .max(80)
-    .optional()
-    .describe("Component to build the proof scene around."),
-  promise: z
-    .string()
-    .max(160)
-    .optional()
-    .describe("One sentence describing what the product does."),
 });
 
 export const RequestRenderInput = z.object({
@@ -401,7 +475,5 @@ export const ConfirmRenderInput = z.object({
     .string()
     .min(1)
     .max(120)
-    .describe(
-      "The id returned by request_render, after the person approved it in the app.",
-    ),
+    .describe("The id request_render returned. Only works once a human approves it."),
 });

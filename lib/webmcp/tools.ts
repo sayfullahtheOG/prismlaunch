@@ -1,32 +1,36 @@
 import type { z } from "zod";
 import {
+  confirmRender,
+  createProject,
+  flushWrites,
   focusScene,
   getProjectContext,
-  inspectSource,
-  regenerateStoryboard,
+  openProject,
   requestRender,
-  confirmRender,
   reviseSceneDraft,
   setPlayback,
+  writeStoryboard,
   type ActionResult,
 } from "@/lib/studio/actions";
 import {
   ConfirmRenderInput,
-  CreateStoryboardInput,
+  CreateProjectInput,
+  EmptyInput,
   FocusSceneInput,
-  InspectRepoInput,
+  OpenProjectInput,
   PreviewInput,
   RequestRenderInput,
   ReviseSceneInput,
+  WriteStoryboardInput,
   explainZodError,
   toolInputJsonSchema,
 } from "@/lib/studio/schema";
 import type { JsonSchema, ModelContextTool } from "./types";
 
 /**
- * The eight tools PrismLaunch registers on the studio page.
+ * The nine tools PrismLaunch registers on the studio page.
  *
- * Two rules hold across every one of them:
+ * Three rules hold across every one of them:
  *
  * 1. **Each tool wraps an existing action.** There is no tool-only code path,
  *    so anything an agent does produces exactly the visible result a human
@@ -38,15 +42,28 @@ import type { JsonSchema, ModelContextTool } from "./types";
  *    A validation failure returns a corrective sentence rather than throwing,
  *    because the agent can act on the former (invariant 8).
  *
- * Descriptions are authored here as literals and never built from repository
- * text (invariant 6).
+ * 3. **Anything that writes flushes to disk before returning.** The film lives
+ *    in the person's folder, so a tool that says it wrote something must have
+ *    written it — an agent reading `project.json` on the next line has to find
+ *    what it was just told about.
  *
- * Notably absent: any tool that accepts a draft. `acceptDraft`/`keepCurrent`
- * exist as actions but are deliberately not wrapped, so the agent has no
- * function to call (invariant 2).
+ * These tools cover what a file cannot do: opening a film on someone's screen,
+ * putting a scene in front of them, playing it, proposing a render. An agent
+ * with file tools does the authoring by editing `project.json` directly and
+ * the studio picks it up within a second — `write_storyboard` exists so that
+ * an agent *without* file access is not locked out.
+ *
+ * Descriptions are authored here as literals and never built from user content
+ * (invariant 6).
+ *
+ * Notably absent: any tool that accepts a draft or approves a render.
+ * `acceptDraft`, `keepCurrent` and `approveRender` exist as actions but are
+ * deliberately not wrapped, so the agent has no function to call (invariant 2).
  */
 
-type Executor<S extends z.ZodType> = (input: z.infer<S>) => Promise<ActionResult> | ActionResult;
+type Executor<S extends z.ZodType> = (
+  input: z.infer<S>,
+) => Promise<ActionResult> | ActionResult;
 
 /**
  * Wrap a Zod schema and an action into a tool. Centralising the parse means a
@@ -73,8 +90,24 @@ function tool<S extends z.ZodType>(config: {
       // Awaiting here is what guarantees the visible state has already changed
       // by the time the agent reads the result (invariant 3).
       const result = await config.execute(parsed.data);
+
+      // …and this extends the same guarantee to the file on disk.
+      if (config.annotations?.readOnlyHint !== true) await flushWrites();
+
       return result.ok ? result.message : `Could not do that — ${result.message}`;
     },
+  };
+}
+
+/** One scene as the schema accepts it, as the action wants it. */
+function toDraft(scene: z.infer<typeof WriteStoryboardInput>["scenes"][number]) {
+  return {
+    headline: scene.headline,
+    durationFrames: scene.durationFrames,
+    motionPreset: scene.motionPreset,
+    emphasis: scene.emphasis,
+    ...(scene.body ? { body: scene.body } : {}),
+    ...(scene.feature ? { feature: scene.feature } : {}),
   };
 }
 
@@ -83,45 +116,58 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.get_project_context",
       description:
-        "Read the current launch film: the product, the creative brief, the four scenes with their copy and approval state, and the component candidates found in the source. Call this first, before proposing any change. If no film exists yet it says so, and says what to do about it.",
-      schema: RequestRenderInput.pick({}),
-      annotations: { readOnlyHint: true, untrustedContentHint: true },
-      execute: () => {
-        const context = getProjectContext();
-        return { ok: true, message: JSON.stringify(context) };
+        "Where things stand: whether the person has linked a project folder, which films are in it, and — if one is open — its four scenes, their copy, and which are still unreviewed drafts. Call this first, before anything else. If no folder is linked it tells you what the person has to click.",
+      schema: EmptyInput,
+      annotations: { readOnlyHint: true },
+      execute: () => ({ ok: true, message: JSON.stringify(getProjectContext()) }),
+    }),
+
+    tool({
+      name: "prism.create_project",
+      description:
+        "Create a new film at .prismlaunch/<slug>/project.json in the linked folder and open it. Writes four empty placeholder scenes for you to fill — it does not write any copy. Needs a folder to be linked first.",
+      schema: CreateProjectInput,
+      execute: (input) =>
+        createProject({
+          slug: input.slug,
+          name: input.name,
+          productName: input.productName,
+          promise: input.promise,
+          ...(input.productDescription
+            ? { productDescription: input.productDescription }
+            : {}),
+          ...(input.artDirection ? { artDirection: input.artDirection } : {}),
+        }),
+    }),
+
+    tool({
+      name: "prism.open_project",
+      description:
+        "Show a film that already exists in the linked folder, by its folder name. Use the slugs from get_project_context.",
+      schema: OpenProjectInput,
+      execute: (input) => openProject(input.slug),
+    }),
+
+    tool({
+      name: "prism.write_storyboard",
+      description:
+        "Write all four scenes at once: the hook, the product reveal, one feature, the outcome. Four scenes together because the film is one argument and the 16–22 second budget belongs to the set. Scene 3 needs a `feature`. Everything lands as a DRAFT for the person to accept — you cannot accept it yourself. If you have file tools you can edit project.json directly instead; the studio picks it up within a second.",
+      schema: WriteStoryboardInput,
+      execute: (input) => {
+        // Destructured rather than mapped: the schema guarantees four, and a
+        // cast would be the only other way to tell TypeScript that.
+        const [one, two, three, four] = input.scenes;
+        return writeStoryboard(
+          [toDraft(one), toDraft(two), toDraft(three), toDraft(four)],
+          input.note,
+        );
       },
     }),
 
     tool({
-      name: "prism.inspect_public_repo",
+      name: "prism.revise_scene",
       description:
-        "Read a public GitHub repository and build the four-scene storyboard from what it finds. This is how a film starts, and how an existing one is rebuilt from a different product. Only call this with a URL the person gave you — never invent or guess a repository. Reads a bounded set of files; it never runs the code.",
-      schema: InspectRepoInput,
-      annotations: { untrustedContentHint: true },
-      execute: (input) =>
-        inspectSource("github", input.repositoryUrl, input.focus ?? ""),
-    }),
-
-    tool({
-      name: "prism.create_storyboard_draft",
-      description:
-        "Rebuild all four scenes from the current product and brief, optionally changing the art direction, the featured component, or the product promise. Use this to start a story over; use revise_scene_draft to adjust one shot.",
-      schema: CreateStoryboardInput,
-      execute: (input) => regenerateStoryboard(input),
-    }),
-
-    tool({
-      name: "prism.focus_scene",
-      description:
-        "Select one scene and scroll its editor into view, so the person is looking at the shot you are talking about.",
-      schema: FocusSceneInput,
-      execute: (input) => focusScene(input.sceneId),
-    }),
-
-    tool({
-      name: "prism.revise_scene_draft",
-      description:
-        "Propose changes to exactly one scene — its headline, supporting line, featured component, motion, or emphasis. The change lands as a DRAFT for the person to accept or reject. You cannot accept it yourself.",
+        "Change exactly one scene — its headline, supporting line, featured detail, motion, or emphasis. The change lands as a DRAFT for the person to accept or reject. You cannot accept it yourself.",
       schema: ReviseSceneInput,
       execute: (input) => {
         const { sceneId, revisionNote, ...patch } = input;
@@ -130,10 +176,20 @@ export function buildTools(): ModelContextTool[] {
     }),
 
     tool({
+      name: "prism.focus_scene",
+      description:
+        "Select one scene and put it in front of the person, so you are both looking at the shot you are talking about.",
+      schema: FocusSceneInput,
+      annotations: { readOnlyHint: true },
+      execute: (input) => focusScene(input.sceneId),
+    }),
+
+    tool({
       name: "prism.preview_storyboard",
       description:
-        "Play the film in the shared canvas — either the whole board or a single scene — so the person can watch what you changed.",
+        "Play the film on the person's screen — the whole board or a single scene. Use this after writing, so they watch what you made rather than reading your description of it.",
       schema: PreviewInput,
+      annotations: { readOnlyHint: true },
       execute: (input) =>
         input.mode === "scene" && input.sceneId
           ? setPlayback({ kind: "scene", sceneId: input.sceneId })
@@ -143,7 +199,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.request_render",
       description:
-        "Propose exporting the finished film as an MP4. This renders NOTHING: it records what would be rendered and raises a confirmation in the app. The person must approve it, and only then can confirm_render proceed.",
+        "Propose exporting the finished film as an MP4. This renders NOTHING: it records what would be rendered and raises a confirmation in the app. The person must approve it, and only then can confirm_render proceed. Fails while any scene is still an unreviewed draft.",
       schema: RequestRenderInput,
       execute: (input) => requestRender(input.reason),
     }),
@@ -151,7 +207,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.confirm_render",
       description:
-        "Start the render that request_render proposed, using the confirmation id it returned. This only works after the person has approved that confirmation in the app — the id alone is not permission.",
+        "Start the render that request_render proposed, using the confirmation id it returned. This only works after the person has approved that confirmation in the app — the id alone is not permission, and retrying will not change that. The MP4 is encoded in their browser and saved into the project folder.",
       schema: ConfirmRenderInput,
       execute: (input) => confirmRender(input.confirmationId),
     }),

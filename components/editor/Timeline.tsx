@@ -14,7 +14,7 @@ type Props = {
 const SCENE_LABEL: Record<Scene["template"], string> = {
   "kinetic-type": "Hook",
   "product-reveal": "Reveal",
-  "component-spotlight": "Proof",
+  "feature-spotlight": "Proof",
   "outcome-cta": "Resolve",
 };
 

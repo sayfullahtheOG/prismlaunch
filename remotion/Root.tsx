@@ -1,21 +1,71 @@
 import { Composition } from "remotion";
-import { demoManifest } from "@/lib/source/demo-manifest";
-import { createFilmProject } from "@/lib/studio/new-project";
-import { totalFrames } from "@/lib/studio/timing";
 import { FPS } from "@/lib/studio/schema";
+import { totalFrames } from "@/lib/studio/timing";
+import type { Scene } from "@/types/prism";
 import { LaunchFilm, type LaunchFilmProps } from "./LaunchFilm";
 
 /**
  * Registers the single composition. 960×540 at 24fps, per the spec.
  *
  * Duration is derived from the passed scene graph rather than hardcoded, so a
- * board the user has re-timed renders at its real length.
+ * board someone has re-timed renders at its real length.
  *
- * `defaultProps` is a film generated from the demo manifest at module load —
- * the same construction path the app uses — because `npx remotion studio`
- * needs something on screen to open on. Nothing in the app reads this.
+ * `defaultProps` is a fixture — `npx remotion studio` needs something on screen
+ * to open on, and nothing in the app reads it. It is the only invented film in
+ * the codebase, and it lives here rather than in lib/ so it cannot be mistaken
+ * for content the product ships. Real films come from a person's own
+ * `.prismlaunch/<slug>/project.json`.
  */
-const demoFilm = createFilmProject(demoManifest);
+
+const FIXTURE: Scene[] = [
+  {
+    id: "scene-01",
+    order: 1,
+    template: "kinetic-type",
+    durationFrames: 84,
+    headline: "Most tools make you click. A lot.",
+    body: "Six clicks to assign an issue. Every time.",
+    motionPreset: "drift",
+    emphasis: "problem",
+    approval: "accepted",
+  },
+  {
+    id: "scene-02",
+    order: 2,
+    template: "product-reveal",
+    durationFrames: 108,
+    headline: "Vector",
+    body: "An issue tracker you drive from the keyboard.",
+    motionPreset: "snap",
+    emphasis: "product",
+    approval: "accepted",
+  },
+  {
+    id: "scene-03",
+    order: 3,
+    template: "feature-spotlight",
+    durationFrames: 132,
+    headline: "Meet the command palette.",
+    feature: {
+      label: "Command palette",
+      visualTokens: ["Assign to me", "Move to cycle", "Add to project"],
+    },
+    motionPreset: "drift",
+    emphasis: "feature",
+    approval: "accepted",
+  },
+  {
+    id: "scene-04",
+    order: 4,
+    template: "outcome-cta",
+    durationFrames: 108,
+    headline: "The fast path, by default.",
+    body: "vector.app",
+    motionPreset: "snap",
+    emphasis: "outcome",
+    approval: "accepted",
+  },
+];
 
 export function RemotionRoot() {
   return (
@@ -25,12 +75,11 @@ export function RemotionRoot() {
       fps={FPS}
       width={960}
       height={540}
-      durationInFrames={totalFrames(demoFilm.scenes)}
+      durationInFrames={totalFrames(FIXTURE)}
       defaultProps={
         {
-          scenes: demoFilm.scenes,
-          artDirection: demoFilm.brief.artDirection,
-          candidates: demoFilm.product.componentCandidates,
+          scenes: FIXTURE,
+          artDirection: "minimal-dark",
         } satisfies LaunchFilmProps
       }
       calculateMetadata={({ props }) => ({

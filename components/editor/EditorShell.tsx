@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  acceptAllDrafts,
   acceptDraft,
   focusScene,
   keepCurrent,
@@ -16,21 +17,22 @@ import { useStudioStore } from "@/lib/studio/store";
 import { elapsedThrough, timecode, totalSeconds } from "@/lib/studio/timing";
 import type { SceneId } from "@/types/prism";
 import { Canvas } from "./Canvas";
-import { EmptyStudio, EmptyTimeline } from "./EmptyStudio";
-import { RenderConfirm } from "./RenderConfirm";
-import { useWebMcp } from "./WebMcpProvider";
 import { IconRail } from "./IconRail";
-import type { RailTab } from "./rail-tabs";
 import { Inspector } from "./Inspector";
+import { RenderConfirm } from "./RenderConfirm";
+import { StartScreen } from "./StartScreen";
 import { Timeline } from "./Timeline";
 import { TopBar } from "./TopBar";
 import { Transport } from "./Transport";
+import { useDiskSync } from "./useDiskSync";
+import { useWebMcp } from "./WebMcpProvider";
+import type { RailTab } from "./rail-tabs";
 import { AgentPanel } from "./panels/AgentPanel";
+import { FolderPanel } from "./panels/FolderPanel";
 import { LookPanel } from "./panels/LookPanel";
 import { ScenesPanel } from "./panels/ScenesPanel";
-import { SourcePanel } from "./panels/SourcePanel";
 
-/** Sections that describe a film, and so have nothing to describe before one exists. */
+/** Sections that describe a film, and so have nothing to describe before one is open. */
 const NO_FILM_TABS: ReadonlySet<RailTab> = new Set<RailTab>(["scenes", "look"]);
 
 /**
@@ -38,7 +40,10 @@ const NO_FILM_TABS: ReadonlySet<RailTab> = new Set<RailTab>(["scenes", "look"]);
  *
  * There is no `setState` here and no local copy of the project — a WebMCP tool
  * executor calling the same action produces exactly the same visible result,
- * which is what makes the canvas genuinely shared.
+ * which is what makes the canvas genuinely shared. The film itself lives in a
+ * file, and `useDiskSync` keeps this view following it, so an agent editing
+ * `project.json` in its own editor changes what is on screen here without
+ * calling anything.
  *
  * `tab` stays local: which panel is open is view state, not project state, and
  * nothing outside this component needs it.
@@ -46,16 +51,19 @@ const NO_FILM_TABS: ReadonlySet<RailTab> = new Set<RailTab>(["scenes", "look"]);
 export function EditorShell() {
   const project = useStudioStore((state) => state.project);
   const playToken = useStudioStore((state) => state.playToken);
-  // Source is the only useful panel before a film exists, so open there.
-  const [tab, setTab] = useState<RailTab>(project ? "scenes" : "source");
-
-  // Registers the eight tools for the lifetime of this component, and reports
-  // which implementation backs them.
-  const webmcp = useWebMcp();
-
   const pendingRender = useStudioStore((state) => state.pendingRender);
   const renderNote = useStudioStore((state) => state.renderNote);
+
+  // Restores the linked folder, then follows the file for as long as the page
+  // is open. Called before the early return so the hook order never changes.
+  useDiskSync();
+
+  const [tab, setTab] = useState<RailTab>("scenes");
   const [rendering, setRendering] = useState(false);
+
+  // Registers the tools for the lifetime of this component, and reports which
+  // implementation backs them.
+  const webmcp = useWebMcp();
 
   async function exportFilm() {
     const store = useStudioStore.getState();
@@ -71,20 +79,19 @@ export function EditorShell() {
   }
 
   /*
-   * No film yet.
+   * No film open.
    *
    * The chrome still renders, so the tool's shape is legible before there is
-   * anything in it — and so the agent panel is reachable, which matters
-   * because an agent can create the project without the person touching
-   * anything.
+   * anything in it — and so the agent panel stays reachable, which matters
+   * because the agent may be the one that creates the project.
    */
   if (!project) {
     return (
       <div className="chrome-select-none relative flex h-dvh min-h-0 flex-col bg-canvas">
         <TopBar
-          productName="No film yet"
+          productName="No film open"
           duration="—"
-          renderBlockedReason="Inspect a source to start a film"
+          renderBlockedReason="Open a film to export one"
           onRender={() => undefined}
         />
 
@@ -93,14 +100,9 @@ export function EditorShell() {
             active={tab}
             onChange={setTab}
             unavailable={NO_FILM_TABS}
-            unavailableReason="Available once a film exists"
+            unavailableReason="Available once a film is open"
           />
 
-          {/*
-           * Source has no side panel here — the empty studio in the middle IS
-           * the source step, and putting the same intake in two places would
-           * only make the person wonder which one counts.
-           */}
           {tab === "agent" ? (
             <div className="flex w-[336px] shrink-0 flex-col border-r border-line-soft bg-surface">
               <AgentPanel
@@ -112,8 +114,7 @@ export function EditorShell() {
           ) : null}
 
           <main id="studio" className="flex min-w-0 flex-1 flex-col">
-            <EmptyStudio />
-            <EmptyTimeline />
+            <StartScreen />
           </main>
         </div>
       </div>
@@ -126,11 +127,11 @@ export function EditorShell() {
   const palette = PALETTES[brief.artDirection];
   const activeScene =
     scenes.find((scene) => scene.id === project.activeSceneId) ?? scenes[0]!;
-  const candidates = product.componentCandidates;
 
   const total = timecode(totalSeconds(scenes));
   const elapsed = timecode(elapsedThrough(scenes, activeScene.id));
-  const pendingDraft = scenes.find((scene) => scene.approval === "draft");
+  const drafts = scenes.filter((scene) => scene.approval === "draft");
+  const pendingDraft = drafts[0];
 
   function step(direction: 1 | -1) {
     const next = activeScene.order + direction;
@@ -146,11 +147,11 @@ export function EditorShell() {
   return (
     <div className="chrome-select-none relative flex h-dvh min-h-0 flex-col bg-app">
       <TopBar
-        productName={product.productName}
+        productName={product.name}
         duration={`${total} · 4 scenes`}
         renderBlockedReason={
           pendingDraft
-            ? `Scene ${String(pendingDraft.order).padStart(2, "0")} still has an unreviewed draft`
+            ? `${drafts.length} scene${drafts.length === 1 ? "" : "s"} still unreviewed`
             : null
         }
         onRender={() => void exportFilm()}
@@ -162,7 +163,7 @@ export function EditorShell() {
         <IconRail
           active={tab}
           onChange={setTab}
-          agentPending={Boolean(pendingDraft) || Boolean(pendingRender)}
+          agentPending={drafts.length > 0 || Boolean(pendingRender)}
         />
 
         <div className="flex w-[336px] shrink-0 flex-col border-r border-line-soft bg-surface">
@@ -172,6 +173,7 @@ export function EditorShell() {
               activeSceneId={activeScene.id}
               palette={palette}
               onSelect={(id: SceneId) => focusScene(id)}
+              onAcceptAll={drafts.length > 1 ? () => acceptAllDrafts() : undefined}
             />
           ) : null}
           {tab === "look" ? (
@@ -182,17 +184,7 @@ export function EditorShell() {
               onMotion={(motionPreset) => patch({ motionPreset })}
             />
           ) : null}
-          {tab === "source" ? (
-            <SourcePanel
-              candidates={candidates}
-              productName={product.productName}
-              framework={product.framework}
-              sourceKind={product.source}
-              warnings={product.inspectionWarnings}
-              selectedId={activeScene.componentId}
-              onSelect={(componentId) => patch({ componentId })}
-            />
-          ) : null}
+          {tab === "folder" ? <FolderPanel /> : null}
           {tab === "agent" ? (
             <AgentPanel
               activity={project.activity}
@@ -206,7 +198,6 @@ export function EditorShell() {
           <Canvas
             scenes={scenes}
             artDirection={brief.artDirection}
-            candidates={candidates}
             activeSceneId={activeScene.id}
             playToken={playToken}
           />
@@ -227,7 +218,6 @@ export function EditorShell() {
 
         <Inspector
           scene={activeScene}
-          candidates={candidates}
           onPatch={patch}
           onAcceptDraft={() => acceptDraft(activeScene.id)}
           onKeepCurrent={() => keepCurrent(activeScene.id)}

@@ -3,24 +3,17 @@
 import { Check, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field, TextArea, TextInput } from "@/components/ui/Field";
-import { Select } from "@/components/ui/Select";
 import { Segmented } from "@/components/ui/Segmented";
 import type { ScenePatch } from "@/lib/studio/actions";
 import { BODY_MAX, HEADLINE_MAX } from "@/lib/studio/schema";
 import { framesToSeconds } from "@/lib/studio/timing";
-import type {
-  ComponentCandidate,
-  Emphasis,
-  MotionPreset,
-  Scene,
-} from "@/types/prism";
+import type { Emphasis, MotionPreset, Scene } from "@/types/prism";
 
 const EMPHASIS: Emphasis[] = ["problem", "product", "feature", "outcome"];
 const MOTION: MotionPreset[] = ["drift", "snap", "orbit"];
 
 type Props = {
   scene: Scene;
-  candidates: ComponentCandidate[];
   onPatch: (patch: ScenePatch) => void;
   onAcceptDraft: () => void;
   onKeepCurrent: () => void;
@@ -28,14 +21,12 @@ type Props = {
 
 export function Inspector({
   scene,
-  candidates,
   onPatch,
   onAcceptDraft,
   onKeepCurrent,
 }: Props) {
   const isDraft = scene.approval === "draft";
-  const candidate = candidates.find((c) => c.id === scene.componentId);
-  const evidence = candidate?.evidence[0];
+  const feature = scene.feature;
 
   return (
     <aside
@@ -129,24 +120,52 @@ export function Inspector({
           />
         </Field>
 
-        {scene.template === "component-spotlight" ? (
-          <Field label="Component" htmlFor="scene-component">
-            <Select
-              id="scene-component"
-              label="Featured component"
-              value={scene.componentId ?? ""}
-              onChange={(componentId) => onPatch({ componentId })}
-              options={candidates.map((candidate) => ({
-                value: candidate.id,
-                label: candidate.label,
-                // The path is why this candidate exists — worth showing in
-                // the list, not just after you have chosen.
-                ...(candidate.evidence[0]
-                  ? { detail: candidate.evidence[0].path }
-                  : {}),
-              }))}
-            />
-          </Field>
+        {/*
+          * The spotlight scene is the only one that shows more than words, so
+          * it is the only one with more than words to edit. Tokens are free
+          * text rather than a picker: nothing here scans a repository, so
+          * there is no list to choose from — whatever the agent named is what
+          * gets drawn.
+          */}
+        {scene.template === "feature-spotlight" ? (
+          <>
+            <Field label="Feature" htmlFor="scene-feature">
+              <TextInput
+                id="scene-feature"
+                value={feature?.label ?? ""}
+                onChange={(e) =>
+                  onPatch({
+                    feature: {
+                      label: e.target.value,
+                      visualTokens: feature?.visualTokens ?? [],
+                    },
+                  })
+                }
+                placeholder="What the shot is about"
+                maxLength={40}
+              />
+            </Field>
+
+            <Field label="Shown in the panel" htmlFor="scene-tokens">
+              <TextArea
+                id="scene-tokens"
+                value={(feature?.visualTokens ?? []).join("\n")}
+                onChange={(e) =>
+                  onPatch({
+                    feature: {
+                      label: feature?.label ?? "",
+                      visualTokens: e.target.value
+                        .split("\n")
+                        .map((line) => line.trim())
+                        .filter(Boolean)
+                        .slice(0, 6),
+                    },
+                  })
+                }
+                placeholder={"One line per row\nUp to six"}
+              />
+            </Field>
+          </>
         ) : null}
 
         <Field label="Motion">
@@ -167,26 +186,6 @@ export function Inspector({
           />
         </Field>
 
-        {evidence ? (
-          <Field label="Source evidence">
-            <div className="ds-level rounded-sm p-3">
-              <p className="font-mono text-xs break-all text-ink">
-                {evidence.path}
-              </p>
-              {evidence.exportName ? (
-                <p className="mt-1 font-mono text-xs text-accent">
-                  {evidence.exportName}
-                </p>
-              ) : null}
-              <p className="mt-2 text-xs leading-[var(--ds-leading-body)] text-muted">
-                {evidence.reason}
-              </p>
-              <p className="ds-level mt-2.5 inline-block rounded-xs px-2 py-0.5 text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase">
-                untrusted
-              </p>
-            </div>
-          </Field>
-        ) : null}
       </div>
     </aside>
   );

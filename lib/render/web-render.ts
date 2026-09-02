@@ -110,7 +110,6 @@ export async function renderFilmInBrowser(
     const props = {
       scenes: snapshot.scenes,
       artDirection: snapshot.artDirection,
-      candidates: snapshot.candidates,
     };
 
     const result = await renderMediaOnWeb({

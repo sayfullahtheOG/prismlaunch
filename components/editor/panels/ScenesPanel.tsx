@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { framesToSeconds } from "@/lib/studio/timing";
 import type { Palette, Scene } from "@/types/prism";
 import { PanelShell, PanelSection } from "./PanelShell";
@@ -10,12 +11,14 @@ type Props = {
   activeSceneId: Scene["id"];
   palette: Palette;
   onSelect: (id: Scene["id"]) => void;
+  /** Present only when more than one draft is waiting. */
+  onAcceptAll?: (() => void) | undefined;
 };
 
 const NARRATIVE_JOB: Record<Scene["template"], string> = {
   "kinetic-type": "Establish the pain",
   "product-reveal": "Reveal the product",
-  "component-spotlight": "Prove one feature",
+  "feature-spotlight": "Prove one feature",
   "outcome-cta": "Land the outcome",
 };
 
@@ -32,7 +35,9 @@ export function ScenesPanel({
   activeSceneId,
   palette,
   onSelect,
+  onAcceptAll,
 }: Props) {
+  const drafts = scenes.filter((scene) => scene.approval === "draft").length;
   return (
     <PanelShell
       title="Scenes"
@@ -112,6 +117,22 @@ export function ScenesPanel({
             );
           })}
         </ul>
+
+        {/*
+          * Reviewing scene by scene is the right default — that is the whole
+          * approval boundary — but a person who has watched the film and likes
+          * it should not have to click four times to say so.
+          */}
+        {onAcceptAll ? (
+          <Button
+            variant="secondary"
+            className="mt-3 w-full"
+            onClick={onAcceptAll}
+            icon={<Check size={14} strokeWidth={2.4} aria-hidden />}
+          >
+            Accept all {drafts} drafts
+          </Button>
+        ) : null}
       </PanelSection>
     </PanelShell>
   );

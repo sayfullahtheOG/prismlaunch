@@ -4,16 +4,16 @@ import type {
   ApprovalStateSchema,
   ArtDirectionSchema,
   BriefSchema,
-  ComponentCandidateSchema,
   EmphasisSchema,
+  FeatureSchema,
   FilmProjectSchema,
   MotionPresetSchema,
   PaletteSchema,
-  ProductManifestSchema,
+  ProductSchema,
+  ProjectFileSchema,
   SceneIdSchema,
   SceneSchema,
   SceneTemplateSchema,
-  SourceEvidenceSchema,
 } from "@/lib/studio/schema";
 
 /**
@@ -32,10 +32,14 @@ export type Emphasis = z.infer<typeof EmphasisSchema>;
 export type SceneId = z.infer<typeof SceneIdSchema>;
 
 export type Palette = z.infer<typeof PaletteSchema>;
-export type SourceEvidence = z.infer<typeof SourceEvidenceSchema>;
-export type ComponentCandidate = z.infer<typeof ComponentCandidateSchema>;
-export type ProductManifest = z.infer<typeof ProductManifestSchema>;
-export type ActivityEvent = z.infer<typeof ActivityEventSchema>;
-export type Scene = z.infer<typeof SceneSchema>;
+export type Feature = z.infer<typeof FeatureSchema>;
+export type Product = z.infer<typeof ProductSchema>;
 export type Brief = z.infer<typeof BriefSchema>;
+export type Scene = z.infer<typeof SceneSchema>;
+export type ActivityEvent = z.infer<typeof ActivityEventSchema>;
+
+/** What lives in `.prismlaunch/<slug>/project.json`. The agent writes this. */
+export type ProjectFile = z.infer<typeof ProjectFileSchema>;
+
+/** The file, plus where it came from and what is selected. Never written to disk. */
 export type FilmProject = z.infer<typeof FilmProjectSchema>;

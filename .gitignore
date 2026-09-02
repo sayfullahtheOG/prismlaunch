@@ -44,3 +44,7 @@ coverage/
 
 # Local render scratch
 /tmp-renders/
+
+# Films made with PrismLaunch. The tool writes these; they are the user's work,
+# not the product's source.
+.prismlaunch/

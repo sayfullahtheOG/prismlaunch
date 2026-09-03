@@ -501,9 +501,9 @@ you capture in the Activity panel.
 
 ## After you submit
 
-Every stage you submit opens at reading size in PrismLaunch, with Approve
-and Send back at the end of it. You are not told about the decision unless
-you ask, so ask the way that waits: call `prism.wait_for_decision` right
+Every stage you submit opens for the person at reading size in PrismLaunch,
+with Approve and Send back at the end of it. You are not told about the
+decision unless you ask, so ask the way that waits: call `prism.wait_for_decision` right
 after `prism.submit_*`. It holds until they click, then returns the decision,
 their note if they wrote one, and the instruction for the next stage. If it
 returns "still waiting" after its timeout, call it again. Do not move on

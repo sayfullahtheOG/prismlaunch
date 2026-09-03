@@ -10,7 +10,7 @@ import type { ElementDraft } from "@/types/prism";
 /**
  * How a piece is shown before it is on the timeline.
  *
- * The Library and the Elements section draw the same thing: a piece on the
+ * The Text, Shapes, Motion and Audio sections and the Elements section draw the same thing: a piece on the
  * film's dark ground in the film's proportions, moving if it moves, and a
  * card with it at a readable size when a tile is hovered. One module, so a
  * piece looks the same before and after it becomes an element.

@@ -93,6 +93,17 @@ describe("waiting for a decision", () => {
     expect(String(await waiting)).toMatch(/Brief approved/);
   });
 
+  it("opens the submitted stage for the person, wherever they were", async () => {
+    actions.showEditor();
+    expect(useStudioStore.getState().tab).toBe("editor");
+    await submitBrief();
+    const state = useStudioStore.getState();
+    expect(state.tab).toBe("process");
+    expect(state.openStage).toBe("brief");
+    expect(state.reviewing).toBe(true);
+    expect(middleView(state.tab, state.openStage, readProject()!.file.process, state.reviewing)).toBe("review");
+  });
+
   it("tells the agent to wait, in the submit result itself", async () => {
     const result = await actions.submitBrief({
       audience: "a",

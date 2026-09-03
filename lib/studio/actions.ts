@@ -41,16 +41,12 @@ import {
 import {
   ClipSchema,
   DEFAULT_FPS,
-  DEFAULT_HEIGHT,
   DEFAULT_MOTION,
-  DEFAULT_WIDTH,
   ElementSchema,
-  EMPTY_PROCESS,
   explainZodError,
   FilmProjectSchema,
   MAX_FRAMES,
   ProcessSchema,
-  PROJECT_FILE_VERSION,
   ProjectFileSchema,
   SlugSchema,
   STAGES,
@@ -1828,6 +1824,10 @@ async function submitStage<S extends StageId>(
     },
   );
   if (rejected) return rejected;
+
+  // The one moment the person is needed: put the stage in front of them,
+  // the way the result below says it is.
+  reviewStage(stage);
 
   await flushWrites();
   return ok(

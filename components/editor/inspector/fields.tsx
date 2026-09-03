@@ -100,7 +100,7 @@ export function Stat({ label, value }: { label: string; value: string }) {
 /** The inspector's title block: what is selected, and one line about it. */
 export function Heading({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="shrink-0 px-4 pt-4 pb-3">
+    <div className="shrink-0 px-4 pt-4 pr-10 pb-3">
       <h2 className="text-md font-semibold tracking-[var(--ds-tracking-tight)] text-ink capitalize">
         {title}
       </h2>

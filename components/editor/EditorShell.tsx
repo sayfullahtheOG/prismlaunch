@@ -10,6 +10,7 @@ import {
   refreshProjects,
   renameProject,
   seek,
+  select,
   setPlaying,
   showTab,
   splitAtPlayhead,
@@ -169,21 +170,29 @@ export function EditorShell() {
             sequence of frames needs; everything else is the film itself,
             canvas and timeline, which is what the animatic, the style frames
             and the build are.
+
+            Properties sit beside the picture, not beside the whole editor,
+            and only while something is selected. The timeline runs the full
+            width underneath.
           */}
           <main id="studio" className="flex min-w-0 flex-1 flex-col">
             {view === "boards" ? (
-              <StoryboardBoard file={file} />
+              <div className="flex min-h-0 flex-1">
+                <StoryboardBoard file={file} />
+                <Inspector file={file} />
+              </div>
             ) : view === "review" && reviewing ? (
               <StageReview stage={reviewing} file={file} />
             ) : (
               <>
-                <Canvas file={file} />
+                <div className="flex min-h-0 flex-1">
+                  <Canvas file={file} />
+                  <Inspector file={file} />
+                </div>
                 <Timeline file={file} />
               </>
             )}
           </main>
-
-          <Inspector file={file} />
         </div>
       </div>
 
@@ -218,6 +227,16 @@ function useTimelineKeys(): void {
 
       const store = useStudioStore.getState();
       if (!store.project) return;
+
+      // Escape puts the properties away, whatever is on screen.
+      if (event.key === "Escape") {
+        if (store.project.selection) {
+          event.preventDefault();
+          select(null);
+        }
+        return;
+      }
+
       // No timeline on screen, no timeline shortcuts: space over the boards
       // or a brief should not start a player nobody can see.
       if (

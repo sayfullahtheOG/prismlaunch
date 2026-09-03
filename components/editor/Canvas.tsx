@@ -97,11 +97,14 @@ export function Canvas({ file }: { file: ProjectFile }) {
       };
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col bg-canvas">
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-canvas">
       <div ref={stage} className="flex min-h-0 flex-1 items-center justify-center">
         {frame.width > 0 ? (
           <div
-            className="overflow-hidden shadow-[0_0_0_1px_var(--ds-color-line-soft)]"
+            // Clamped to the room as well as measured from it, so a frame
+            // sized before the properties pane appeared can never push a
+            // scrollbar while the observer catches up.
+            className="max-h-full max-w-full overflow-hidden shadow-[0_0_0_1px_var(--ds-color-line-soft)]"
             style={{ width: frame.width, height: frame.height }}
           >
             <FilmPreview file={file} />

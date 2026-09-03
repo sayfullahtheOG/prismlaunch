@@ -118,7 +118,11 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
       <span className="mx-1 h-5 w-px bg-line-soft" aria-hidden />
 
       {notice ? (
-        <span role="status" className="truncate text-xs text-warning">
+        <span
+          role="status"
+          title={notice}
+          className="min-w-0 max-w-[38%] shrink truncate text-xs text-warning"
+        >
           {notice}
         </span>
       ) : null}
@@ -144,7 +148,7 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
           }
           onClick={() => setPlaying(!playing)}
         />
-        <span className="tabular ml-2 font-mono text-xs text-ink">
+        <span className="tabular ml-2 font-mono text-xs whitespace-nowrap text-ink">
           {timecode(seconds)}
           <span className="text-subtle"> / {timecode(total)}</span>
         </span>

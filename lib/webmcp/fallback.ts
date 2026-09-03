@@ -29,6 +29,13 @@ class FallbackModelContext extends EventTarget implements ModelContext {
   ): Promise<void> {
     if (options?.signal?.aborted) return;
 
+    // Chrome's registry throws on a duplicate name. The shim used to replace
+    // silently, which hid a double registration locally while both Chrome
+    // and ChatGPT alternated failures on the same code — so the shim now
+    // fails the way the real thing does.
+    if (this.#tools.has(tool.name)) {
+      throw new DOMException(`A tool named "${tool.name}" is already registered.`, "InvalidStateError");
+    }
     this.#tools.set(tool.name, tool);
 
     options?.signal?.addEventListener("abort", () => {

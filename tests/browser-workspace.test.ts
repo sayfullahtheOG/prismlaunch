@@ -136,10 +136,10 @@ describe("starting in the browser", () => {
 });
 
 describe("an agent's browser", () => {
-  it("is told by native WebMCP or by name, and nothing else", () => {
-    expect(hostedByAgent("native", "Mozilla/5.0 Chrome/130")).toBe(true);
+  it("is told by name alone — a flagged Chrome with native WebMCP keeps its folder", () => {
+    expect(hostedByAgent("native", "Mozilla/5.0 Chrome/130")).toBe(false);
     expect(hostedByAgent("fallback", "Mozilla/5.0 ChatGPT/1.2")).toBe(true);
-    expect(hostedByAgent("absent", "Mozilla/5.0 OpenAI Browser")).toBe(true);
+    expect(hostedByAgent("native", "Mozilla/5.0 OpenAI Atlas")).toBe(true);
     expect(hostedByAgent("fallback", "Mozilla/5.0 Chrome/130 Safari/537")).toBe(false);
     expect(hostedByAgent("absent", "Mozilla/5.0 Firefox/130")).toBe(false);
   });

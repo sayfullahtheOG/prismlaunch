@@ -51,6 +51,52 @@ async function registerOnModelContext(
   return false;
 }
 
+/**
+ * The page's one registration, shared by every component that wants to know
+ * about it.
+ *
+ * `useWebMcp` is called from more than one component, and each mount used
+ * to run its own full registration. Two loops interleaved over the same 37
+ * names; a real registry throws on a duplicate, so each loop lost the names
+ * the other had just taken — an exact alternation, 18 landed and 19
+ * "refused", in Chrome and in ChatGPT alike — and the losing loop's
+ * teardown then unregistered its half. The shim replaced duplicates
+ * silently, which is why it never showed locally (it throws now too).
+ *
+ * So the registration is a refcounted singleton: the first acquire starts
+ * it, later acquires share it, and the teardown runs only when the last
+ * holder releases — deferred a microtask, so React Strict Mode's synchronous
+ * unmount-remount reuses the registration instead of tearing it down and
+ * racing a second one.
+ */
+let shared: Promise<RegistrationResult | null> | null = null;
+let holders = 0;
+/** The previous registration's teardown, still finishing. A new one waits for it. */
+let draining: Promise<void> = Promise.resolve();
+
+export function acquirePrismTools(): Promise<RegistrationResult | null> {
+  holders += 1;
+  if (!shared) {
+    // Behind the drain, so a page that re-mounts never races its own
+    // teardown: the old names must be gone before the new run takes them.
+    shared = draining.then(() => registerPrismTools());
+  }
+  return shared;
+}
+
+export function releasePrismTools(): void {
+  holders -= 1;
+  const current = shared;
+  queueMicrotask(() => {
+    if (holders === 0 && shared === current && current) {
+      shared = null;
+      draining = current.then((result) => {
+        result?.teardown();
+      });
+    }
+  });
+}
+
 export async function registerPrismTools(): Promise<RegistrationResult | null> {
   // Guarantees a context exists on `document` — the browser's own when it has
   // one, otherwise our in-page shim for browsers that do not.

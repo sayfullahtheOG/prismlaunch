@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { registerPrismTools } from "@/lib/webmcp/register";
+import { acquirePrismTools, releasePrismTools } from "@/lib/webmcp/register";
 import type { ContextKind } from "@/lib/webmcp/fallback";
 
 export type WebMcpState = {
@@ -12,10 +12,11 @@ export type WebMcpState = {
 };
 
 /**
- * Registers the tools for the lifetime of the studio.
+ * The page's tool registration, observed.
  *
- * Renders nothing — it exists purely for the effect, so the tools live exactly
- * as long as the page and disappear on unmount.
+ * Any number of components may call this — the setup dialog and the editor
+ * both do — and they all share ONE registration (see register.ts). The
+ * tools live as long as anything is mounted that asked about them.
  */
 export function useWebMcp(): WebMcpState {
   const [state, setState] = useState<WebMcpState>({
@@ -25,23 +26,16 @@ export function useWebMcp(): WebMcpState {
   });
 
   useEffect(() => {
-    let teardown: (() => void) | null = null;
     let cancelled = false;
 
-    void registerPrismTools().then((result) => {
-      if (!result) return;
-      if (cancelled) {
-        // Unmounted while registering — clean up rather than leaking tools.
-        result.teardown();
-        return;
-      }
-      teardown = result.teardown;
+    void acquirePrismTools().then((result) => {
+      if (!result || cancelled) return;
       setState({ kind: result.kind, registered: result.registered, failed: result.failed });
     });
 
     return () => {
       cancelled = true;
-      teardown?.();
+      releasePrismTools();
     };
   }, []);
 

@@ -58,7 +58,13 @@ import {
 import { selectedClipId } from "./selection";
 import { slugForName } from "./slug";
 import { nowTimecode, useStudioStore, type RailTab } from "./store";
-import { MAX_CAPTURE_FRAMES, planCapture, timecode } from "@/lib/render/capture-plan";
+import {
+  boardNumber,
+  FRAMES_PER_SHEET,
+  MAX_CAPTURE_FRAMES,
+  planCapture,
+  timecode,
+} from "@/lib/render/capture-plan";
 import {
   browserWorkspace,
   deleteProjectFolder,
@@ -897,20 +903,21 @@ export type CaptureResult =
   | {
       ok: true;
       message: string;
-      /** The sheet, base64 without the data-URL prefix, and its type. */
-      image: { base64: string; mimeType: string; width: number; height: number };
+      /** One per sheet: base64 without the data-URL prefix, and its type. */
+      images: { base64: string; mimeType: string; width: number; height: number }[];
     }
   | { ok: false; message: string };
 
 /**
- * Render chosen frames of the open composition onto one labelled sheet.
+ * Render chosen frames of the open composition onto storyboard sheets.
  *
  * This is how the agent sees its own work. A screenshot of a playing film
  * lands wherever the clock was; this renders exact frames — the same pixels
- * export produces — at a cadence or at named moments, and returns them as a
- * grid the agent can read as a sequence. Read-only: nothing in the file
- * changes, and the person sees the same sheet in the Agent panel, because
- * the two of them should never be looking at different things.
+ * export produces — at a cadence or at named moments, and returns them six
+ * to a sheet, numbered like boards, so the agent reads each sheet as a
+ * sequence and can name one cell. Read-only: nothing in the file changes,
+ * and the person sees the same sheets in the Agent panel, because the two
+ * of them should never be looking at different things.
  *
  * Saved beside the project too, when there is a folder, for agents whose
  * bridge does not pass images through.
@@ -937,29 +944,39 @@ export async function captureFrames(input: CaptureInput): Promise<CaptureResult>
     return { ok: false, message: "That window holds no frames." };
   }
 
-  const { captureSheet, blobToDataUrl } = await import("@/lib/render/web-capture");
+  const { captureSheets, blobToDataUrl } = await import("@/lib/render/web-capture");
   const { assets } = useStudioStore.getState();
-  const outcome = await captureSheet(project.file, assets, plan.frames, {
+  const outcome = await captureSheets(project.file, assets, plan.frames, {
     cellWidth: input.width ?? 480,
     format: "jpeg",
+    title: project.file.name,
   });
   if (!outcome.ok) return { ok: false, message: outcome.message };
 
-  const dataUrl = await blobToDataUrl(outcome.blob);
-  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
-  const range = `${timecode(plan.frames[0]!, fps)}–${timecode(plan.frames[plan.frames.length - 1]!, fps)}`;
-  const label = `${plan.frames.length} frame${plan.frames.length === 1 ? "" : "s"}, ${range}`;
+  const pages = await Promise.all(outcome.sheets.map((sheet) => blobToDataUrl(sheet.blob)));
+  const images = outcome.sheets.map((sheet, index) => ({
+    base64: pages[index]!.slice(pages[index]!.indexOf(",") + 1),
+    mimeType: sheet.mimeType,
+    width: sheet.width,
+    height: sheet.height,
+  }));
+
+  const count = plan.frames.length;
+  const range = `${timecode(plan.frames[0]!, fps)}–${timecode(plan.frames[count - 1]!, fps)}`;
+  const label = `${count} frame${count === 1 ? "" : "s"}, ${range}, on ${outcome.sheets.length} sheet${outcome.sheets.length === 1 ? "" : "s"}`;
 
   // Save beside the project when there is one, and show the person.
   const { workspace, loadedAt, setProject, setLastCapture } = useStudioStore.getState();
-  let saved: string | null = null;
+  const saved: string[] = [];
   if (workspace.kind === "linked") {
-    const filename = `sheet-${plan.frames[0]}-${plan.frames[plan.frames.length - 1]}.jpg`;
-    const written = await writeFrameSheet(workspace.workspace, project.slug, filename, outcome.blob);
-    if (written.ok) saved = written.value;
+    for (const [index, sheet] of outcome.sheets.entries()) {
+      const filename = `sheet-${plan.frames[0]}-${plan.frames[count - 1]}-${index + 1}.jpg`;
+      const written = await writeFrameSheet(workspace.workspace, project.slug, filename, sheet.blob);
+      if (written.ok) saved.push(written.value);
+    }
   }
   const at = nowTimecode();
-  setLastCapture({ dataUrl, label, at });
+  setLastCapture({ pages, label, at });
   setProject(
     withActivity(useStudioStore.getState().project ?? project, {
       origin: "agent",
@@ -969,25 +986,26 @@ export async function captureFrames(input: CaptureInput): Promise<CaptureResult>
     loadedAt,
   );
 
-  const moments = plan.frames
-    .map((frame) => `${timecode(frame, fps)} (f${frame})`)
-    .join(", ");
+  // One line per sheet, so the agent can match an image to its moments.
+  const perSheet = outcome.sheets.map((sheet, index) => {
+    const cells = sheet.frames
+      .map((frame, offset) => `${boardNumber(sheet.firstBoard + offset)} ${timecode(frame, fps)} (f${frame})`)
+      .join(", ");
+    return `Sheet ${index + 1}: ${cells}.`;
+  });
   const message = [
-    `${plan.frames.length} frame${plan.frames.length === 1 ? "" : "s"} of “${project.file.name}” on one sheet, left to right then top to bottom, each stamped with its time: ${moments}.`,
+    `${count} frame${count === 1 ? "" : "s"} of “${project.file.name}”, ${FRAMES_PER_SHEET} to a sheet, three across, read left to right then top to bottom. Each cell is captioned with its board number, time and frame.`,
+    ...perSheet,
     plan.truncated
       ? `That is the first ${MAX_CAPTURE_FRAMES}; narrow the window or widen the cadence for the rest.`
       : null,
-    saved ? `Also saved as ${saved}, if you would rather open the file.` : null,
-    "The person can see the same sheet in the Agent panel.",
+    saved.length > 0 ? `Also saved as ${saved.join(", ")}, if you would rather open the files.` : null,
+    "The person can see the same sheets in the Agent panel.",
   ]
     .filter(Boolean)
     .join(" ");
 
-  return {
-    ok: true,
-    message,
-    image: { base64, mimeType: outcome.mimeType, width: outcome.width, height: outcome.height },
-  };
+  return { ok: true, message, images };
 }
 
 export function setPlaying(playing: boolean): ActionResult {

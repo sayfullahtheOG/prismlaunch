@@ -39,6 +39,27 @@ export type CapturePlan = {
 
 export const MAX_CAPTURE_FRAMES = 24;
 
+/**
+ * Six frames to a sheet, three across, like a storyboard page.
+ *
+ * A vision model pays for an image by its area after it has been shrunk to
+ * fit the model's limit, not by how many frames are on it — so packing
+ * twenty-four frames onto one sheet does not save tokens, it spends the same
+ * tokens on frames too small to read. Six at 480px is a sheet under 1500px
+ * wide, which the common models take without shrinking, and it is the same
+ * grid the storyboard stage uses, so the agent already knows how to read it.
+ */
+export const FRAMES_PER_SHEET = 6;
+
+/** Split a plan into sheets of six, in order. */
+export function pageFrames(frames: readonly number[]): number[][] {
+  const pages: number[][] = [];
+  for (let start = 0; start < frames.length; start += FRAMES_PER_SHEET) {
+    pages.push(frames.slice(start, start + FRAMES_PER_SHEET));
+  }
+  return pages;
+}
+
 export function planCapture(request: CaptureRequest): CapturePlan {
   const { fps, durationInFrames, max } = request;
   const lastFrame = Math.max(0, durationInFrames - 1);
@@ -99,6 +120,8 @@ export type SheetLayout = {
   cellHeight: number;
   /** Height of the caption strip under each cell. */
   labelHeight: number;
+  /** Height of the strip along the bottom that names the sheet. */
+  footerHeight: number;
   gutter: number;
   width: number;
   height: number;
@@ -107,21 +130,20 @@ export type SheetLayout = {
 };
 
 /**
- * A grid that reads left to right, top to bottom, like a film strip folded.
- *
- * Four across at most: wider and the cells shrink past the point where a
- * headline is legible, and the point of the sheet is to read the frames.
+ * A storyboard page: three across, two down, read left to right then top to
+ * bottom. Fewer than three frames do not pad out to three columns.
  */
 export function sheetLayout(
   count: number,
   cellWidth: number,
   aspect: number,
-  columnsWanted = 4,
+  columnsWanted = 3,
 ): SheetLayout {
   const columns = Math.max(1, Math.min(columnsWanted, count));
   const rows = Math.max(1, Math.ceil(count / columns));
   const cellHeight = Math.max(1, Math.round(cellWidth / aspect));
   const labelHeight = 22;
+  const footerHeight = 22;
   const gutter = 8;
   const cells: { x: number; y: number }[] = [];
   for (let index = 0; index < count; index += 1) {
@@ -138,9 +160,15 @@ export function sheetLayout(
     cellWidth,
     cellHeight,
     labelHeight,
+    footerHeight,
     gutter,
     width: gutter + columns * (cellWidth + gutter),
-    height: gutter + rows * (cellHeight + labelHeight + gutter),
+    height: gutter + rows * (cellHeight + labelHeight + gutter) + footerHeight,
     cells,
   };
+}
+
+/** `003` — the board number, so the agent can say "frame 3" and mean one cell. */
+export function boardNumber(index: number): string {
+  return String(index + 1).padStart(3, "0");
 }

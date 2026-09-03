@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as actions from "@/lib/studio/actions";
-import { planCapture, sheetLayout, timecode } from "@/lib/render/capture-plan";
+import { boardNumber, pageFrames, planCapture, sheetLayout, timecode } from "@/lib/render/capture-plan";
 import { resetStudio } from "@/lib/studio/store";
 import { buildTools } from "@/lib/webmcp/tools";
 
@@ -68,18 +68,29 @@ describe("the sheet", () => {
     expect(timecode(30 * 61, 30)).toBe("1:01.00");
   });
 
-  it("lays four across and wraps, with a caption strip under each cell", () => {
+  it("is a storyboard page: three across, two down, a caption under each cell", () => {
     const layout = sheetLayout(6, 480, 16 / 9);
-    expect(layout.columns).toBe(4);
+    expect(layout.columns).toBe(3);
     expect(layout.rows).toBe(2);
     expect(layout.cellHeight).toBe(270);
     expect(layout.cells).toHaveLength(6);
-    expect(layout.cells[4]!.y).toBeGreaterThan(layout.cells[0]!.y);
-    expect(layout.width).toBe(8 + 4 * 488);
+    expect(layout.cells[3]!.y).toBeGreaterThan(layout.cells[0]!.y);
+    expect(layout.width).toBe(8 + 3 * 488);
+    // Under the width at which the common vision models start shrinking it.
+    expect(layout.width).toBeLessThan(1568);
   });
 
-  it("does not pad a short strip out to four columns", () => {
+  it("does not pad a short strip out to three columns", () => {
     expect(sheetLayout(2, 480, 16 / 9).columns).toBe(2);
+  });
+
+  it("pages six to a sheet, in order, and numbers boards across sheets", () => {
+    const frames = Array.from({ length: 14 }, (_, i) => i * 30);
+    const pages = pageFrames(frames);
+    expect(pages.map((page) => page.length)).toEqual([6, 6, 2]);
+    expect(pages[2]).toEqual([360, 390]);
+    expect(boardNumber(0)).toBe("001");
+    expect(boardNumber(12)).toBe("013");
   });
 });
 

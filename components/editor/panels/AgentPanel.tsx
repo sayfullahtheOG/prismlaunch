@@ -114,13 +114,18 @@ export function AgentPanel({ activity, kind, toolCount, slug }: Props) {
 
       {lastCapture ? (
         <PanelSection label="What your agent saw">
-          {/* A plain img: the sheet is a data URL the agent already has. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={lastCapture.dataUrl}
-            alt={`Frames your agent captured: ${lastCapture.label}`}
-            className="ds-inset w-full rounded-sm"
-          />
+          <div className="flex flex-col gap-2">
+            {lastCapture.pages.map((page, index) => (
+              // A plain img: the sheet is a data URL the agent already has.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={index}
+                src={page}
+                alt={`Sheet ${index + 1} of ${lastCapture.pages.length} your agent captured: ${lastCapture.label}`}
+                className="ds-inset w-full rounded-sm"
+              />
+            ))}
+          </div>
           <p className="mt-2 text-xs leading-[var(--ds-leading-body)] text-muted">
             {lastCapture.label}
             <span className="ml-2 font-mono text-2xs text-subtle tabular-nums">{lastCapture.at}</span>

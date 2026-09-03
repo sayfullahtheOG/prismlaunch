@@ -78,7 +78,7 @@ export type StudioState = {
    * see what it saw. A film made by two parties should not have one of them
    * looking at something the other cannot.
    */
-  lastCapture: { dataUrl: string; label: string; at: string } | null;
+  lastCapture: { pages: string[]; label: string; at: string } | null;
 
   /** Object URLs for `assets/*` files, keyed by the path a clip refers to. */
   assets: Readonly<Record<string, string>>;

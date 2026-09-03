@@ -732,7 +732,7 @@ export function buildTools(): ModelContextTool[] {
     {
       name: "prism.capture_frames",
       description:
-        "See your own work. Renders exact frames of the open composition — the same pixels export produces, not a screenshot of a playing video — and returns them as one labelled contact sheet, left to right then top to bottom, each cell stamped with its time and frame number. Ask for a cadence (`every` seconds, optionally between `from` and `to`) or exact moments (`at`). Use it after you build a section to check timing, overlap, legibility and easing before asking the person to look; when something is off, name the stamped moment and fix it. Up to 24 frames per call — narrow the window for finer steps. Read-only.",
+        "See your own work. Renders exact frames of the open composition — the same pixels export produces, not a screenshot of a playing video — and returns them as storyboard sheets: six frames to a sheet, three across, read left to right then top to bottom, each cell captioned with its board number, time and frame. Ask for a cadence (`every` seconds, optionally between `from` and `to`) or exact moments (`at`). Use it after you build a section to check timing, overlap, legibility and easing before asking the person to look; when something is off, name the board and fix it. Up to 24 frames per call, so up to four sheets — six frames is one sheet and the cheapest look. Read-only.",
       inputSchema: toolInputJsonSchema(CaptureFramesInput) as JsonSchema,
       annotations: { readOnlyHint: true },
       execute: async (raw) => {
@@ -745,7 +745,11 @@ export function buildTools(): ModelContextTool[] {
         return {
           content: [
             { type: "text", text: result.message },
-            { type: "image", data: result.image.base64, mimeType: result.image.mimeType },
+            ...result.images.map((image) => ({
+              type: "image",
+              data: image.base64,
+              mimeType: image.mimeType,
+            })),
           ],
         };
       },

@@ -381,7 +381,7 @@ rather than crashing the render — but it is still a hole, so check.
 | `prism.remove_element` | Delete an element; its clips stay. |
 | `prism.set_background` | Solid colour or two-stop gradient. |
 | `prism.set_duration` | Set the whole composition's length. |
-| `prism.capture_frames` | **See your own work.** Exact frames at a cadence or at named moments, on one labelled sheet. |
+| `prism.capture_frames` | **See your own work.** Exact frames at a cadence or at named moments, six to a storyboard sheet. |
 | `prism.seek` | Move the playhead so you are both looking at the same moment. |
 | `prism.preview` | Play or pause on the person's screen. |
 | `prism.request_render` | Propose the export. **Renders nothing.** |
@@ -416,10 +416,12 @@ as a teaser; over forty and people leave.
 ## Look before you show
 
 You can see the film. `prism.capture_frames` renders exact frames — the same
-pixels export produces — and returns them as one contact sheet, each cell
-stamped with its time and frame number. It is not a screenshot of a playing
-video, so there is nothing to catch: "one per second from six to nine" is
-frames 180, 210, 240 and 270, every time.
+pixels export produces — and returns them as storyboard sheets: six to a
+sheet, three across, each cell captioned with its board number, time and
+frame. It is not a screenshot of a playing video, so there is nothing to
+catch: "one per second from six to nine" is frames 180, 210, 240 and 270,
+every time. Six frames is one sheet and the cheapest look; ask for more and
+you get more sheets, never smaller frames.
 
 Use it the way an editor scrubs. After you build a section, capture it at one
 frame per second and read the sheet as a sequence: does the headline arrive

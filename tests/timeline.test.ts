@@ -113,7 +113,7 @@ describe("update_clip reaches the whole clip", () => {
     actions.createTrack("visual", "Overlay");
     const file = () => readProject()!.file;
     const [overlay, titles] = file().tracks.filter((track) => track.kind === "visual");
-    const made = actions.createClip(titles!.id, {
+    const made = actions.createClip(titles!.id, ({
       kind: "text",
       from: 0,
       durationInFrames: 30,
@@ -132,7 +132,7 @@ describe("update_clip reaches the whole clip", () => {
       box: { x: 0.5, y: 0.5, width: 0.8, height: 0.2, rotation: 0, opacity: 1 },
       animation: { enter: "none", exit: "none", enterFrames: 12, exitFrames: 12 },
       motion: { x: 0, y: 0, scale: 1, frames: 0, delay: 0, easing: "out", press: false },
-    });
+    } as import("@/types/prism").ClipDraft));
     expect(made.ok, made.message).toBe(true);
     const clipId = file().tracks.flatMap((track) => track.clips)[0]!.id;
 
@@ -149,7 +149,7 @@ describe("update_clip reaches the whole clip", () => {
     // Audio cannot land on a visual layer, and it says so.
     actions.createTrack("audio", "Music");
     const audioTrack = file().tracks.find((track) => track.kind === "audio")!;
-    const bed = actions.createClip(audioTrack.id, {
+    const bed = actions.createClip(audioTrack.id, ({
       kind: "audio",
       from: 0,
       durationInFrames: 30,
@@ -160,7 +160,7 @@ describe("update_clip reaches the whole clip", () => {
       fadeInFrames: 0,
       fadeOutFrames: 0,
       playbackRate: 1,
-    });
+    } as import("@/types/prism").ClipDraft));
     expect(bed.ok, bed.message).toBe(true);
     const bedId = audioTrack ? file().tracks.find((track) => track.kind === "audio")!.clips[0]!.id : "";
     const refused = actions.patchClip(bedId, { trackId: overlay!.id }, "agent", "no");

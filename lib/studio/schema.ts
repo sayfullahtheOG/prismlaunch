@@ -62,6 +62,9 @@ export const MAX_TRACKS = 24;
 export const MAX_CLIPS_PER_TRACK = 120;
 export const MAX_TEXT_LENGTH = 400;
 export const MAX_ELEMENTS = 60;
+export const MAX_STAGE_NOTE_LENGTH = 600;
+/** A full review note plus the activity event's decision/timing context. */
+export const MAX_ACTIVITY_DETAIL_LENGTH = MAX_STAGE_NOTE_LENGTH + 200;
 
 /**
  * Bumped only when a change would make an older `project.json` unreadable.
@@ -826,8 +829,8 @@ const StageBase = {
   status: StageStatusSchema.default("pending"),
   /** The agent's one line on what it did and why. Shown beside the artifact. */
   summary: z.string().max(300).optional(),
-  /** The person's feedback, written when they send the stage back. */
-  note: z.string().max(600).optional(),
+  /** The person's feedback, with approval or a request for changes. */
+  note: z.string().max(MAX_STAGE_NOTE_LENGTH).optional(),
 };
 
 export const BriefStageSchema = z.object({
@@ -1125,7 +1128,7 @@ export const ActivityEventSchema = z.object({
   id: z.string().min(1),
   origin: z.enum(["human", "agent", "disk"]),
   label: z.string().min(1).max(120),
-  detail: z.string().max(240),
+  detail: z.string().max(MAX_ACTIVITY_DETAIL_LENGTH),
   at: z.string().min(1).max(40),
   blocked: z.boolean().optional(),
 });

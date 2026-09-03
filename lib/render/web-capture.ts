@@ -64,7 +64,13 @@ export async function captureSheets(
       import("@/remotion/Film"),
     ]);
 
-    const props = { file, assets };
+    // A still has no sound. Leaving the audio layers out spares the
+    // renderer decoding a music bed for a picture, and spares the capture
+    // any audio the renderer cannot decode.
+    const props = {
+      file: { ...file, tracks: file.tracks.filter((track) => track.kind !== "audio") },
+      assets,
+    };
     const composition = {
       id: "Film",
       component: Film,

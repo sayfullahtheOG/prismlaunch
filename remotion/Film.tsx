@@ -1,9 +1,8 @@
+import { Audio, Video } from "@remotion/media";
 import {
   AbsoluteFill,
-  Audio,
   Img,
   Sequence,
-  Video,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
@@ -113,7 +112,10 @@ function Camera({
 }) {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
-  if (moves.length === 0) return <>{children}</>;
+  // A film written before the camera existed, or a snapshot that copied
+  // the file field by field, has no `camera`: that is a still camera, not
+  // a crash in the middle of an export.
+  if (!moves || moves.length === 0) return <>{children}</>;
   const transform = cameraTransform(cameraState(moves, frame), width, height);
   return (
     <AbsoluteFill style={transform ? { transform, transformOrigin: "50% 50%" } : undefined}>
@@ -834,16 +836,19 @@ function VideoBody({
   const { width, height } = useVideoConfig();
   if (!url) return null;
 
+  // `@remotion/media` rather than remotion's own <Video>: the WebCodecs
+  // renderer that exports the film refuses the HTML5 one, and this one
+  // decodes the same way in the preview and in the export.
   return (
     <Video
       src={url}
-      startFrom={clip.startFrom}
+      trimBefore={clip.startFrom}
       volume={clip.volume * trackVolume}
       playbackRate={clip.playbackRate}
+      objectFit={clip.fit}
       style={{
         width: "100%",
         height: "100%",
-        objectFit: clip.fit,
         borderRadius: cornerPx(clip.radius, clip.box, width, height),
       }}
     />
@@ -865,7 +870,7 @@ function AudioLayer({
   return (
     <Audio
       src={url}
-      startFrom={clip.startFrom}
+      trimBefore={clip.startFrom}
       playbackRate={clip.playbackRate}
       // A function volume is evaluated per frame by Remotion, which is what
       // makes the fades work in the export and not just the preview.

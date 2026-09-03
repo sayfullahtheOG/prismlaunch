@@ -21,6 +21,7 @@ import {
   StageIdSchema,
   TextClipSchema,
   TrackKindSchema,
+  TransitionSchema,
   VideoClipSchema,
 } from "./schema";
 import { LIBRARY } from "./library";
@@ -823,11 +824,11 @@ export const SubmitStoryboardInput = z.object({
         // Defaulted here rather than mapped in the executor, so the parsed
         // panel is already the shape the stage artifact wants.
         transitionIn: z
-          .enum(["none", "fade", "rise", "fall", "slide-left", "slide-right", "scale", "blur"])
+          .enum(TransitionSchema.options)
           .default("fade")
           .describe("Defaults to fade."),
         transitionOut: z
-          .enum(["none", "fade", "rise", "fall", "slide-left", "slide-right", "scale", "blur"])
+          .enum(TransitionSchema.options)
           .default("fade")
           .describe("Defaults to fade."),
         sound: z.string().max(140).optional().describe("What the music or SFX does here."),
@@ -846,8 +847,8 @@ export const SubmitAnimaticInput = z.object({ summary });
 
 export const SubmitStyleFramesInput = z.object({
   look: z
-    .enum(["void", "paper", "editorial", "spec", "custom"])
-    .describe("Which look from PRISM_METHOD.md §7, or 'custom' if you built your own."),
+    .enum(["kinetic", "void", "paper", "editorial", "spec", "custom"])
+    .describe("Which look from PRISM_METHOD.md §7 — kinetic, void, paper, editorial or spec — or 'custom' if you built your own."),
   elementIds: z
     .array(z.string().min(1).max(60))
     .min(1)

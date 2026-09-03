@@ -866,7 +866,7 @@ export const AnimaticStageSchema = z.object({
   beats: z.array(LockedBeatSchema).max(40).default([]),
 });
 
-export const LookSchema = z.enum(["void", "paper", "editorial", "spec", "custom"]);
+export const LookSchema = z.enum(["kinetic", "void", "paper", "editorial", "spec", "custom"]);
 
 export const StyleStageSchema = z.object({
   ...StageBase,

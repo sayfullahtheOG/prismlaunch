@@ -16,11 +16,15 @@ A film is a folder in your own repository:
 your-repo/
 └── .prismlaunch/
     └── vector-launch/
-        ├── project.json      ← your agent writes this
+        ├── project.json      ← the film, the process, and the order of its parts
+        ├── tracks/           ← one file per layer, with its clips
+        ├── elements/         ← one file per element
         ├── assets/           ← images, video, audio it refers to
         └── renders/
             └── vector-launch-video.mp4
 ```
+
+The film is a folder of small files, so a small change is a small edit: an agent recolouring a headline edits one element's file, not a file with every clip in it. `project.json` lists the layers and elements by id and decides what the film contains; a film written as one file still opens and is split on its next save.
 
 A composition is a canvas, a background, and a stack of layers:
 
@@ -36,7 +40,7 @@ Each track holds clips — text, shapes, images, video, sound — with a start f
 
 1. You give your agent one line: `set up https://prismlaunch-doddlesoft.vercel.app/SKILL.md`
 2. You open the studio and click **Link project folder**. (Your agent cannot — browsers only open that picker for a real click.)
-3. Your agent writes `project.json`, either with its own file tools or through the WebMCP tools registered on the page. The studio picks up file changes within a second.
+3. Your agent writes the film's files, either with its own file tools or through the WebMCP tools registered on the page. The studio picks up a change to any of them within a second.
 4. Its clips appear on your timeline as drafts. You accept or reject each one; the studio writes `"approval": "accepted"` back to disk, where your agent can read it.
 5. When everything is accepted, your agent proposes a render. You approve. The MP4 is encoded in your browser with WebCodecs and saved beside the project file.
 
@@ -85,7 +89,7 @@ The tool without the method produces the video everyone has seen. The method is 
 
 Twenty WebMCP tools are registered on the studio page: the canvas (`create_project`, `set_background`, `set_duration`), the stack (`add_track`, `update_track`, `move_track`, `remove_track`), the clips (`add_text`, `add_shape`, `add_image`, `add_video`, `add_audio`, `update_clip`, `remove_clip`), the view (`seek`, `preview`, `get_project_context`) and the gate (`request_render`, `confirm_render`).
 
-The clip tools exist so an agent *without* file access is not locked out. An agent with file tools should edit `project.json` directly — it is the same composition either way, and far fewer round trips.
+The clip tools exist so an agent *without* file access is not locked out. An agent with file tools should edit the film's files directly, one element or layer at a time — it is the same composition either way, and far fewer round trips.
 
 `public/SKILL.md` documents all of them, and `tests/skill.test.ts` asserts the documented list matches the registered one exactly.
 
@@ -110,7 +114,7 @@ Three behaviours worth knowing if you are building on this:
 ## Architecture
 
 ```
-Your agent ──── file tools ────> .prismlaunch/<slug>/project.json
+Your agent ──── file tools ────> .prismlaunch/<slug>/{project.json, tracks/, elements/}
     │                                      │
     │                                      │ File System Access API
     └──── WebMCP tools ────> Next.js studio ──> Remotion <Player>

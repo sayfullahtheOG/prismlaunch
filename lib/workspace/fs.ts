@@ -8,6 +8,13 @@ import {
   WORKSPACE_DIR,
 } from "@/lib/studio/schema";
 import { isLibraryPath, libraryUrl, safeAssetName } from "@/lib/studio/files";
+import {
+  assembleProject,
+  ELEMENTS_DIR,
+  splitProject,
+  TRACKS_DIR,
+  type LoosePart,
+} from "@/lib/studio/modular";
 import type { ProjectFile } from "@/types/prism";
 import * as browser from "./browser-store";
 import {
@@ -247,8 +254,9 @@ export async function readProjectFile(
     modifiedAt = entry.modifiedAt;
   } else {
     let file: File;
+    let dir: FileSystemDirectoryHandle;
     try {
-      const dir = await workspace.dir.getDirectoryHandle(slug);
+      dir = await workspace.dir.getDirectoryHandle(slug);
       const handle = await dir.getFileHandle(PROJECT_FILE);
       file = await handle.getFile();
     } catch {
@@ -256,6 +264,22 @@ export async function readProjectFile(
     }
     text = await file.text();
     modifiedAt = file.lastModified;
+
+    // The film's parts, each its own file. See modular.ts for the shape.
+    let raw: unknown;
+    try {
+      raw = JSON.parse(text);
+    } catch {
+      return fail("unreadable", `${slug}/${PROJECT_FILE} is not valid JSON.`);
+    }
+    const parts = await readParts(dir, slug);
+    if (!parts.ok) return parts;
+    modifiedAt = Math.max(modifiedAt, parts.value.modifiedAt);
+    return finishRead(
+      slug,
+      assembleProject(raw, parts.value.tracks, parts.value.elements),
+      modifiedAt,
+    );
   }
 
   let raw: unknown;
@@ -264,6 +288,11 @@ export async function readProjectFile(
   } catch {
     return fail("unreadable", `${slug}/${PROJECT_FILE} is not valid JSON.`);
   }
+  return finishRead(slug, raw, modifiedAt);
+}
+
+/** The version check and the schema, shared by both workspaces. */
+function finishRead(slug: string, raw: unknown, modifiedAt: number): FsResult<ReadProject> {
 
   // Check the version before the shape, so a file from the future gets an
   // explanation rather than a list of fields that moved. Older versions the
@@ -284,6 +313,66 @@ export async function readProjectFile(
   return { ok: true, value: { file: parsed.data, modifiedAt } };
 }
 
+/** Every `.json` in a folder, parsed, with the newest change among them. */
+async function readJsonDir(
+  parent: FileSystemDirectoryHandle,
+  name: string,
+  slug: string,
+): Promise<FsResult<{ parts: LoosePart[]; modifiedAt: number }>> {
+  let dir: FileSystemDirectoryHandle;
+  try {
+    dir = await parent.getDirectoryHandle(name);
+  } catch {
+    return { ok: true, value: { parts: [], modifiedAt: 0 } };
+  }
+  const parts: LoosePart[] = [];
+  let modifiedAt = 0;
+  for await (const [entryName, handle] of dir.entries()) {
+    if (handle.kind !== "file" || !entryName.endsWith(".json")) continue;
+    const file = await (handle as FileSystemFileHandle).getFile();
+    modifiedAt = Math.max(modifiedAt, file.lastModified);
+    try {
+      parts.push({ name: entryName, body: JSON.parse(await file.text()) });
+    } catch {
+      return fail("unreadable", `${slug}/${name}/${entryName} is not valid JSON.`);
+    }
+  }
+  return { ok: true, value: { parts, modifiedAt } };
+}
+
+async function readParts(
+  dir: FileSystemDirectoryHandle,
+  slug: string,
+): Promise<FsResult<{ tracks: LoosePart[]; elements: LoosePart[]; modifiedAt: number }>> {
+  const tracks = await readJsonDir(dir, TRACKS_DIR, slug);
+  if (!tracks.ok) return tracks;
+  const elements = await readJsonDir(dir, ELEMENTS_DIR, slug);
+  if (!elements.ok) return elements;
+  return {
+    ok: true,
+    value: {
+      tracks: tracks.value.parts,
+      elements: elements.value.parts,
+      modifiedAt: Math.max(tracks.value.modifiedAt, elements.value.modifiedAt),
+    },
+  };
+}
+
+/** The newest change among a folder's `.json` files, or 0. */
+async function newestIn(parent: FileSystemDirectoryHandle, name: string): Promise<number> {
+  let newest = 0;
+  try {
+    const dir = await parent.getDirectoryHandle(name);
+    for await (const [entryName, handle] of dir.entries()) {
+      if (handle.kind !== "file" || !entryName.endsWith(".json")) continue;
+      newest = Math.max(newest, (await (handle as FileSystemFileHandle).getFile()).lastModified);
+    }
+  } catch {
+    // No such folder: nothing newer.
+  }
+  return newest;
+}
+
 /** When a project last changed, or 0 if it is gone. Cheap enough to poll. */
 export async function modifiedAt(
   workspace: Workspace,
@@ -295,7 +384,9 @@ export async function modifiedAt(
   try {
     const dir = await workspace.dir.getDirectoryHandle(slug);
     const handle = await dir.getFileHandle(PROJECT_FILE);
-    return (await handle.getFile()).lastModified;
+    const main = (await handle.getFile()).lastModified;
+    // A change to any part is a change to the film.
+    return Math.max(main, await newestIn(dir, TRACKS_DIR), await newestIn(dir, ELEMENTS_DIR));
   } catch {
     return 0;
   }
@@ -332,16 +423,51 @@ export async function writeProjectFile(
     }
   }
 
+  // On disk the film is its parts: project.json, then a file per layer and
+  // per element, and any file for a layer or element that is gone goes too.
+  const split = splitProject(parsed.data);
   try {
     const dir = await workspace.dir.getDirectoryHandle(slug, { create: true });
-    const handle = await dir.getFileHandle(PROJECT_FILE, { create: true });
-    const writable = await handle.createWritable();
-    await writable.write(`${JSON.stringify(parsed.data, null, 2)}\n`);
-    await writable.close();
+    await writeJson(dir, PROJECT_FILE, split.main);
+    await writeJsonDir(dir, TRACKS_DIR, split.tracks);
+    await writeJsonDir(dir, ELEMENTS_DIR, split.elements);
     return { ok: true, value: undefined };
   } catch {
     return fail("write-failed", `Could not write ${WORKSPACE_DIR}/${slug}/${PROJECT_FILE}.`);
   }
+}
+
+async function writeJson(
+  dir: FileSystemDirectoryHandle,
+  name: string,
+  body: unknown,
+): Promise<void> {
+  const handle = await dir.getFileHandle(name, { create: true });
+  const writable = await handle.createWritable();
+  await writable.write(`${JSON.stringify(body, null, 2)}\n`);
+  await writable.close();
+}
+
+/**
+ * A folder of parts, made to match: files written for every part, and
+ * `.json` files for parts that no longer exist removed. Only files this
+ * app would have written are touched; anything else in the folder stays.
+ */
+async function writeJsonDir(
+  parent: FileSystemDirectoryHandle,
+  name: string,
+  parts: ReadonlyArray<{ name: string; body: unknown }>,
+): Promise<void> {
+  const dir = await parent.getDirectoryHandle(name, { create: true });
+  const keep = new Set(parts.map((part) => part.name));
+  for (const part of parts) await writeJson(dir, part.name, part.body);
+  const stale: string[] = [];
+  for await (const [entryName, handle] of dir.entries()) {
+    if (handle.kind === "file" && entryName.endsWith(".json") && !keep.has(entryName)) {
+      stale.push(entryName);
+    }
+  }
+  for (const entryName of stale) await dir.removeEntry(entryName);
 }
 
 /**

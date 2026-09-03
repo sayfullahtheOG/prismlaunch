@@ -180,10 +180,30 @@ Writing the file by hand: `elements` is an array of these, each with a unique
 your-repo/
 └── .prismlaunch/
     └── vector-launch/
-        ├── project.json
+        ├── project.json     ← the film, the process, and the order of its parts
+        ├── tracks/          ← one file per layer, with its clips
+        │   ├── track-titles.json
+        │   └── audio-music.json
+        ├── elements/        ← one file per element
+        │   └── el-headline.json
         ├── assets/          ← images, video and audio you refer to
         └── renders/         ← finished MP4s land here
 ```
+
+The film is a folder of small files, so a small change is a small edit.
+`project.json` holds what is about the film: the canvas, the background, the
+process, and `tracks` and `elements` as lists of ids, in order. Each id names
+a file: `tracks/<id>.json` is one layer with its clips, `elements/<id>.json`
+is one element, each the same object it would be inline. To recolour a
+headline, edit its element's file; the studio picks up a change to any part
+within a second. `project.json` decides what the film contains: an id it
+lists without a file is ignored, and a file it does not list is not part of
+the film, so removing a layer is removing its id. The studio deletes the
+file on its next save.
+
+An entry in those lists may also be the object itself. The example below is
+the whole film written in one file, which still opens; the studio splits it
+into parts the first time it saves.
 
 ```json
 {
@@ -326,6 +346,9 @@ These are enforced. A file that breaks one is refused with the field named.
   can write `accepted`, through the studio.
 - **`elementId`, when present, names an entry in `elements`.** Element ids are
   unique alongside track and clip ids.
+- **A part file's `id` is what names it.** `tracks/<id>.json` and
+  `elements/<id>.json` are matched by the `id` inside them, so the file name
+  is only a convention; keep them the same.
 
 ### Positions
 

@@ -130,19 +130,16 @@ export function SetupDialog() {
           <Unsupported busy={busy} onBrowser={() => void run(startInBrowser)} />
         ) : null}
 
-        {hosted && (workspace.kind === "unlinked" || workspace.kind === "needs-permission") ? (
-          <Hosted busy={busy} onBrowser={() => void run(startInBrowser)} />
-        ) : null}
-
-        {!hosted && workspace.kind === "unlinked" ? (
+        {workspace.kind === "unlinked" ? (
           <LinkPrompt
             busy={busy}
+            browserFirst={hosted}
             onLink={() => void run(linkFolder)}
             onBrowser={() => void run(startInBrowser)}
           />
         ) : null}
 
-        {!hosted && workspace.kind === "needs-permission" ? (
+        {workspace.kind === "needs-permission" ? (
           <Regrant
             busy={busy}
             onRegrant={() => void run(regrantWorkspace)}
@@ -261,30 +258,6 @@ function BrowserOption({
   );
 }
 
-/**
- * An agent's browser: the folder picker opens and never grants, so the
- * folder is not offered at all, and the one way in says why.
- */
-function Hosted({ busy, onBrowser }: { busy: boolean; onBrowser: () => void }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <Button
-        variant="primary"
-        onClick={onBrowser}
-        loading={busy}
-        icon={<Globe size={15} strokeWidth={1.9} aria-hidden />}
-      >
-        Start in the browser
-      </Button>
-      <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
-        This browser cannot hand a folder to the page, so the composition is
-        kept in the browser. Your agent works through the page&rsquo;s tools
-        and reads it back whole. Nothing is uploaded.
-      </p>
-    </div>
-  );
-}
-
 function Unsupported({ busy, onBrowser }: { busy: boolean; onBrowser: () => void }) {
   return (
     <div className="flex flex-col gap-4">
@@ -297,33 +270,60 @@ function Unsupported({ busy, onBrowser }: { busy: boolean; onBrowser: () => void
   );
 }
 
+/**
+ * Both ways in, always. Detection decides only which comes first: hiding
+ * the folder behind a browser guess cost the primary flow twice, so a
+ * wrong guess now merely reorders two buttons.
+ */
 function LinkPrompt({
   busy,
+  browserFirst,
   onLink,
   onBrowser,
 }: {
   busy: boolean;
+  /** An agent's browser named itself: the picker opens but never grants there. */
+  browserFirst: boolean;
   onLink: () => void;
   onBrowser: () => void;
 }) {
+  const folder = (
+    <div className="flex flex-col gap-2">
+      <Button
+        variant={browserFirst ? "secondary" : "primary"}
+        onClick={onLink}
+        loading={busy}
+        icon={<FolderPlus size={15} strokeWidth={1.9} aria-hidden />}
+      >
+        Link project folder
+      </Button>
+      <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
+        {browserFirst
+          ? "Chrome only, and an embedded browser may open the picker and still refuse the folder."
+          : (
+            <>
+              Choose the repository you and your agent are working in. Compositions
+              are kept in <code className="font-mono">{WORKSPACE_DIR}/</code> inside
+              it, one folder per video. Works in Chrome.
+            </>
+          )}
+      </p>
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <Button
-          variant="primary"
-          onClick={onLink}
-          loading={busy}
-          icon={<FolderPlus size={15} strokeWidth={1.9} aria-hidden />}
-        >
-          Link project folder
-        </Button>
-        <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
-          Choose the repository you and your agent are working in. Compositions
-          are kept in <code className="font-mono">{WORKSPACE_DIR}/</code> inside
-          it, one folder per video. Works in Chrome.
-        </p>
-      </div>
-      <BrowserOption busy={busy} primary={false} onBrowser={onBrowser} />
+      {browserFirst ? (
+        <>
+          <BrowserOption busy={busy} primary onBrowser={onBrowser} />
+          {folder}
+        </>
+      ) : (
+        <>
+          {folder}
+          <BrowserOption busy={busy} primary={false} onBrowser={onBrowser} />
+        </>
+      )}
     </div>
   );
 }

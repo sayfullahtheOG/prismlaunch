@@ -60,10 +60,12 @@ import { slugForName } from "./slug";
 import { nowTimecode, useStudioStore, type RailTab } from "./store";
 import {
   boardNumber,
+  defaultCellWidth,
   FRAMES_PER_SHEET,
   MAX_CAPTURE_FRAMES,
   planCapture,
   timecode,
+  type CaptureLayout,
 } from "@/lib/render/capture-plan";
 import {
   browserWorkspace,
@@ -892,6 +894,7 @@ export function seek(frame: number): ActionResult {
 }
 
 export type CaptureInput = {
+  layout?: CaptureLayout | undefined;
   every?: number | undefined;
   from?: number | undefined;
   to?: number | undefined;
@@ -946,8 +949,10 @@ export async function captureFrames(input: CaptureInput): Promise<CaptureResult>
 
   const { captureSheets, blobToDataUrl } = await import("@/lib/render/web-capture");
   const { assets } = useStudioStore.getState();
+  const layout: CaptureLayout = input.layout ?? "sheet";
   const outcome = await captureSheets(project.file, assets, plan.frames, {
-    cellWidth: input.width ?? 480,
+    layout,
+    cellWidth: input.width ?? defaultCellWidth(layout),
     format: "jpeg",
     title: project.file.name,
   });
@@ -963,14 +968,20 @@ export async function captureFrames(input: CaptureInput): Promise<CaptureResult>
 
   const count = plan.frames.length;
   const range = `${timecode(plan.frames[0]!, fps)}–${timecode(plan.frames[count - 1]!, fps)}`;
-  const label = `${count} frame${count === 1 ? "" : "s"}, ${range}, on ${outcome.sheets.length} sheet${outcome.sheets.length === 1 ? "" : "s"}`;
+  const label =
+    layout === "single"
+      ? `${count} frame${count === 1 ? "" : "s"}, ${range}, one image each`
+      : `${count} frame${count === 1 ? "" : "s"}, ${range}, on ${outcome.sheets.length} sheet${outcome.sheets.length === 1 ? "" : "s"}`;
 
   // Save beside the project when there is one, and show the person.
   const { workspace, loadedAt, setProject, setLastCapture } = useStudioStore.getState();
   const saved: string[] = [];
   if (workspace.kind === "linked") {
     for (const [index, sheet] of outcome.sheets.entries()) {
-      const filename = `sheet-${plan.frames[0]}-${plan.frames[count - 1]}-${index + 1}.jpg`;
+      const filename =
+        layout === "single"
+          ? `frame-${sheet.frames[0]}.jpg`
+          : `sheet-${plan.frames[0]}-${plan.frames[count - 1]}-${index + 1}.jpg`;
       const written = await writeFrameSheet(workspace.workspace, project.slug, filename, sheet.blob);
       if (written.ok) saved.push(written.value);
     }
@@ -986,15 +997,17 @@ export async function captureFrames(input: CaptureInput): Promise<CaptureResult>
     loadedAt,
   );
 
-  // One line per sheet, so the agent can match an image to its moments.
+  // One line per image, so the agent can match an image to its moments.
   const perSheet = outcome.sheets.map((sheet, index) => {
     const cells = sheet.frames
       .map((frame, offset) => `${boardNumber(sheet.firstBoard + offset)} ${timecode(frame, fps)} (f${frame})`)
       .join(", ");
-    return `Sheet ${index + 1}: ${cells}.`;
+    return `${layout === "single" ? "Image" : "Sheet"} ${index + 1}: ${cells}.`;
   });
   const message = [
-    `${count} frame${count === 1 ? "" : "s"} of “${project.file.name}”, ${FRAMES_PER_SHEET} to a sheet, three across, read left to right then top to bottom. Each cell is captioned with its board number, time and frame.`,
+    layout === "single"
+      ? `${count} frame${count === 1 ? "" : "s"} of “${project.file.name}”, one image each, in order. Each is captioned with its board number, time and frame.`
+      : `${count} frame${count === 1 ? "" : "s"} of “${project.file.name}”, ${FRAMES_PER_SHEET} to a sheet, three across, read left to right then top to bottom. Each cell is captioned with its board number, time and frame.`,
     ...perSheet,
     plan.truncated
       ? `That is the first ${MAX_CAPTURE_FRAMES}; narrow the window or widen the cadence for the rest.`

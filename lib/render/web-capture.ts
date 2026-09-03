@@ -1,5 +1,12 @@
 import type { ProjectFile } from "@/types/prism";
-import { boardNumber, pageFrames, sheetLayout, timecode } from "./capture-plan";
+import {
+  boardNumber,
+  FRAMES_PER_SHEET,
+  pageFrames,
+  sheetLayout,
+  timecode,
+  type CaptureLayout,
+} from "./capture-plan";
 
 /**
  * Render chosen frames of the composition onto storyboard sheets.
@@ -21,6 +28,8 @@ import { boardNumber, pageFrames, sheetLayout, timecode } from "./capture-plan";
  */
 
 export type CaptureOptions = {
+  /** Six to a storyboard sheet, or one frame per image. */
+  layout: CaptureLayout;
   /** Width of each cell in pixels. */
   cellWidth: number;
   format: "jpeg" | "png";
@@ -66,7 +75,7 @@ export async function captureSheets(
       defaultProps: props,
     };
 
-    const pages = pageFrames(frames);
+    const pages = pageFrames(frames, options.layout === "single" ? 1 : FRAMES_PER_SHEET);
     const mimeType = options.format === "png" ? "image/png" : "image/jpeg";
     const sheets: CapturedSheet[] = [];
     let board = 0;
@@ -115,10 +124,10 @@ export async function captureSheets(
         board += 1;
       }
 
-      // Footer: which sheet this is, of how many, and of what.
+      // Footer: which image this is, of how many, and of what.
       ctx.fillStyle = "#8a8a8a";
       ctx.fillText(
-        `Sheet ${page + 1} of ${pages.length}   ·   ${options.title}`,
+        `${options.layout === "single" ? "Frame" : "Sheet"} ${page + 1} of ${pages.length}   ·   ${options.title}`,
         layout.gutter,
         layout.height - layout.footerHeight / 2,
       );

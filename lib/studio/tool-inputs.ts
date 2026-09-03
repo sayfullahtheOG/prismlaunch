@@ -360,6 +360,12 @@ export const SeekInput = z.object({
 });
 
 export const CaptureFramesInput = z.object({
+  layout: z
+    .enum(["sheet", "single"])
+    .optional()
+    .describe(
+      "How the frames come back. \"sheet\" (default): six frames per image as a storyboard page, three across — the cheapest way to read a sequence. \"single\": one image per frame at full width — for looking at one or two moments closely, or if a grid is hard to read. Single costs one image per frame.",
+    ),
   every: z
     .number()
     .positive()
@@ -389,7 +395,7 @@ export const CaptureFramesInput = z.object({
     .min(240)
     .max(960)
     .optional()
-    .describe("Width of each frame on the sheet, in pixels. Default 480; go larger to read small text."),
+    .describe("Width of each frame in pixels. Default 480 on a sheet, 960 for single. Go larger to read small text, smaller for a cheap overview."),
 });
 
 export const PreviewInput = z.object({

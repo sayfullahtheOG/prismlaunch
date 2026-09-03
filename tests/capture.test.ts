@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as actions from "@/lib/studio/actions";
-import { boardNumber, pageFrames, planCapture, sheetLayout, timecode } from "@/lib/render/capture-plan";
+import {
+  boardNumber,
+  defaultCellWidth,
+  pageFrames,
+  planCapture,
+  sheetLayout,
+  timecode,
+} from "@/lib/render/capture-plan";
+import { CaptureFramesInput } from "@/lib/studio/tool-inputs";
 import { resetStudio } from "@/lib/studio/store";
 import { buildTools } from "@/lib/webmcp/tools";
 
@@ -91,6 +99,19 @@ describe("the sheet", () => {
     expect(pages[2]).toEqual([360, 390]);
     expect(boardNumber(0)).toBe("001");
     expect(boardNumber(12)).toBe("013");
+  });
+
+  it("goes one to a page for single frames, at full width unless told otherwise", () => {
+    expect(pageFrames([0, 30, 60], 1)).toEqual([[0], [30], [60]]);
+    expect(sheetLayout(1, 960, 16 / 9).columns).toBe(1);
+    expect(defaultCellWidth("single")).toBe(960);
+    expect(defaultCellWidth("sheet")).toBe(480);
+  });
+
+  it("lets the agent choose the layout, and defaults to the sheet", () => {
+    expect(CaptureFramesInput.parse({}).layout).toBeUndefined();
+    expect(CaptureFramesInput.parse({ layout: "single" }).layout).toBe("single");
+    expect(CaptureFramesInput.safeParse({ layout: "grid" }).success).toBe(false);
   });
 });
 

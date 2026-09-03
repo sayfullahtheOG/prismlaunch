@@ -421,7 +421,9 @@ sheet, three across, each cell captioned with its board number, time and
 frame. It is not a screenshot of a playing video, so there is nothing to
 catch: "one per second from six to nine" is frames 180, 210, 240 and 270,
 every time. Six frames is one sheet and the cheapest look; ask for more and
-you get more sheets, never smaller frames.
+you get more sheets, never smaller frames. If a grid is hard to read, or you
+want one moment large, pass `layout: "single"` and each frame comes back as
+its own full-width image.
 
 Use it the way an editor scrubs. After you build a section, capture it at one
 frame per second and read the sheet as a sequence: does the headline arrive

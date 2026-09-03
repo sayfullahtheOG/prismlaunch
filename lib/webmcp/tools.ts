@@ -732,7 +732,7 @@ export function buildTools(): ModelContextTool[] {
     {
       name: "prism.capture_frames",
       description:
-        "See your own work. Renders exact frames of the open composition — the same pixels export produces, not a screenshot of a playing video — and returns them as storyboard sheets: six frames to a sheet, three across, read left to right then top to bottom, each cell captioned with its board number, time and frame. Ask for a cadence (`every` seconds, optionally between `from` and `to`) or exact moments (`at`). Use it after you build a section to check timing, overlap, legibility and easing before asking the person to look; when something is off, name the board and fix it. Up to 24 frames per call, so up to four sheets — six frames is one sheet and the cheapest look. Read-only.",
+        "See your own work. Renders exact frames of the open composition — the same pixels export produces, not a screenshot of a playing video — and returns them as storyboard sheets by default: six frames to a sheet, three across, read left to right then top to bottom, each cell captioned with its board number, time and frame. Pass `layout: \"single\"` for one full-width image per frame instead — to study one or two moments closely, or if a grid is hard to read. Ask for a cadence (`every` seconds, optionally between `from` and `to`) or exact moments (`at`). Use it after you build a section to check timing, overlap, legibility and easing before asking the person to look; when something is off, name the board and fix it. Up to 24 frames per call — six frames on one sheet is the cheapest look. Read-only.",
       inputSchema: toolInputJsonSchema(CaptureFramesInput) as JsonSchema,
       annotations: { readOnlyHint: true },
       execute: async (raw) => {

@@ -51,13 +51,24 @@ export const MAX_CAPTURE_FRAMES = 24;
  */
 export const FRAMES_PER_SHEET = 6;
 
-/** Split a plan into sheets of six, in order. */
-export function pageFrames(frames: readonly number[]): number[][] {
+/**
+ * Split a plan into pages, in order: six to a sheet, or one per image when
+ * the agent asks for single frames.
+ */
+export function pageFrames(frames: readonly number[], perPage = FRAMES_PER_SHEET): number[][] {
+  const size = Math.max(1, perPage);
   const pages: number[][] = [];
-  for (let start = 0; start < frames.length; start += FRAMES_PER_SHEET) {
-    pages.push(frames.slice(start, start + FRAMES_PER_SHEET));
+  for (let start = 0; start < frames.length; start += size) {
+    pages.push(frames.slice(start, start + size));
   }
   return pages;
+}
+
+export type CaptureLayout = "sheet" | "single";
+
+/** Cell width when the agent does not say: a sheet reads at 480, one frame deserves the full 960. */
+export function defaultCellWidth(layout: CaptureLayout): number {
+  return layout === "single" ? 960 : 480;
 }
 
 export function planCapture(request: CaptureRequest): CapturePlan {

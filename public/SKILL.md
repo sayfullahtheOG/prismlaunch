@@ -510,10 +510,12 @@ decision unless you ask, so ask the way that waits: call `prism.wait_for_decisio
 after `prism.submit_*`. It holds until they click, then returns the decision,
 their note if they wrote one, and the instruction for the next stage. Its
 default timeout is 25 seconds, short on purpose so the call fits any
-harness; if it returns "still waiting", call it again, and keep calling
-until it answers. Do not move on without it, do not resubmit while it is
-waiting, and do not ask the person to tell you in chat what the tool will
-tell you itself.
+harness; pass `timeoutSeconds` up to 600 if yours allows long tool calls.
+If it returns "still waiting", call it again immediately and keep calling
+until it answers — ending your turn here means the person has to wake you
+by hand, because no page can reopen a closed turn. Do not move on without
+it, do not resubmit while it is waiting, and do not ask the person to tell
+you in chat what the tool will tell you itself.
 
 ## Working with the person
 

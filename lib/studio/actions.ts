@@ -2270,7 +2270,7 @@ export function waitForDecision(input: {
       () =>
         finish(
           ok(
-            `Still waiting: the person has not decided on ${STAGE_LABELS[stage]} yet. Do not move on — call prism.wait_for_decision again.`,
+            `Still waiting: the person has not decided on ${STAGE_LABELS[stage]} yet. Do not move on and do not end your turn — call prism.wait_for_decision again immediately, with timeoutSeconds up to 600 if your harness allows long tool calls, and keep calling until it answers.`,
           ),
         ),
       timeoutMs,

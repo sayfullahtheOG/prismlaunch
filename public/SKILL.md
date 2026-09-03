@@ -352,7 +352,13 @@ and synthesised bold looks cheap.
 
 ### Assets
 
-`src` is a path inside the project's own folder, like `assets/logo.png`. The
+`src` is a path inside the project's own folder, like `assets/logo.png`, or
+one of the studio's own files under `library/`: the sound effects in the
+Library section (`library/audio/whoosh.wav`, `click.wav`, `tick.wav`,
+`impact.wav`, `rise.wav`) resolve in every workspace with nothing to copy,
+so `prism.add_audio` with one of those works even where there is no folder.
+The person can also drop an image, a video or a sound onto the Elements
+section, which puts it in `assets/` and makes it an element. Otherwise the
 file has to be there already; put it in with your file tools first. A path that
 does not resolve renders as a hole in the frame and is reported in the app
 rather than crashing the render. It is still a hole, so check.

@@ -1,3 +1,4 @@
+import { LIBRARY_PREFIX } from "./files";
 import { DEFAULT_ANIMATION, DEFAULT_BOX } from "./schema";
 import type { ElementDraft } from "@/types/prism";
 
@@ -12,8 +13,10 @@ import type { ElementDraft } from "@/types/prism";
  * adding one copies it into the film's own elements, where the agent or
  * the person tunes it, and every clip placed from it follows.
  *
- * Nothing here refers to a file: media presets would need an asset that
- * only the project can supply, so the library is type and shapes.
+ * The sounds are files the studio ships under `library/`, served from the
+ * site itself, so they work in every workspace with nothing to copy. The
+ * effects are synthesised (scripts/make-sfx.mjs): short, dry, and honest
+ * about being effects rather than recordings.
  */
 
 export type LibraryItem = {
@@ -21,9 +24,27 @@ export type LibraryItem = {
   name: string;
   /** One line on what it is for. */
   blurb: string;
-  group: "Type" | "Shapes";
+  group: "Type" | "Shapes" | "Sound";
   draft: ElementDraft;
 };
+
+function sound(
+  name: string,
+  file: string,
+  role: string,
+): Extract<ElementDraft, { kind: "audio" }> {
+  return {
+    kind: "audio",
+    name,
+    role,
+    src: `${LIBRARY_PREFIX}audio/${file}`,
+    startFrom: 0,
+    volume: 1,
+    fadeInFrames: 0,
+    fadeOutFrames: 0,
+    playbackRate: 1,
+  };
+}
 
 const INK = "#F5F5F7";
 const MUTED = "#A9A9B3";
@@ -177,6 +198,41 @@ export const LIBRARY: readonly LibraryItem[] = [
     group: "Shapes",
     draft: shape({ name: "Shape" }),
   },
+  {
+    id: "sfx-whoosh",
+    name: "Whoosh",
+    blurb: "Air moving, 0.6s. Under a slide or a wipe.",
+    group: "Sound",
+    draft: sound("Whoosh", "whoosh.wav", "effect"),
+  },
+  {
+    id: "sfx-click",
+    name: "Click",
+    blurb: "A short mechanical click, 0.1s. A button, a cut.",
+    group: "Sound",
+    draft: sound("Click", "click.wav", "effect"),
+  },
+  {
+    id: "sfx-tick",
+    name: "Tick",
+    blurb: "A softer, higher click, 0.08s. Keystrokes, list items landing.",
+    group: "Sound",
+    draft: sound("Tick", "tick.wav", "effect"),
+  },
+  {
+    id: "sfx-impact",
+    name: "Impact",
+    blurb: "A low hit that falls away, 0.9s. The downbeat under a reveal.",
+    group: "Sound",
+    draft: sound("Impact", "impact.wav", "effect"),
+  },
+  {
+    id: "sfx-rise",
+    name: "Rise",
+    blurb: "Noise opening up over 1.6s and stopping. The beat before the reveal.",
+    group: "Sound",
+    draft: sound("Rise", "rise.wav", "effect"),
+  },
 ];
 
-export const LIBRARY_GROUPS = ["Type", "Shapes"] as const;
+export const LIBRARY_GROUPS = ["Type", "Shapes", "Sound"] as const;

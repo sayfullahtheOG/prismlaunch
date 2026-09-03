@@ -67,7 +67,9 @@ import {
   timecode,
   type CaptureLayout,
 } from "@/lib/render/capture-plan";
+import { elementForFile } from "@/lib/studio/files";
 import {
+  addAssetFile,
   browserWorkspace,
   deleteProjectFolder,
   linkWorkspace,
@@ -391,11 +393,65 @@ function commit(
     return fail("graph-invalid", explainZodError(updated.error));
   }
 
-  useStudioStore
-    .getState()
-    .setProject(updated.data, useStudioStore.getState().loadedAt);
+  const store = useStudioStore.getState();
+  store.pushHistory(project.file);
+  store.setProject(updated.data, store.loadedAt);
   schedulePersist();
   return null;
+}
+
+/**
+ * Undo and redo.
+ *
+ * Every change to the film goes through `commit`, which remembers the file
+ * as it was; these walk that memory. The activity log gets a line, because
+ * an undo is something that happened. The file is written back, so what is
+ * on disk is what is on screen, which is the rule everything else keeps.
+ */
+export function undo(): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const store = useStudioStore.getState();
+  const previous = store.history.past[store.history.past.length - 1];
+  if (!previous) return fail("not-found", "Nothing to undo.");
+
+  store.setHistory({
+    past: store.history.past.slice(0, -1),
+    future: [...store.history.future, guard.value.file],
+  });
+  store.setProject(
+    withActivity({ ...guard.value, file: previous }, {
+      origin: "human",
+      label: "Undo",
+      detail: "Put the film back as it was",
+    }),
+    store.loadedAt,
+  );
+  schedulePersist();
+  return ok("Undone.");
+}
+
+export function redo(): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const store = useStudioStore.getState();
+  const next = store.history.future[store.history.future.length - 1];
+  if (!next) return fail("not-found", "Nothing to redo.");
+
+  store.setHistory({
+    past: [...store.history.past, guard.value.file],
+    future: store.history.future.slice(0, -1),
+  });
+  store.setProject(
+    withActivity({ ...guard.value, file: next }, {
+      origin: "human",
+      label: "Redo",
+      detail: "Did it again",
+    }),
+    store.loadedAt,
+  );
+  schedulePersist();
+  return ok("Redone.");
 }
 
 // ---------------------------------------------------------------------------
@@ -570,6 +626,45 @@ async function refreshAssets(workspace: Workspace, slug: string, file: ProjectFi
   const { urls, missing } = await loadAssets(workspace, slug, wanted);
   const files = await listAssets(workspace, slug);
   useStudioStore.getState().setAssets(urls, missing, files);
+}
+
+/**
+ * Files the person dropped or picked: into the project's assets, and each
+ * one an element ready to place. HUMAN ONLY — an agent with file tools puts
+ * files in the folder itself, and one without has no file to give.
+ */
+export async function importFiles(files: readonly File[]): Promise<ActionResult> {
+  const workspaceGuard = requireWorkspace();
+  if (!workspaceGuard.ok) return workspaceGuard.result;
+  const projectGuard = requireProject();
+  if (!projectGuard.ok) return projectGuard.result;
+  if (files.length === 0) return fail("invalid-input", "No files to add.");
+
+  const slug = projectGuard.value.slug;
+  const added: string[] = [];
+  const failed: string[] = [];
+  for (const file of files) {
+    const written = await addAssetFile(workspaceGuard.value, slug, file);
+    if (!written.ok) {
+      failed.push(file.name);
+      continue;
+    }
+    const created = createElement(elementForFile(written.value));
+    if (created.ok) added.push(written.value);
+    else failed.push(file.name);
+  }
+
+  const current = useStudioStore.getState().project;
+  if (current) await refreshAssets(workspaceGuard.value, slug, current.file);
+
+  if (added.length === 0) {
+    return fail("disk-error", `Could not add ${failed.join(", ")}.`);
+  }
+  return ok(
+    `Added ${added.length} file${added.length === 1 ? "" : "s"} as element${added.length === 1 ? "" : "s"}${
+      failed.length > 0 ? `; could not add ${failed.join(", ")}` : ""
+    }.`,
+  );
 }
 
 export async function openProject(slug: string): Promise<ActionResult> {
@@ -755,6 +850,8 @@ export async function reloadFromDisk(): Promise<ActionResult> {
     return fail("graph-invalid", message);
   }
 
+  // An agent's edit, arriving through the file, is undoable like any other.
+  useStudioStore.getState().pushHistory(current.file);
   useStudioStore.getState().setProject(parsed.data, read.value.modifiedAt);
   useStudioStore.getState().setLoadError(null);
   await refreshAssets(workspaceGuard.value, current.slug, read.value.file);

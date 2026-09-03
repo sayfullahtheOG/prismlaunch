@@ -1,8 +1,9 @@
 "use client";
 
-import { Check, Plus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { AudioLines, Check, Play, Plus, Square } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createElement } from "@/lib/studio/actions";
+import { libraryUrl } from "@/lib/studio/files";
 import { LIBRARY, LIBRARY_GROUPS, type LibraryItem } from "@/lib/studio/library";
 import type { ElementDraft, ProjectFile } from "@/types/prism";
 import { PanelShell } from "./PanelShell";
@@ -111,6 +112,7 @@ function Tile({
         className="ds-focus group relative flex w-full flex-col gap-1.5 rounded-sm p-1.5 text-left transition-[background-color] duration-140 hover:bg-sunken"
       >
         <Preview draft={item.draft} />
+        {item.draft.kind === "audio" ? <PlayButton src={item.draft.src} /> : null}
         <span className="flex w-full items-center gap-1 px-0.5">
           <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink">{item.name}</span>
           <span
@@ -124,6 +126,52 @@ function Tile({
         </span>
       </button>
     </li>
+  );
+}
+
+/**
+ * Plays a library sound, once, from the tile. Its own control rather than
+ * the tile's click, because the tile's click adds; a sound you have not
+ * heard is a sound you should not have to add to hear.
+ */
+function PlayButton({ src }: { src: string }) {
+  const [playing, setPlaying] = useState(false);
+  const audio = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => () => audio.current?.pause(), []);
+
+  function toggle(event: React.MouseEvent) {
+    event.stopPropagation();
+    if (playing) {
+      audio.current?.pause();
+      setPlaying(false);
+      return;
+    }
+    const element = new Audio(libraryUrl(src));
+    audio.current = element;
+    element.onended = () => setPlaying(false);
+    element.onerror = () => setPlaying(false);
+    setPlaying(true);
+    void element.play().catch(() => setPlaying(false));
+  }
+
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      aria-label={playing ? "Stop" : "Play"}
+      onClick={toggle}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          event.stopPropagation();
+          toggle(event as unknown as React.MouseEvent);
+        }
+      }}
+      className="ds-focus absolute top-3 left-3 grid size-6 place-items-center rounded-pill bg-[#F5F5F7] text-[#0A0A0C] shadow-[0_1px_2px_rgba(0,0,0,0.4)]"
+    >
+      {playing ? <Square size={9} strokeWidth={3} fill="currentColor" /> : <Play size={10} strokeWidth={3} fill="currentColor" />}
+    </span>
   );
 }
 
@@ -185,6 +233,10 @@ function Preview({ draft, large = false }: { draft: ElementDraft; large?: boolea
           }}
         >
           Aa
+        </span>
+      ) : draft.kind === "audio" ? (
+        <span className="absolute inset-0 flex items-center justify-center text-[#5B8CFF]">
+          <AudioLines size={large ? 44 : 24} strokeWidth={1.6} />
         </span>
       ) : draft.kind === "shape" ? (
         <span

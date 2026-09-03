@@ -7,6 +7,8 @@ import {
   Magnet,
   Maximize2,
   Pause,
+  Redo2,
+  Undo2,
   Play,
   Scissors,
   SkipBack,
@@ -19,11 +21,13 @@ import {
   deleteClip,
   duplicateSelected,
   fitDurationToContent,
+  redo,
   seek,
   setPlaying,
   setZoom,
   splitAtPlayhead,
   toggleSnap,
+  undo,
 } from "@/lib/studio/actions";
 import { selectedClipId } from "@/lib/studio/selection";
 import {
@@ -52,6 +56,8 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
   const selectedId = useStudioStore((state) => selectedClipId(state.project));
   const notice = useStudioStore((state) => state.notice);
   const setNotice = useStudioStore((state) => state.setNotice);
+  const canUndo = useStudioStore((state) => state.history.past.length > 0);
+  const canRedo = useStudioStore((state) => state.history.future.length > 0);
 
   // A notice is a sentence, not a state: it clears itself.
   useEffect(() => {
@@ -75,6 +81,21 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
 
   return (
     <div className="flex h-10 shrink-0 items-center gap-0.5 border-b border-line-soft bg-surface px-2">
+      <IconButton
+        label="Undo"
+        icon={<Undo2 size={15} strokeWidth={1.9} />}
+        onClick={() => report(undo())}
+        disabled={!canUndo}
+      />
+      <IconButton
+        label="Redo"
+        icon={<Redo2 size={15} strokeWidth={1.9} />}
+        onClick={() => report(redo())}
+        disabled={!canRedo}
+      />
+
+      <span className="mx-1 h-5 w-px bg-line-soft" aria-hidden />
+
       <IconButton
         label="Split at playhead"
         icon={<Scissors size={15} strokeWidth={1.9} />}

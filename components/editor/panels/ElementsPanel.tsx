@@ -2,16 +2,19 @@
 
 import {
   AudioLines,
+  FilePlus2,
   Image as ImageIcon,
   Plus,
   Video as VideoIcon,
 } from "lucide-react";
-import { createElement, select } from "@/lib/studio/actions";
+import { useRef, useState } from "react";
+import { IconButton } from "@/components/ui/IconButton";
+import { createElement, importFiles, select } from "@/lib/studio/actions";
 import { elementUses } from "@/lib/studio/edits";
-import { DEFAULT_ANIMATION, DEFAULT_BOX } from "@/lib/studio/schema";
+import { elementForFile } from "@/lib/studio/files";
 import { selectedIdOf } from "@/lib/studio/selection";
 import { useStudioStore } from "@/lib/studio/store";
-import type { Element, ElementDraft, ElementKind, ProjectFile } from "@/types/prism";
+import type { Element, ProjectFile } from "@/types/prism";
 import { PanelShell, PanelSection } from "./PanelShell";
 
 /**
@@ -31,6 +34,16 @@ import { PanelShell, PanelSection } from "./PanelShell";
 export function ElementsPanel({ file }: { file: ProjectFile }) {
   const selected = useStudioStore((state) => selectedIdOf(state.project, "element"));
   const files = useStudioStore((state) => state.assetFiles);
+  const setNotice = useStudioStore((state) => state.setNotice);
+  const picker = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
+
+  async function take(list: FileList | File[] | null) {
+    const chosen = list ? [...list] : [];
+    if (chosen.length === 0) return;
+    const result = await importFiles(chosen);
+    if (!result.ok) setNotice(result.message);
+  }
 
   const type = file.elements.filter((element) => element.kind === "text");
   const shapes = file.elements.filter((element) => element.kind === "shape");
@@ -41,11 +54,57 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
   const loose = files.filter((path) => !referenced.has(path));
 
   return (
-    <PanelShell title="Elements">
+    <PanelShell
+      title="Elements"
+      action={
+        <>
+          <input
+            ref={picker}
+            type="file"
+            multiple
+            accept="image/*,video/*,audio/*"
+            className="hidden"
+            onChange={(event) => {
+              void take(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <IconButton
+            label="Add files: images, video or audio"
+            size="sm"
+            onClick={() => picker.current?.click()}
+            icon={<FilePlus2 size={13} strokeWidth={2} aria-hidden />}
+          />
+        </>
+      }
+    >
+      {/*
+        The whole column takes a drop. Files land in the project's assets
+        and become elements: the same thing the button does, without the
+        picker.
+      */}
+      <div
+        onDragOver={(event) => {
+          if ([...event.dataTransfer.types].includes("Files")) {
+            event.preventDefault();
+            setOver(true);
+          }
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setOver(false);
+          void take(event.dataTransfer.files);
+        }}
+        className={`-mx-2 min-h-40 rounded-sm px-2 pb-6 transition-[box-shadow] duration-140 ${
+          over ? "shadow-[inset_0_0_0_2px_var(--ds-color-accent)]" : ""
+        }`}
+      >
       {file.elements.length === 0 && loose.length === 0 ? (
         <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">
           Nothing yet. Your agent defines the look as elements at the style
-          stage, or add pieces from the Library.
+          stage, add pieces from the Library, or drop an image, a video or a
+          sound here.
         </p>
       ) : null}
 
@@ -74,7 +133,7 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
           </ul>
         </PanelSection>
       ) : null}
-
+      </div>
     </PanelShell>
   );
 }
@@ -170,25 +229,4 @@ function Swatch({ element }: { element: Element }) {
       )}
     </span>
   );
-}
-
-/** A media element for a file in `assets/`, by extension. */
-function elementForFile(path: string): ElementDraft {
-  const name = (path.split("/").pop() ?? path).replace(/\.[^.]+$/, "");
-  const kind = kindForPath(path);
-  const visual = { box: { ...DEFAULT_BOX, width: 0.8, height: 0.45 }, animation: { ...DEFAULT_ANIMATION } };
-  if (kind === "audio") {
-    return { kind, name, src: path, startFrom: 0, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, playbackRate: 1 };
-  }
-  if (kind === "video") {
-    return { kind, name, src: path, fit: "cover", radius: 0, startFrom: 0, volume: 0, playbackRate: 1, ...visual };
-  }
-  return { kind: "image", name, src: path, fit: "cover", radius: 0, ...visual };
-}
-
-function kindForPath(path: string): Extract<ElementKind, "image" | "video" | "audio"> {
-  const extension = path.split(".").pop()?.toLowerCase() ?? "";
-  if (["mp3", "wav", "m4a", "aac", "ogg", "flac"].includes(extension)) return "audio";
-  if (["mp4", "webm", "mov", "m4v"].includes(extension)) return "video";
-  return "image";
 }

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ProjectEntry, Workspace } from "@/lib/workspace/fs";
-import type { FilmProject, StageId } from "@/types/prism";
+import type { FilmProject, ProjectFile, StageId } from "@/types/prism";
 
 /**
  * The studio store: state and setters ONLY.
@@ -30,6 +30,8 @@ export const MIN_ZOOM = 12;
 export const MAX_ZOOM = 320;
 export const DEFAULT_ZOOM = 60;
 export const DEFAULT_TIMELINE_HEIGHT = 300;
+/** Steps of undo kept. Past that, the file on disk and git are the history. */
+export const HISTORY_LIMIT = 100;
 export const MIN_TIMELINE_HEIGHT = 160;
 export const MAX_TIMELINE_HEIGHT = 720;
 
@@ -82,6 +84,12 @@ export type StudioState = {
   project: FilmProject | null;
   /** `project.json`'s mtime when we last read it, for change detection. */
   loadedAt: number;
+  /**
+   * Undo and redo: the file as it was before each change this session, and
+   * the changes undone. Only the file — selection and activity are not
+   * things anyone wants to un-happen.
+   */
+  history: { past: ProjectFile[]; future: ProjectFile[] };
   /** A file on disk that will not parse. Shown instead of the board. */
   loadError: string | null;
 
@@ -124,6 +132,9 @@ export type StudioState = {
   setWorkspace: (workspace: WorkspaceState) => void;
   setProjects: (projects: ProjectEntry[]) => void;
   setProject: (project: FilmProject | null, loadedAt: number) => void;
+  /** Remember the file as it is now, before it changes. Clears redo. */
+  pushHistory: (file: ProjectFile) => void;
+  setHistory: (history: StudioState["history"]) => void;
   setLoadError: (message: string | null) => void;
   closeProject: () => void;
   setPendingRender: (pending: PendingRender | null) => void;
@@ -149,6 +160,7 @@ export const useStudioStore = create<StudioState>((set) => ({
   reviewing: true,
   project: null,
   loadedAt: 0,
+  history: { past: [], future: [] },
   loadError: null,
   pendingRender: null,
   renderNote: null,
@@ -174,12 +186,24 @@ export const useStudioStore = create<StudioState>((set) => ({
         : {},
     ),
   setProject: (project, loadedAt) =>
-    set({ project, loadedAt, ...(project ? { loadError: null } : {}) }),
+    set((state) => ({
+      project,
+      loadedAt,
+      ...(project ? { loadError: null } : {}),
+      // A different composition is a different history.
+      ...(project?.slug !== state.project?.slug ? { history: { past: [], future: [] } } : {}),
+    })),
+  pushHistory: (file) =>
+    set((state) => ({
+      history: { past: [...state.history.past.slice(-(HISTORY_LIMIT - 1)), file], future: [] },
+    })),
+  setHistory: (history) => set({ history }),
   setLoadError: (loadError) => set({ loadError }),
   closeProject: () =>
     set({
       project: null,
       loadedAt: 0,
+      history: { past: [], future: [] },
       loadError: null,
       pendingRender: null,
       renderNote: null,

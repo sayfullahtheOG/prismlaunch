@@ -17,8 +17,10 @@ import { WORKSPACE_DIR } from "@/lib/studio/schema";
  */
 
 const DB_NAME = "prismlaunch";
-const DB_VERSION = 1;
+/** 2: the assets store, for files a browser workspace holds instead of a folder. */
+const DB_VERSION = 2;
 const STORE = "handles";
+const ASSETS = "assets";
 const KEY = "workspace-root";
 
 function open(): Promise<IDBDatabase> {
@@ -27,6 +29,9 @@ function open(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(STORE)) {
         request.result.createObjectStore(STORE);
+      }
+      if (!request.result.objectStoreNames.contains(ASSETS)) {
+        request.result.createObjectStore(ASSETS);
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -37,15 +42,56 @@ function open(): Promise<IDBDatabase> {
 function transact<T>(
   mode: IDBTransactionMode,
   run: (store: IDBObjectStore) => IDBRequest<T>,
+  storeName: string = STORE,
 ): Promise<T> {
   return open().then(
     (db) =>
       new Promise<T>((resolve, reject) => {
-        const request = run(db.transaction(STORE, mode).objectStore(STORE));
+        const request = run(db.transaction(storeName, mode).objectStore(storeName));
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       }),
   );
+}
+
+/*
+ * Files for a browser workspace.
+ *
+ * A folder holds its own `assets/`; a browser workspace has nowhere to put a
+ * dropped image or a music file except here. Keyed by composition and path,
+ * the same `assets/<name>` path a clip refers to, so the rest of the app
+ * cannot tell which kind of workspace produced the URL.
+ */
+export type StoredAsset = { slug: string; path: string; blob: Blob };
+
+function assetKey(slug: string, path: string): string {
+  return `${slug}\u0000${path}`;
+}
+
+export async function putAsset(slug: string, path: string, blob: Blob): Promise<void> {
+  await transact("readwrite", (store) => store.put({ slug, path, blob }, assetKey(slug, path)), ASSETS);
+}
+
+export async function getAssets(slug: string): Promise<StoredAsset[]> {
+  try {
+    const all = await transact<StoredAsset[]>("readonly", (store) => store.getAll(), ASSETS);
+    return all.filter((asset) => asset.slug === slug);
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteAssets(slug: string): Promise<void> {
+  try {
+    const all = await transact<StoredAsset[]>("readonly", (store) => store.getAll(), ASSETS);
+    for (const asset of all) {
+      if (asset.slug === slug) {
+        await transact("readwrite", (store) => store.delete(assetKey(slug, asset.path)), ASSETS);
+      }
+    }
+  } catch {
+    // Nothing stored, or storage refused. The composition is gone either way.
+  }
 }
 
 export async function rememberWorkspace(

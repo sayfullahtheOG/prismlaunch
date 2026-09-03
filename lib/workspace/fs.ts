@@ -7,9 +7,16 @@ import {
   RENDERS_DIR,
   WORKSPACE_DIR,
 } from "@/lib/studio/schema";
+import { isLibraryPath, libraryUrl, safeAssetName } from "@/lib/studio/files";
 import type { ProjectFile } from "@/types/prism";
 import * as browser from "./browser-store";
-import { rememberWorkspace, requestPermission } from "./handle-store";
+import {
+  deleteAssets,
+  getAssets,
+  putAsset,
+  rememberWorkspace,
+  requestPermission,
+} from "./handle-store";
 
 /** Where captured contact sheets go, beside the renders. */
 export const FRAMES_DIR = "frames";
@@ -416,16 +423,32 @@ export async function loadAssets(
 ): Promise<{ urls: Record<string, string>; missing: string[] }> {
   const urls: Record<string, string> = {};
   const missing: string[] = [];
-  if (workspace.kind === "browser") return { urls, missing: [...paths] };
+
+  // The studio's own files resolve to the site, in every workspace.
+  const own = paths.filter((path) => {
+    if (!isLibraryPath(path)) return true;
+    urls[path] = libraryUrl(path);
+    return false;
+  });
+
+  if (workspace.kind === "browser") {
+    const stored = await getAssets(slug);
+    for (const path of own) {
+      const asset = stored.find((candidate) => candidate.path === path);
+      if (asset) urls[path] = URL.createObjectURL(asset.blob);
+      else missing.push(path);
+    }
+    return { urls, missing };
+  }
 
   let root: FileSystemDirectoryHandle;
   try {
     root = await workspace.dir.getDirectoryHandle(slug);
   } catch {
-    return { urls, missing: [...paths] };
+    return { urls, missing: [...own] };
   }
 
-  for (const path of paths) {
+  for (const path of own) {
     const segments = path.split("/").filter(Boolean);
     const filename = segments.pop();
     if (!filename) {
@@ -454,7 +477,9 @@ export async function listAssets(
   workspace: Workspace,
   slug: string,
 ): Promise<string[]> {
-  if (workspace.kind === "browser") return [];
+  if (workspace.kind === "browser") {
+    return (await getAssets(slug)).map((asset) => asset.path).sort();
+  }
   try {
     const root = await workspace.dir.getDirectoryHandle(slug);
     const assets = await root.getDirectoryHandle(ASSETS_DIR);
@@ -465,6 +490,46 @@ export async function listAssets(
     return names.sort();
   } catch {
     return [];
+  }
+}
+
+/**
+ * Put a file the person gave us into the project's `assets/`.
+ *
+ * On disk it is written beside project.json, where the agent's file tools
+ * and Finder both see it. In a browser workspace it goes to IndexedDB under
+ * the same path. Either way the clip that refers to it says `assets/<name>`.
+ */
+export async function addAssetFile(
+  workspace: Workspace,
+  slug: string,
+  file: File,
+): Promise<FsResult<string>> {
+  const existing = new Set(
+    (await listAssets(workspace, slug)).map((path) => path.replace(/^assets\//, "")),
+  );
+  const name = safeAssetName(file.name, existing);
+  const path = `${ASSETS_DIR}/${name}`;
+
+  if (workspace.kind === "browser") {
+    try {
+      await putAsset(slug, path, file);
+      return { ok: true, value: path };
+    } catch {
+      return fail("write-failed", `This browser refused to store ${file.name}.`);
+    }
+  }
+
+  try {
+    const dir = await workspace.dir.getDirectoryHandle(slug, { create: true });
+    const assets = await dir.getDirectoryHandle(ASSETS_DIR, { create: true });
+    const handle = await assets.getFileHandle(name, { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(file);
+    await writable.close();
+    return { ok: true, value: path };
+  } catch {
+    return fail("write-failed", `Could not write ${WORKSPACE_DIR}/${slug}/${path}.`);
   }
 }
 
@@ -559,6 +624,7 @@ export async function deleteProjectFolder(
 ): Promise<FsResult<void>> {
   if (workspace.kind === "browser") {
     browser.deleteEntry(slug);
+    await deleteAssets(slug);
     return { ok: true, value: undefined };
   }
   try {

@@ -7,6 +7,7 @@ import {
   deleteProject,
   duplicateSelected,
   openProject,
+  redo,
   refreshProjects,
   renameProject,
   seek,
@@ -15,6 +16,7 @@ import {
   showTab,
   splitAtPlayhead,
   startRenderAsHuman,
+  undo,
 } from "@/lib/studio/actions";
 import { BLANK_FILE } from "@/lib/studio/blank";
 import { currentStage } from "@/lib/studio/process";
@@ -230,6 +232,20 @@ function useTimelineKeys(): void {
 
       const store = useStudioStore.getState();
       if (!store.project) return;
+
+      // Undo and redo work wherever the film is on screen.
+      const command = event.metaKey || event.ctrlKey;
+      if (command && (event.key === "z" || event.key === "Z")) {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (command && (event.key === "y" || event.key === "Y")) {
+        event.preventDefault();
+        redo();
+        return;
+      }
 
       // Escape puts the properties away, whatever is on screen.
       if (event.key === "Escape") {

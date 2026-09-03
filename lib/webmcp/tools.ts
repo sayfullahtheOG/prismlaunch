@@ -644,7 +644,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_from_library",
       description:
-        "Add one of the studio's prebuilt pieces as an element of this film, exactly as the person clicking it in the Library would: a cursor that glides to a spot and clicks, a tap ring, a typewriter line, a word-by-word headline, a counter, a highlight, the type styles, the shapes, the sound effects and the music beds. Then place it with prism.place_element and tune it with prism.update_element. Refuses until the animatic is approved, like add_element.",
+        "Add one of the studio's prebuilt pieces as an element of this film, exactly as the person clicking it in the Text, Shapes, Motion or Audio section would: a cursor that glides to a spot and clicks, a tap ring, a typewriter line, a word-by-word headline, a counter, a highlight, the type styles, the shapes, the sound effects and the music beds. Then place it with prism.place_element and tune it with prism.update_element. Refuses until the animatic is approved, like add_element.",
       schema: AddFromLibraryInput,
       execute: (input) => {
         const item = LIBRARY.find((candidate) => candidate.id === input.itemId);

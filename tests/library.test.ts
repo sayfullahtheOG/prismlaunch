@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as actions from "@/lib/studio/actions";
+import { RAIL_TABS } from "@/components/editor/rail-tabs";
 import { isAnimated, LIBRARY, LIBRARY_GROUPS, previewFrames } from "@/lib/studio/library";
 import { readProject, resetStudio } from "@/lib/studio/store";
 import { resetBrowserStore } from "@/lib/workspace/browser-store";
@@ -41,6 +42,26 @@ describe("the library", () => {
     expect(elements.filter((element) => element.kind === "text").length).toBe(
       LIBRARY.filter((item) => item.draft.kind === "text").length,
     );
+  });
+
+  it("is reached by kind from the rail, not through one section with a filter", () => {
+    const ids = RAIL_TABS.map((tab) => tab.id);
+    expect(ids).toEqual([
+      "editor",
+      "process",
+      "storyboard",
+      "elements",
+      "text",
+      "shapes",
+      "motion",
+      "audio",
+      "files",
+      "agent",
+    ]);
+    // Every group of the library has a section to be found in.
+    for (const group of LIBRARY_GROUPS) {
+      expect(LIBRARY.some((item) => item.group === group), group).toBe(true);
+    }
   });
 
   it("knows which pieces move, and how long a preview of each should play", () => {

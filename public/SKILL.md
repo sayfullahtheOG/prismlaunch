@@ -160,7 +160,7 @@ arrive when it is placed.
 | --- | --- |
 | `prism.add_element` | Define one. Refuses until the animatic is approved. |
 | `prism.place_element` | Put one on a track as a clip. You supply the track, the frame, the length, and the words; the element supplies the look. Lands as a draft, inside a locked beat. |
-| `prism.add_from_library` | Add one of the Library's prebuilt pieces as an element: the Motion pieces, the type styles, the shapes, the effects, the beds. Then place it. |
+| `prism.add_from_library` | Add one of the studio's prebuilt pieces as an element, the ones the person sees in the Text, Shapes, Motion and Audio sections: type styles, shapes, the Motion pieces, the effects, the beds. Then place it. |
 | `prism.update_element` | Change one, and every clip placed from it. Send only what changes. Those clips become drafts again. |
 | `prism.remove_element` | Delete one. Its clips stay, unlinked. |
 
@@ -378,11 +378,11 @@ and synthesised bold looks cheap.
 `src` is a path inside the project's own folder, like `assets/logo.png`, or
 one of the studio's own files under `library/`, which resolve in every
 workspace with nothing to copy, so `prism.add_audio` with one of those works
-even where there is no folder. The Library's Motion section holds the pieces product films keep
+even where there is no folder. The Motion section of the rail holds the pieces product films keep
 rebuilding, each an element with its reveal or motion already set: a cursor
 (`library/cursor/arrow.svg`, an image you can also use directly), a tap
 ring, a typewriter line, a word-by-word headline, a counter and a
-highlight. `prism.add_from_library` adds any Library piece as an element,
+highlight. `prism.add_from_library` adds any of these pieces as an element,
 sounds included. The effects: `library/audio/whoosh.wav`
 (0.9s), `click.wav` (0.4s), `tick.wav` (0.3s), `impact.wav` (1s), `rise.wav`
 (1s). The music beds, thirty seconds each and instrumental:

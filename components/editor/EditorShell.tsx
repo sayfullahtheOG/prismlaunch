@@ -164,7 +164,38 @@ export function EditorShell() {
               {tab === "process" ? <ProcessPanel file={file} /> : null}
               {tab === "storyboard" ? <StoryboardPanel file={file} /> : null}
               {tab === "elements" ? <ElementsPanel file={file} /> : null}
-              {tab === "library" ? <LibraryPanel file={file} /> : null}
+              {tab === "text" ? (
+                <LibraryPanel
+                  file={file}
+                  title="Text"
+                  hint="Type styles. Add one, then place it with the words."
+                  groups={["Type"]}
+                />
+              ) : null}
+              {tab === "shapes" ? (
+                <LibraryPanel
+                  file={file}
+                  title="Shapes"
+                  hint="Rules, blocks, dots and frames, in the film's own colours."
+                  groups={["Shapes"]}
+                />
+              ) : null}
+              {tab === "motion" ? (
+                <LibraryPanel
+                  file={file}
+                  title="Motion"
+                  hint="The moves a product film keeps making, ready to place."
+                  groups={["Motion"]}
+                />
+              ) : null}
+              {tab === "audio" ? (
+                <LibraryPanel
+                  file={file}
+                  title="Audio"
+                  hint="Beds and effects the studio ships. Press play to hear one."
+                  groups={["Music", "Sound"]}
+                />
+              ) : null}
               {tab === "files" ? <FilesPanel /> : null}
               {tab === "agent" ? (
                 <AgentPanel

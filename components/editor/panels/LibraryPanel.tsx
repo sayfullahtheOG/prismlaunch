@@ -10,37 +10,63 @@ import { PanelShell } from "./PanelShell";
 import { Chips, PieceCard, Preview, useHoverCard } from "./PiecePreview";
 
 /**
- * Prebuilt pieces, one click from being elements of this film.
+ * The studio's own pieces, one click from being elements of this film.
  *
- * Tiles: a preview on the film's ground and a name, filtered by a row of
- * chips. Hovering a tile shows a card with the piece at a readable size and
+ * One panel serves four sections of the rail: Text, Shapes, Motion and
+ * Audio are each a slice of the same library, because a person looking
+ * for a sound is not looking for a headline, and a filter row is a worse
+ * answer to that than a place. Tiles: a preview on the film's ground and a
+ * name. Hovering a tile shows a card with the piece at a readable size and
  * what it is for; clicking the tile adds it. The library is not the film's:
  * nothing here is placed or reviewed. Adding copies the piece into Elements
  * under its own id, and from then on it is the film's to change. The same
  * name added twice gets a number, the way a new layer does.
  */
 
-type Filter = "All" | (typeof LIBRARY_GROUPS)[number];
-const FILTERS: readonly Filter[] = ["All", ...LIBRARY_GROUPS];
+export type LibraryGroup = (typeof LIBRARY_GROUPS)[number];
 
-export function LibraryPanel({ file }: { file: ProjectFile }) {
-  const [filter, setFilter] = useState<Filter>("All");
+/** What a group is called where it is the only kind of thing on screen. */
+const GROUP_LABELS: Record<LibraryGroup, string> = {
+  Type: "Type",
+  Shapes: "Shapes",
+  Motion: "Motion",
+  Sound: "Effects",
+  Music: "Music",
+};
+
+export function LibraryPanel({
+  file,
+  title,
+  hint,
+  groups,
+}: {
+  file: ProjectFile;
+  title: string;
+  hint?: string;
+  /** Which slices of the library this section shows; more than one gets a switch. */
+  groups: readonly LibraryGroup[];
+}) {
+  const [group, setGroup] = useState<LibraryGroup>(groups[0] ?? "Type");
   const { hover, onHover, clear } = useHoverCard<LibraryItem>();
 
-  const items = LIBRARY.filter((item) => filter === "All" || item.group === filter);
+  const showing = groups.includes(group) ? group : (groups[0] ?? "Type");
+  const items = LIBRARY.filter((item) => item.group === showing);
 
   return (
-    <PanelShell title="Library">
-      <Chips
-        label="Library groups"
-        options={FILTERS}
-        value={filter}
-        onChange={(next) => {
-          setFilter(next);
-          // The tile under the pointer is about to change; its card must not stay.
-          clear();
-        }}
-      />
+    <PanelShell title={title} {...(hint ? { hint } : {})}>
+      {groups.length > 1 ? (
+        <Chips
+          label={`${title} kinds`}
+          options={groups.map((name) => GROUP_LABELS[name])}
+          value={GROUP_LABELS[showing]}
+          onChange={(label) => {
+            const next = groups.find((name) => GROUP_LABELS[name] === label);
+            if (next) setGroup(next);
+            // The tile under the pointer is about to change; its card must not stay.
+            clear();
+          }}
+        />
+      ) : null}
 
       <ul className="grid grid-cols-2 gap-2">
         {items.map((item) => (

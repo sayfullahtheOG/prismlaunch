@@ -1,11 +1,33 @@
 "use client";
 
-import { Blocks, Clapperboard, FolderTree, History, LayoutGrid, ListChecks, Shapes } from "lucide-react";
+import {
+  AudioLines,
+  Blocks,
+  Clapperboard,
+  FolderTree,
+  History,
+  LayoutGrid,
+  ListChecks,
+  MousePointerClick,
+  Shapes,
+  Type,
+} from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { RailTab } from "./rail-tabs";
 import { RAIL_TABS } from "./rail-tabs";
 
-const ICONS = { Clapperboard, ListChecks, LayoutGrid, Shapes, Blocks, FolderTree, History } as const;
+const ICONS = {
+  Clapperboard,
+  ListChecks,
+  LayoutGrid,
+  Blocks,
+  Type,
+  Shapes,
+  MousePointerClick,
+  AudioLines,
+  FolderTree,
+  History,
+} as const;
 
 type Props = {
   active: RailTab;
@@ -33,7 +55,7 @@ export function IconRail({ active, onChange, agentPending = false, counts = {} }
     <div className="flex w-[76px] shrink-0 flex-col border-r border-line-soft bg-surface">
       <nav
         aria-label="Editor sections"
-        className="flex flex-1 flex-col items-center gap-0.5 py-2"
+        className="thin-scroll flex min-h-0 flex-1 flex-col items-center gap-0.5 overflow-y-auto py-2"
       >
         {RAIL_TABS.map(({ id, label, icon }) => {
           const Icon = ICONS[icon];

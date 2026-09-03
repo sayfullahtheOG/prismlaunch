@@ -68,7 +68,10 @@ export type RailTab =
   | "process"
   | "storyboard"
   | "elements"
-  | "library"
+  | "text"
+  | "shapes"
+  | "motion"
+  | "audio"
   | "files"
   | "agent";
 

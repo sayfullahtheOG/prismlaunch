@@ -21,7 +21,7 @@ import { Chips, PieceCard, Preview, useHoverCard } from "./PiecePreview";
 /**
  * The film's elements.
  *
- * Everything this film is built from, as tiles like the Library's, filtered
+ * Everything this film is built from, as tiles like the studio's own, filtered
  * by what each is: the type styles, the shapes, the media, the sound. The
  * agent defines them at the style stage and builds by placing them; the
  * person reaches any of them here. Clicking a tile opens its properties;
@@ -131,8 +131,8 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
         {file.elements.length === 0 && loose.length === 0 ? (
           <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">
             Nothing yet. Your agent defines the look as elements at the style
-            stage, add pieces from the Library, or drop an image, a video or a
-            sound here.
+            stage, add pieces from Text, Shapes, Motion or Audio, or drop an
+            image, a video or a sound here.
           </p>
         ) : null}
 

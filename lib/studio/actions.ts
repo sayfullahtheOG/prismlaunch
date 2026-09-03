@@ -2239,6 +2239,9 @@ export function fitDurationToContent(): ActionResult {
   const project = guard.value;
 
   const next = trimToContent(project.file);
+  if (next.durationInFrames === project.file.durationInFrames) {
+    return ok(`Already ${(next.durationInFrames / project.file.fps).toFixed(1)}s.`);
+  }
   const rejected = commit(project, next, {
     origin: "human",
     label: "Trimmed composition",

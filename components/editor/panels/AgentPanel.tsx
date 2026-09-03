@@ -48,18 +48,21 @@ const CONNECTION: Record<
 };
 
 /**
- * What the agent did, in order.
+ * What happened, newest first.
  *
- * The record is the panel. Where the work lives and how the agent reaches
- * it are facts a person checks once, so they sit behind one button beside
- * the title rather than as boxes above the list.
+ * Both parties' edits are here, the person's and the agent's, so the panel
+ * is Activity rather than the agent's. The record is the panel. Where the
+ * work lives and how the agent reaches it are facts a person checks once,
+ * so they sit behind one button beside the title rather than as boxes
+ * above the list. Newest at the top, because the question is "what just
+ * happened", and the answer should not be at the bottom of a scroll.
  */
 export function AgentPanel({ activity, kind, toolCount, slug }: Props) {
   const lastCapture = useStudioStore((state) => state.lastCapture);
 
   return (
     <PanelShell
-      title="Agent activity"
+      title="Activity"
       action={<Connection kind={kind} toolCount={toolCount} slug={slug} />}
     >
       {lastCapture ? (
@@ -90,7 +93,7 @@ export function AgentPanel({ activity, kind, toolCount, slug }: Props) {
       ) : null}
 
       <ol className="flex flex-col">
-        {activity.map((event, index) => {
+        {[...activity].reverse().map((event, index) => {
           const isLast = index === activity.length - 1;
           return (
             <li key={event.id} className="flex gap-2.5">

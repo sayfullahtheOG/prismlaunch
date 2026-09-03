@@ -37,6 +37,20 @@ describe("the playhead", () => {
   });
 });
 
+describe("trimming to content", () => {
+  it("is not an event when nothing changes", () => {
+    const before = readProject()!.activity.length;
+    actions.setDuration(300);
+    // Nothing on the timeline: trimming makes it one frame, once.
+    expect(actions.fitDurationToContent().ok).toBe(true);
+    const afterFirst = readProject()!.activity.length;
+    expect(afterFirst).toBeGreaterThan(before);
+    actions.fitDurationToContent();
+    actions.fitDurationToContent();
+    expect(readProject()!.activity.length).toBe(afterFirst);
+  });
+});
+
 describe("the timeline's height", () => {
   it("has a default and is clamped to what fits a screen", () => {
     const { setTimelineHeight } = useStudioStore.getState();

@@ -15,11 +15,11 @@ export type { RailTab };
 export const RAIL_TABS: ReadonlyArray<{
   id: RailTab;
   label: string;
-  icon: "ListChecks" | "LayoutGrid" | "Shapes" | "Blocks" | "Activity";
+  icon: "ListChecks" | "LayoutGrid" | "Shapes" | "Blocks" | "History";
 }> = [
   { id: "process", label: "Process", icon: "ListChecks" },
   { id: "storyboard", label: "Storyboard", icon: "LayoutGrid" },
   { id: "elements", label: "Elements", icon: "Shapes" },
   { id: "library", label: "Library", icon: "Blocks" },
-  { id: "agent", label: "Activity", icon: "Activity" },
+  { id: "agent", label: "Activity", icon: "History" },
 ];

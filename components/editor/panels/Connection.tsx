@@ -4,6 +4,7 @@ import { FolderOpen, Globe, Lock, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Popover } from "@/components/ui/Popover";
 import { linkFolder } from "@/lib/studio/actions";
+import { hostedByAgent } from "@/lib/studio/hosted";
 import { WORKSPACE_DIR } from "@/lib/studio/schema";
 import { useStudioStore } from "@/lib/studio/store";
 
@@ -90,15 +91,17 @@ export function Connection({ kind, toolCount, slug }: ConnectionProps) {
         Your agent can propose a render but cannot start one.
       </p>
 
-      <Button
-        variant="secondary"
-        size="sm"
-        className="self-start"
-        onClick={() => void linkFolder()}
-        icon={<FolderOpen size={12} strokeWidth={1.9} aria-hidden />}
-      >
-        {inBrowser ? "Link a folder instead" : "Link a different folder"}
-      </Button>
+      {hostedByAgent(kind, navigator.userAgent) ? null : (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="self-start"
+          onClick={() => void linkFolder()}
+          icon={<FolderOpen size={12} strokeWidth={1.9} aria-hidden />}
+        >
+          {inBrowser ? "Link a folder instead" : "Link a different folder"}
+        </Button>
+      )}
     </Popover>
   );
 }

@@ -12,6 +12,7 @@ import {
   writeProjectFile,
   writeRender,
 } from "@/lib/workspace/fs";
+import { hostedByAgent } from "@/lib/studio/hosted";
 import { buildTools } from "@/lib/webmcp/tools";
 import { projectFile } from "./fixture";
 
@@ -131,5 +132,15 @@ describe("starting in the browser", () => {
     resetStudio();
     await actions.restoreWorkspace();
     expect(readProject()).toBeNull();
+  });
+});
+
+describe("an agent's browser", () => {
+  it("is told by native WebMCP or by name, and nothing else", () => {
+    expect(hostedByAgent("native", "Mozilla/5.0 Chrome/130")).toBe(true);
+    expect(hostedByAgent("fallback", "Mozilla/5.0 ChatGPT/1.2")).toBe(true);
+    expect(hostedByAgent("absent", "Mozilla/5.0 OpenAI Browser")).toBe(true);
+    expect(hostedByAgent("fallback", "Mozilla/5.0 Chrome/130 Safari/537")).toBe(false);
+    expect(hostedByAgent("absent", "Mozilla/5.0 Firefox/130")).toBe(false);
   });
 });

@@ -19,8 +19,10 @@ import {
   regrantWorkspace,
   startInBrowser,
 } from "@/lib/studio/actions";
+import { hostedByAgent } from "@/lib/studio/hosted";
 import { WORKSPACE_DIR } from "@/lib/studio/schema";
 import { useStudioStore } from "@/lib/studio/store";
+import { useWebMcp } from "./WebMcpProvider";
 
 /**
  * The setup, over the editor.
@@ -42,6 +44,10 @@ const SKILL_COMMAND = `set up ${SKILL_URL}`;
 export function SetupDialog() {
   const workspace = useStudioStore((state) => state.workspace);
   const loadError = useStudioStore((state) => state.loadError);
+  const webmcp = useWebMcp();
+  // In an agent's browser the folder picker never grants, so the folder is
+  // not offered: one way in, the one that works.
+  const hosted = hostedByAgent(webmcp.kind, typeof navigator === "undefined" ? "" : navigator.userAgent);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -124,7 +130,11 @@ export function SetupDialog() {
           <Unsupported busy={busy} onBrowser={() => void run(startInBrowser)} />
         ) : null}
 
-        {workspace.kind === "unlinked" ? (
+        {hosted && (workspace.kind === "unlinked" || workspace.kind === "needs-permission") ? (
+          <Hosted busy={busy} onBrowser={() => void run(startInBrowser)} />
+        ) : null}
+
+        {!hosted && workspace.kind === "unlinked" ? (
           <LinkPrompt
             busy={busy}
             onLink={() => void run(linkFolder)}
@@ -132,7 +142,7 @@ export function SetupDialog() {
           />
         ) : null}
 
-        {workspace.kind === "needs-permission" ? (
+        {!hosted && workspace.kind === "needs-permission" ? (
           <Regrant
             busy={busy}
             onRegrant={() => void run(regrantWorkspace)}
@@ -246,6 +256,30 @@ function BrowserOption({
         Keeps the composition in this browser instead of a folder. Your agent
         works through the page&rsquo;s tools and reads it back whole. Use this
         in ChatGPT&rsquo;s browser, Safari or Firefox.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * An agent's browser: the folder picker opens and never grants, so the
+ * folder is not offered at all, and the one way in says why.
+ */
+function Hosted({ busy, onBrowser }: { busy: boolean; onBrowser: () => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Button
+        variant="primary"
+        onClick={onBrowser}
+        loading={busy}
+        icon={<Globe size={15} strokeWidth={1.9} aria-hidden />}
+      >
+        Start in the browser
+      </Button>
+      <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
+        This browser cannot hand a folder to the page, so the composition is
+        kept in the browser. Your agent works through the page&rsquo;s tools
+        and reads it back whole. Nothing is uploaded.
       </p>
     </div>
   );

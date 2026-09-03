@@ -11,10 +11,11 @@ import { PanelInspector } from "./inspector/PanelInspector";
 /**
  * Properties of whatever is selected.
  *
- * One pane, many subjects: a clip in the timeline, the background row, and —
- * as the other sections come online — a storyboard panel or an element. The
- * selection says which; this only dispatches. Nothing here knows how to edit
- * anything.
+ * One pane, many subjects: a clip in the timeline, the background row, a
+ * storyboard panel, an element. The selection says which; this only
+ * dispatches. With nothing selected it shows the composition itself — its
+ * ground, its length, its size — because a properties pane with a sentence
+ * in it is a column of nothing, and the film is always there to edit.
  */
 export function Inspector({ file }: { file: ProjectFile }) {
   const selection = useStudioStore((state) => state.project?.selection ?? null);
@@ -43,19 +44,8 @@ export function Inspector({ file }: { file: ProjectFile }) {
       ) : element ? (
         <ElementInspector element={element} file={file} />
       ) : (
-        <Empty />
+        <CompositionInspector file={file} />
       )}
     </aside>
-  );
-}
-
-function Empty() {
-  return (
-    <div className="flex flex-1 items-center justify-center p-6">
-      <p className="text-center text-xs leading-[var(--ds-leading-body)] text-subtle">
-        Select a clip, a board, or an element to edit it — or the Background
-        row for the composition itself.
-      </p>
-    </div>
   );
 }

@@ -24,7 +24,7 @@ type Props = {
  */
 export function IconRail({ active, onChange, agentPending = false }: Props) {
   return (
-    <div className="flex w-16 shrink-0 flex-col border-r border-line-soft bg-surface">
+    <div className="flex w-[76px] shrink-0 flex-col border-r border-line-soft bg-surface">
       <nav
         aria-label="Editor sections"
         className="flex flex-1 flex-col items-center gap-0.5 py-2"
@@ -39,14 +39,14 @@ export function IconRail({ active, onChange, agentPending = false }: Props) {
               type="button"
               onClick={() => onChange(id)}
               aria-current={selected ? "page" : undefined}
-              className={`ds-focus relative flex h-13 w-14 flex-col items-center justify-center gap-1 rounded-sm transition-[background-color,color] duration-140 ease-[var(--ease-standard)] ${
+              className={`ds-focus relative flex h-13 w-[68px] flex-col items-center justify-center gap-1 rounded-sm px-1 transition-[background-color,color] duration-140 ease-[var(--ease-standard)] ${
                 selected
                   ? "bg-sunken text-ink"
                   : "text-muted hover:bg-sunken hover:text-ink"
               }`}
             >
               <Icon size={18} strokeWidth={selected ? 2 : 1.7} aria-hidden />
-              <span className="text-2xs leading-none font-medium">{label}</span>
+              <span className="text-2xs leading-none font-medium whitespace-nowrap">{label}</span>
 
               {(id === "agent" || id === "process") && agentPending ? (
                 <span

@@ -93,7 +93,7 @@ export function Timeline({ file }: { file: ProjectFile }) {
   return (
     <section
       aria-label="Timeline"
-      className="flex min-h-0 shrink-0 flex-col border-t border-line-soft bg-surface"
+      className="flex min-h-0 shrink-0 flex-col border-t border-line-soft bg-canvas"
       style={{ height: 300 }}
     >
       <TimelineToolbar file={file} />
@@ -101,7 +101,7 @@ export function Timeline({ file }: { file: ProjectFile }) {
       <div className="flex min-h-0 flex-1">
         {/* The header column does not scroll horizontally with the lanes. */}
         <div
-          className="thin-scroll shrink-0 overflow-y-auto border-r border-line-soft"
+          className="thin-scroll shrink-0 overflow-y-auto border-r border-line-soft bg-surface"
           style={{ width: HEADER_WIDTH }}
         >
           <div
@@ -272,7 +272,7 @@ function Lane({
     >
       {/* The composition's extent, so the tail past the end reads as outside. */}
       <span
-        className="absolute inset-y-0 left-0 bg-sunken/60"
+        className="absolute inset-y-0 left-0 bg-surface/50"
         style={{ width }}
         aria-hidden
       />
@@ -347,7 +347,7 @@ function BackgroundHeader() {
       onClick={() => selectBackground()}
       aria-current={selected ? "true" : undefined}
       className={`ds-focus flex w-full items-center gap-1.5 border-b border-line-soft px-2.5 text-left transition-[background-color] duration-140 ${
-        selected ? "bg-accent-soft" : "bg-sunken hover:bg-strong"
+        selected ? "bg-accent-soft" : "bg-sunken hover:bg-raised"
       }`}
       style={{ height: BACKGROUND_ROW_HEIGHT }}
     >

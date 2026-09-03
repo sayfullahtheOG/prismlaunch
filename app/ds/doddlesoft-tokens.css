@@ -10,17 +10,23 @@
   [data-theme="light"] {
     color-scheme: light;
 
-    /* Neutral material palette */
-    --ds-color-canvas: oklch(0.965 0.004 250);
-    --ds-color-surface: oklch(0.965 0.004 250);
-    --ds-color-surface-raised: oklch(0.985 0.002 250);
-    --ds-color-surface-sunken: oklch(0.925 0.006 250);
+    /*
+     * Three tones, in order of depth. The canvas is the work area — the stage
+     * and the timeline — and sits lowest. Panels, bars and the inspector are
+     * the surface, a clear step lighter, so the chrome reads as chrome without
+     * a line. Sunken is a well cut into a surface: a selected row, a field.
+     * Raised and strong are what floats above.
+     */
+    --ds-color-canvas: oklch(0.925 0.004 250);
+    --ds-color-surface: oklch(0.975 0.003 250);
+    --ds-color-surface-raised: oklch(0.995 0.002 250);
+    --ds-color-surface-sunken: oklch(0.945 0.005 250);
     --ds-color-surface-strong: oklch(1 0 0);
     --ds-color-ink: oklch(0.17 0.012 250);
     --ds-color-ink-muted: oklch(0.43 0.016 250);
     --ds-color-ink-subtle: oklch(0.52 0.014 250);
-    --ds-color-line: oklch(0.79 0.009 250);
-    --ds-color-line-soft: oklch(0.86 0.007 250);
+    --ds-color-line: oklch(0.80 0.009 250);
+    --ds-color-line-soft: oklch(0.88 0.007 250);
     --ds-color-inverse: oklch(0.99 0 0);
 
     /* Signal palette */
@@ -46,16 +52,16 @@
   [data-theme="dark"] {
     color-scheme: dark;
 
-    --ds-color-canvas: oklch(0.105 0 0);
-    --ds-color-surface: oklch(0.135 0 0);
-    --ds-color-surface-raised: oklch(0.175 0 0);
-    --ds-color-surface-sunken: oklch(0.075 0 0);
-    --ds-color-surface-strong: oklch(0.215 0 0);
+    --ds-color-canvas: oklch(0.095 0 0);
+    --ds-color-surface: oklch(0.145 0 0);
+    --ds-color-surface-raised: oklch(0.185 0 0);
+    --ds-color-surface-sunken: oklch(0.115 0 0);
+    --ds-color-surface-strong: oklch(0.225 0 0);
     --ds-color-ink: oklch(0.96 0 0);
     --ds-color-ink-muted: oklch(0.73 0 0);
     --ds-color-ink-subtle: oklch(0.63 0 0);
     --ds-color-line: oklch(0.31 0 0);
-    --ds-color-line-soft: oklch(0.245 0 0);
+    --ds-color-line-soft: oklch(0.235 0 0);
     --ds-color-inverse: oklch(0.11 0 0);
 
     --ds-color-accent: oklch(0.68 0.17 250);

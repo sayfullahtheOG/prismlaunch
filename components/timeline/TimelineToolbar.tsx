@@ -58,7 +58,7 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
   const total = file.durationInFrames / file.fps;
 
   return (
-    <div className="flex h-10 shrink-0 items-center gap-0.5 border-b border-line-soft px-2">
+    <div className="flex h-10 shrink-0 items-center gap-0.5 border-b border-line-soft bg-surface px-2">
       <IconButton
         label="Split at playhead"
         icon={<Scissors size={15} strokeWidth={1.9} />}

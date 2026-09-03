@@ -92,7 +92,7 @@ export function EditorShell() {
   }
 
   return (
-    <div className="chrome-select-none relative flex h-dvh min-h-0 flex-col bg-app">
+    <div className="chrome-select-none relative flex h-dvh min-h-0 flex-col bg-canvas">
       {/*
         `inert` takes the whole editor out of the tab order and the
         accessibility tree while the dialog is up — a screen reader should

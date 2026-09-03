@@ -198,6 +198,7 @@ export function EditorShell() {
                 <FilesPanel
                   kind={webmcp.kind}
                   toolCount={webmcp.registered}
+                  failed={webmcp.failed}
                   slug={project?.slug ?? null}
                 />
               ) : null}

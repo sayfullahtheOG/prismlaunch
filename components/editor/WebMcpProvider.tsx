@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import { registerPrismTools } from "@/lib/webmcp/register";
 import type { ContextKind } from "@/lib/webmcp/fallback";
 
-export type WebMcpState = { kind: ContextKind; registered: number };
+export type WebMcpState = {
+  kind: ContextKind;
+  registered: number;
+  /** Tools this browser refused to register, by name. */
+  failed: readonly string[];
+};
 
 /**
  * Registers the tools for the lifetime of the studio.
@@ -16,6 +21,7 @@ export function useWebMcp(): WebMcpState {
   const [state, setState] = useState<WebMcpState>({
     kind: "absent",
     registered: 0,
+    failed: [],
   });
 
   useEffect(() => {
@@ -30,7 +36,7 @@ export function useWebMcp(): WebMcpState {
         return;
       }
       teardown = result.teardown;
-      setState({ kind: result.kind, registered: result.registered });
+      setState({ kind: result.kind, registered: result.registered, failed: result.failed });
     });
 
     return () => {

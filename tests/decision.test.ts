@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as actions from "@/lib/studio/actions";
-import { middleView, reviewedStage } from "@/lib/studio/review";
+import { middleView, openingTab, reviewedStage } from "@/lib/studio/review";
 import { readProject, resetStudio, useStudioStore } from "@/lib/studio/store";
 import { buildTools } from "@/lib/webmcp/tools";
 import { resetBrowserStore } from "@/lib/workspace/browser-store";
@@ -112,6 +112,29 @@ describe("waiting for a decision", () => {
       lengthSeconds: 15,
     });
     expect(result.message).toMatch(/prism\.wait_for_decision/);
+  });
+});
+
+describe("where a film opens", () => {
+  it("lands on the process while the work is documents, the editor once it is the film", async () => {
+    expect(openingTab(readProject()!.file.process)).toBe("process");
+    expect(useStudioStore.getState().tab).toBe("process");
+
+    const process = structuredClone(readProject()!.file.process);
+    for (const stage of ["brief", "concept", "script", "storyboard"] as const) {
+      process[stage] = { ...process[stage], status: "approved" };
+    }
+    expect(openingTab(process)).toBe("editor");
+    for (const stage of [
+      "animatic",
+      "style",
+      "build",
+      "sound",
+      "polish",
+    ] as const) {
+      process[stage] = { ...process[stage], status: "approved" };
+    }
+    expect(openingTab(process)).toBe("editor");
   });
 });
 

@@ -433,7 +433,7 @@ export const WaitForDecisionInput = z.object({
     .min(1)
     .max(600)
     .optional()
-    .describe("How long to wait before returning \"still waiting\", so you can call again. Default 60."),
+    .describe("How long to wait before returning \"still waiting\", so you can call again. Default 25, kept short so the call fits any harness."),
 });
 
 export const CaptureFramesInput = z.object({

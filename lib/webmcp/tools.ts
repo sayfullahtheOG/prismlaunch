@@ -327,6 +327,16 @@ export function buildTools(): ModelContextTool[] {
     }),
 
     tool({
+      name: "prism.wait_for_decision",
+      description:
+        "Wait for the person to decide on the stage you submitted. Returns the moment they click Approve or Send back in PrismLaunch — with the decision, their note if they wrote one, and what to do next — so you never have to ask them to tell you. Call it right after every prism.submit_*. If it returns \"still waiting\" after the timeout (default 25 seconds, deliberately short so the call fits any harness), call it again; do not move on and do not resubmit. Read-only.",
+      schema: WaitForDecisionInput,
+      annotations: { readOnlyHint: true },
+      execute: (input) =>
+        waitForDecision({ stage: input.stage, timeoutSeconds: input.timeoutSeconds }),
+    }),
+
+    tool({
       name: "prism.add_track",
       description:
         "Add a layer. Visual tracks stack above the background — the first is nearest the viewer — and audio tracks sit below it for music, voiceover and effects. Clips on one track cannot overlap, so two things on screen at once means two tracks.",
@@ -766,16 +776,6 @@ export function buildTools(): ModelContextTool[] {
         }
         return setPlaying(input.play);
       },
-    }),
-
-    tool({
-      name: "prism.wait_for_decision",
-      description:
-        "Wait for the person to decide on the stage you submitted. Returns the moment they click Approve or Send back in PrismLaunch — with the decision, their note if they wrote one, and what to do next — so you never have to ask them to tell you. Call it right after every prism.submit_*. If it returns \"still waiting\" after the timeout (default 60 seconds), call it again; do not move on and do not resubmit. Read-only.",
-      schema: WaitForDecisionInput,
-      annotations: { readOnlyHint: true },
-      execute: (input) =>
-        waitForDecision({ stage: input.stage, timeoutSeconds: input.timeoutSeconds }),
     }),
 
     /*

@@ -25,6 +25,20 @@ export function reviewedStage(openStage: StageId | null, process: Process): Stag
   return openStage ?? currentStage(process);
 }
 
+/**
+ * The section a freshly opened film lands on.
+ *
+ * Until the animatic, the work is documents: the agent submits and the
+ * person reads and decides, so the Process is the place. From the animatic
+ * on, the artifact is the film itself, so the Editor is. All approved is
+ * the editor too: the film is the thing to look at.
+ */
+export function openingTab(process: Process): RailTab {
+  const stage = currentStage(process);
+  if (stage && ["brief", "concept", "script", "storyboard"].includes(stage)) return "process";
+  return "editor";
+}
+
 export function middleView(
   tab: RailTab,
   openStage: StageId | null,

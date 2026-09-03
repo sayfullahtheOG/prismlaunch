@@ -58,7 +58,8 @@ describe("the files section", () => {
   });
 
   it("opens a file, and comes back to the editor from anywhere", () => {
-    expect(useStudioStore.getState().tab).toBe("editor");
+    // A fresh film is at the brief: document work, so it lands on the process.
+    expect(useStudioStore.getState().tab).toBe("process");
     actions.openFile("compositions/vector/project.json");
     expect(useStudioStore.getState().tab).toBe("files");
     expect(useStudioStore.getState().filePath).toBe("compositions/vector/project.json");

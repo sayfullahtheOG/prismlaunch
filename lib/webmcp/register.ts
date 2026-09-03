@@ -16,6 +16,8 @@ import type { ModelContextTool, RegisterToolOptions } from "./types";
 export type RegistrationResult = {
   kind: ContextKind;
   registered: number;
+  /** Tools the browser refused to register, by name. Shown, never swallowed. */
+  failed: string[];
   teardown: () => void;
 };
 
@@ -59,15 +61,19 @@ export async function registerPrismTools(): Promise<RegistrationResult | null> {
   const tools = buildTools();
 
   let registered = 0;
+  const failed: string[] = [];
   for (const tool of tools) {
     try {
       const ok = await registerOnModelContext(tool, {
         signal: controller.signal,
       });
       if (ok) registered += 1;
+      else failed.push(tool.name);
     } catch (error) {
       // One bad tool must not take the rest down — a partial toolset is far
-      // more useful than none.
+      // more useful than none. But a refusal is a fact about this browser
+      // the person needs to see, so it is carried out, not just logged.
+      failed.push(tool.name);
       console.warn(`[prism] failed to register ${tool.name}`, error);
     }
   }
@@ -75,6 +81,7 @@ export async function registerPrismTools(): Promise<RegistrationResult | null> {
   return {
     kind: detectKind(),
     registered,
+    failed,
     teardown: () => controller.abort(),
   };
 }

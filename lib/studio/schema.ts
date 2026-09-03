@@ -863,7 +863,79 @@ export const SlugSchema = z
  * rather than what it returns.
  */
 export function toolInputJsonSchema(schema: z.ZodType): Record<string, unknown> {
-  return z.toJSONSchema(schema, { io: "input" }) as Record<string, unknown>;
+  return sanitizeJsonSchema(
+    z.toJSONSchema(schema, { io: "input" }) as Record<string, unknown>,
+  ) as Record<string, unknown>;
+}
+
+/**
+ * Keep a tool's inputSchema to the JSON Schema core every host accepts.
+ *
+ * ChatGPT's WebMCP validates schemas on registerTool and refuses ones it
+ * does not like — half this app's tools failed to register there, silently,
+ * while every one worked in Chrome and in the shim. Zod's conversion is
+ * correct JSON Schema, but correctness is not the bar; acceptance is. So:
+ * only `type`, `description`, `properties`, `required`, `items`, `enum` and
+ * `anyOf` survive. `oneOf` becomes `anyOf`, `const` becomes a one-value
+ * `enum`, and numeric and length bounds are folded into the description,
+ * where the model reads them anyway. The executor's own `.parse()` still
+ * enforces the real constraints.
+ */
+const SCHEMA_KEEP = new Set(["type", "description", "properties", "required", "items", "enum"]);
+
+export function sanitizeJsonSchema(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(sanitizeJsonSchema);
+  if (node === null || typeof node !== "object") return node;
+  const record = node as Record<string, unknown>;
+
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (!SCHEMA_KEEP.has(key)) continue;
+    if (key === "properties" && value !== null && typeof value === "object") {
+      out.properties = Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([name, child]) => [
+          name,
+          sanitizeJsonSchema(child),
+        ]),
+      );
+    } else if (key === "items") {
+      out.items = sanitizeJsonSchema(value);
+    } else {
+      out[key] = value;
+    }
+  }
+
+  const variants = record.anyOf ?? record.oneOf;
+  if (Array.isArray(variants)) out.anyOf = variants.map(sanitizeJsonSchema);
+  if ("const" in record) out.enum = [record.const];
+
+  const hints = boundsHint(record);
+  if (hints) {
+    out.description = out.description ? `${out.description} ${hints}` : hints;
+  }
+  return out;
+}
+
+/** "(3–600)" and its kin: the dropped bounds, said where the model reads. */
+function boundsHint(record: Record<string, unknown>): string | null {
+  const parts: string[] = [];
+  const min = record.minimum ?? record.exclusiveMinimum;
+  const max = record.maximum;
+  if (min !== undefined && max !== undefined) parts.push(`${min}–${max}`);
+  else if (min !== undefined) parts.push(`min ${min}`);
+  else if (max !== undefined) parts.push(`max ${max}`);
+  if (record.maxLength !== undefined) parts.push(`up to ${record.maxLength} chars`);
+  if (record.minItems !== undefined || record.maxItems !== undefined) {
+    parts.push(`${record.minItems ?? 0}–${record.maxItems ?? "many"} items`);
+  }
+  if (
+    record.default !== undefined &&
+    typeof record.description === "string" &&
+    !/default/i.test(record.description)
+  ) {
+    parts.push(`defaults to ${JSON.stringify(record.default)}`);
+  }
+  return parts.length > 0 ? `(${parts.join("; ")})` : null;
 }
 
 /**

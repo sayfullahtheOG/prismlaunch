@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { openingTab } from "./review";
 import type { ProjectEntry, Workspace } from "@/lib/workspace/fs";
 import type { FilmProject, ProjectFile, StageId } from "@/types/prism";
 
@@ -207,6 +208,11 @@ export const useStudioStore = create<StudioState>((set) => ({
       ...(project ? { loadError: null } : {}),
       // A different composition is a different history.
       ...(project?.slug !== state.project?.slug ? { history: { past: [], future: [] } } : {}),
+      // A freshly opened film lands where its work is: the process while
+      // the stages are documents, the editor once the film is the artifact.
+      ...(project && project.slug !== state.project?.slug
+        ? { tab: openingTab(project.file.process) }
+        : {}),
     })),
   pushHistory: (file) =>
     set((state) => ({

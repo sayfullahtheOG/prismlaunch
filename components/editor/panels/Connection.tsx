@@ -14,6 +14,8 @@ import { useStudioStore } from "@/lib/studio/store";
  */
 
 export type ConnectionProps = {
+  /** Tools this browser refused to register. Empty everywhere healthy. */
+  failed: readonly string[];
   /**
    * Never collapse this to a boolean. A fallback registry is invisible to
    * external agents, so reporting it as connected would claim reach the
@@ -50,7 +52,7 @@ const CONNECTION: Record<
   },
 };
 
-export function Connection({ kind, toolCount, slug }: ConnectionProps) {
+export function Connection({ kind, toolCount, slug, failed }: ConnectionProps) {
   const connection = CONNECTION[kind];
   const inBrowser = useStudioStore(
     (state) => state.workspace.kind === "linked" && state.workspace.workspace.kind === "browser",
@@ -85,6 +87,16 @@ export function Connection({ kind, toolCount, slug }: ConnectionProps) {
           </p>
         </div>
       </div>
+
+      {failed.length > 0 ? (
+        <p className="text-xs leading-[var(--ds-leading-body)] text-warning">
+          This browser refused {failed.length} tool{failed.length === 1 ? "" : "s"}:{" "}
+          <span className="font-mono text-2xs break-all">
+            {failed.map((name) => name.replace(/^prism\./, "")).join(", ")}
+          </span>
+          . Your agent cannot call these here.
+        </p>
+      ) : null}
 
       <p className="flex items-start gap-2 text-xs leading-[var(--ds-leading-body)] text-muted">
         <Lock size={12} strokeWidth={1.8} className="mt-px shrink-0 text-subtle" aria-hidden />

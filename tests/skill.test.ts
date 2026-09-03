@@ -105,6 +105,47 @@ describe("public/SKILL.md", () => {
     }
   });
 
+  /**
+   * ChatGPT's WebMCP validates inputSchema on registerTool and refuses what
+   * it does not like — silently, per tool. Half the tools vanished there
+   * once. So every schema is held to the core subset every host accepts.
+   */
+  it("keeps every tool's inputSchema to the core JSON Schema subset", async () => {
+    const { buildTools } = await import("@/lib/webmcp/tools");
+    const ALLOWED = new Set(["type", "description", "properties", "required", "items", "enum", "anyOf"]);
+    for (const tool of buildTools()) {
+      const check = (node: unknown, path: string): void => {
+        if (Array.isArray(node)) {
+          node.forEach((child, index) => check(child, `${path}[${index}]`));
+          return;
+        }
+        if (node === null || typeof node !== "object") return;
+        for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+          expect(ALLOWED.has(key), `${tool.name} ${path}.${key}`).toBe(true);
+          if (key === "properties") {
+            for (const [name, child] of Object.entries(value as Record<string, unknown>)) {
+              check(child, `${path}.${name}`);
+            }
+          } else if (key === "items" || key === "anyOf") {
+            check(value, `${path}.${key}`);
+          }
+        }
+      };
+      check(tool.inputSchema ?? {}, tool.name);
+    }
+  });
+
+  it("folds the dropped bounds into descriptions, where the model reads them", async () => {
+    const { buildTools } = await import("@/lib/webmcp/tools");
+    const wait = buildTools().find((tool) => tool.name === "prism.wait_for_decision")!;
+    const timeout = (wait.inputSchema as { properties: Record<string, { description?: string }> })
+      .properties.timeoutSeconds;
+    expect(timeout.description).toMatch(/1–600/);
+    const background = buildTools().find((tool) => tool.name === "prism.set_background")!;
+    expect(JSON.stringify(background.inputSchema)).toContain("anyOf");
+    expect(JSON.stringify(background.inputSchema)).not.toContain("oneOf");
+  });
+
   it("states the approval boundary rather than leaving it implicit", () => {
     expect(SKILL).toMatch(/cannot accept your own work/i);
     expect(SKILL).toMatch(/always write `?draft`?/i);

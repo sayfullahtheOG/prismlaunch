@@ -505,10 +505,12 @@ Every stage you submit opens for the person at reading size in PrismLaunch,
 with Approve and Send back at the end of it. You are not told about the
 decision unless you ask, so ask the way that waits: call `prism.wait_for_decision` right
 after `prism.submit_*`. It holds until they click, then returns the decision,
-their note if they wrote one, and the instruction for the next stage. If it
-returns "still waiting" after its timeout, call it again. Do not move on
-without it, do not resubmit while it is waiting, and do not ask the person to
-tell you in chat what the tool will tell you itself.
+their note if they wrote one, and the instruction for the next stage. Its
+default timeout is 25 seconds, short on purpose so the call fits any
+harness; if it returns "still waiting", call it again, and keep calling
+until it answers. Do not move on without it, do not resubmit while it is
+waiting, and do not ask the person to tell you in chat what the tool will
+tell you itself.
 
 ## Working with the person
 

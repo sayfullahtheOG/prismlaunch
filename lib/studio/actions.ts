@@ -2243,7 +2243,9 @@ export function waitForDecision(input: {
     );
   }
 
-  const timeoutMs = Math.min(600, Math.max(1, input.timeoutSeconds ?? 60)) * 1000;
+  // 25 by default, not 60: an agent harness may cut a long tool call off,
+  // and a short wait that says "call again" survives every host.
+  const timeoutMs = Math.min(600, Math.max(1, input.timeoutSeconds ?? 25)) * 1000;
 
   return new Promise((resolve) => {
     let done = false;

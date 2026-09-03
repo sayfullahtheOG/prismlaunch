@@ -4,7 +4,9 @@ import { AudioLines, Check, MousePointer2, Music, Play, Plus, Square } from "luc
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createElement } from "@/lib/studio/actions";
 import { libraryUrl } from "@/lib/studio/files";
-import { LIBRARY, LIBRARY_GROUPS, type LibraryItem } from "@/lib/studio/library";
+import { isAnimated, LIBRARY, LIBRARY_GROUPS, previewFrames, type LibraryItem } from "@/lib/studio/library";
+import { Words } from "@/remotion/Film";
+import { clipStyle, motionState } from "@/remotion/motion";
 import type { ElementDraft, ProjectFile } from "@/types/prism";
 import { PanelShell } from "./PanelShell";
 
@@ -203,22 +205,69 @@ const FAMILY: Record<"display" | "body" | "mono", string> = {
   mono: "var(--ds-font-mono)",
 };
 
+const PREVIEW_FPS = 30;
+/** Frames the last state holds before the loop starts again. */
+const HOLD = 20;
+
+type VisualDraft = Extract<ElementDraft, { kind: "text" | "shape" | "image" | "video" }>;
+
+/**
+ * A clock for a piece that moves: the frame to draw, looping over the
+ * piece's own length with a beat of rest at the end. One animation-frame
+ * request per moving tile and none for a still one; someone who asked
+ * their system for less motion gets the piece where it ends up.
+ */
+function useLoop(active: boolean, frames: number): number {
+  const [frame, setFrame] = useState(0);
+
+  useEffect(() => {
+    if (!active) return;
+    let request = 0;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      request = requestAnimationFrame(() => setFrame(frames - 1));
+      return () => cancelAnimationFrame(request);
+    }
+    const start = performance.now();
+    let last = -1;
+    const tick = (now: number) => {
+      const elapsed = Math.floor(((now - start) / 1000) * PREVIEW_FPS) % (frames + HOLD);
+      const next = Math.min(elapsed, frames - 1);
+      if (next !== last) {
+        last = next;
+        setFrame(next);
+      }
+      request = requestAnimationFrame(tick);
+    };
+    request = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(request);
+  }, [active, frames]);
+
+  return frame;
+}
+
 /**
  * The piece on the film's dark ground, in the film's proportions. Type
  * shows its face, weight and colour at a size scaled from the element's;
  * a shape shows its form at the size its box gives it, with a floor so a
- * hairline rule is still visible.
+ * hairline rule is still visible. A piece that moves is played, not
+ * pictured: the same frame functions the film uses, on a loop.
  */
 function Preview({ draft, large = false }: { draft: ElementDraft; large?: boolean }) {
   const width = large ? 236 : 128;
   const height = Math.round((width * 9) / 16);
+  const animated = isAnimated(draft);
+  const frames = previewFrames(draft);
+  const frame = useLoop(animated, frames);
+
   return (
     <span
       className="relative block w-full overflow-hidden rounded-xs bg-[#0A0A0C] shadow-[inset_0_0_0_1px_var(--ds-color-line-soft)]"
       style={{ aspectRatio: "16 / 9" }}
       aria-hidden
     >
-      {draft.kind === "text" ? (
+      {animated && "motion" in draft ? (
+        <Playing draft={draft} frame={frame} frames={frames} width={width} height={height} />
+      ) : draft.kind === "text" ? (
         <span
           className="absolute inset-0 flex items-center justify-center px-2 leading-none"
           style={{
@@ -232,7 +281,7 @@ function Preview({ draft, large = false }: { draft: ElementDraft; large?: boolea
             letterSpacing: `${draft.letterSpacing}em`,
           }}
         >
-          {draft.reveal === "type" ? "Ab|" : draft.reveal === "count" ? "42" : "Aa"}
+          Aa
         </span>
       ) : draft.kind === "image" ? (
         <span className="absolute inset-0 flex items-center justify-center text-[#F5F5F7]">
@@ -264,6 +313,127 @@ function Preview({ draft, large = false }: { draft: ElementDraft; large?: boolea
         />
       ) : null}
     </span>
+  );
+}
+
+/**
+ * A moving piece at one frame, drawn with what the film draws it with:
+ * the enter and exit from `clipStyle`, the move from `motionState`, the
+ * words from `Words`. Positions are the box's own, so a move reads at the
+ * scale it will have; sizes have floors, because a cursor three percent
+ * of a 128-pixel tile is four pixels. Type is a swatch at a legible size
+ * rather than a rendering of the frame, as it is on a still tile.
+ */
+function Playing({
+  draft,
+  frame,
+  frames,
+  width,
+  height,
+}: {
+  draft: VisualDraft;
+  frame: number;
+  frames: number;
+  width: number;
+  height: number;
+}) {
+  const style = clipStyle(draft.animation, draft.box, frame, frames, PREVIEW_FPS);
+  const move = motionState(draft.motion, frame, frames);
+  const transform = [
+    "translate(-50%, -50%)",
+    style.transform,
+    move.scale !== 1 ? `scale(${move.scale})` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const placed: React.CSSProperties = {
+    position: "absolute",
+    left: `${(draft.box.x + move.dx) * 100}%`,
+    top: `${(draft.box.y + move.dy) * 100}%`,
+    transform,
+    opacity: style.opacity,
+    ...(style.filter ? { filter: style.filter } : {}),
+  };
+
+  if (draft.kind === "text") {
+    return (
+      <span
+        style={{
+          ...placed,
+          left: "50%",
+          top: "50%",
+          width: "88%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent:
+            draft.align === "left" ? "flex-start" : draft.align === "right" ? "flex-end" : "center",
+          textAlign: draft.align,
+          fontFamily: FAMILY[draft.fontFamily],
+          fontWeight: draft.fontWeight,
+          color: draft.color,
+          fontSize: Math.max(11, draft.fontSize * height * 2.4),
+          lineHeight: 1.15,
+          letterSpacing: `${draft.letterSpacing}em`,
+          whiteSpace: "pre-wrap",
+          overflowWrap: "anywhere",
+        }}
+      >
+        <span>
+          <Words
+            clip={{
+              text: draft.text ?? "Aa",
+              reveal: draft.reveal,
+              revealFrames: draft.revealFrames,
+              caret: draft.caret,
+            }}
+            frame={frame}
+            fps={PREVIEW_FPS}
+          />
+        </span>
+      </span>
+    );
+  }
+
+  if (draft.kind === "shape") {
+    const w = Math.max(6, draft.box.width * width);
+    const h = Math.max(6, draft.box.height * height);
+    return (
+      <span
+        style={{
+          ...placed,
+          width: w,
+          height: h,
+          background: draft.fill,
+          borderRadius: draft.shape === "ellipse" ? "999px" : `${draft.radius * Math.min(w, h)}px`,
+        }}
+      />
+    );
+  }
+
+  // An image or a video: the cursor, as its icon, and the spot it is
+  // heading for, so the glide and the click have somewhere to land.
+  const heading = draft.motion.x !== 0 || draft.motion.y !== 0;
+  return (
+    <>
+      {heading ? (
+        <span
+          style={{
+            position: "absolute",
+            left: `${(draft.box.x + draft.motion.x) * 100}%`,
+            top: `${(draft.box.y + draft.motion.y) * 100}%`,
+            transform: "translate(-28%, -28%)",
+            width: Math.round(width * 0.17),
+            height: Math.round(height * 0.12),
+            borderRadius: 999,
+            background: "#F5F5F7",
+            opacity: 0.22,
+          }}
+        />
+      ) : null}
+      <span style={{ ...placed, display: "block", lineHeight: 0, color: "#F5F5F7" }}>
+        <MousePointer2 size={Math.max(Math.round(width * 0.11), draft.box.width * width * 1.4)} strokeWidth={1.6} />
+      </span>
+    </>
   );
 }
 

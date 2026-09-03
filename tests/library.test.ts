@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as actions from "@/lib/studio/actions";
-import { LIBRARY, LIBRARY_GROUPS } from "@/lib/studio/library";
+import { isAnimated, LIBRARY, LIBRARY_GROUPS, previewFrames } from "@/lib/studio/library";
 import { readProject, resetStudio } from "@/lib/studio/store";
 import { resetBrowserStore } from "@/lib/workspace/browser-store";
 
@@ -41,6 +41,17 @@ describe("the library", () => {
     expect(elements.filter((element) => element.kind === "text").length).toBe(
       LIBRARY.filter((item) => item.draft.kind === "text").length,
     );
+  });
+
+  it("knows which pieces move, and how long a preview of each should play", () => {
+    for (const item of LIBRARY) {
+      expect(isAnimated(item.draft), item.id).toBe(item.group === "Motion");
+      expect(previewFrames(item.draft), item.id).toBeGreaterThanOrEqual(30);
+    }
+    const typed = LIBRARY.find((item) => item.id === "typewriter")!.draft;
+    expect(typed.kind === "text" && previewFrames(typed) > typed.revealFrames).toBe(true);
+    const cursor = LIBRARY.find((item) => item.id === "cursor")!.draft;
+    expect("motion" in cursor && previewFrames(cursor) > cursor.motion.delay + cursor.motion.frames).toBe(true);
   });
 
   it("ships every sound it lists, from the site itself", () => {

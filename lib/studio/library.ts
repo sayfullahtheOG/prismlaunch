@@ -379,3 +379,28 @@ export const LIBRARY: readonly LibraryItem[] = [
 ];
 
 export const LIBRARY_GROUPS = ["Type", "Shapes", "Motion", "Sound", "Music"] as const;
+
+/** Whether a piece does anything over time: a move, a reveal, or an enter and exit. */
+export function isAnimated(draft: ElementDraft): boolean {
+  if (!("motion" in draft)) return false;
+  const { motion, animation } = draft;
+  if (motion.x !== 0 || motion.y !== 0 || motion.scale !== 1 || motion.press) return true;
+  if (draft.kind === "text" && draft.reveal !== "none") return true;
+  return animation.enter !== "none" || animation.exit !== "none";
+}
+
+/**
+ * How long a preview of a piece runs, in frames at 30 a second: its move
+ * or its reveal, whichever is longer, then a beat to see where it landed.
+ * A move that runs "for the whole clip" is given a short clip.
+ */
+export function previewFrames(draft: ElementDraft): number {
+  if (!("motion" in draft)) return 30;
+  const { motion, animation } = draft;
+  let end = animation.enterFrames;
+  if (motion.x !== 0 || motion.y !== 0 || motion.scale !== 1 || motion.press) {
+    end = Math.max(end, motion.delay + (motion.frames || 24) + (motion.press ? 8 : 0));
+  }
+  if (draft.kind === "text" && draft.reveal !== "none") end = Math.max(end, draft.revealFrames);
+  return Math.max(30, end + 12);
+}

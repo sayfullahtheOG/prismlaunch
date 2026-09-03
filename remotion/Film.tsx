@@ -212,8 +212,17 @@ function TextBody({ clip }: { clip: TextClip }) {
  * `words` lays every word out from the first frame and fades each in where
  * it already is, so the line never reflows as it arrives. The caret is a
  * block of the text's own colour, an em tall, after whatever is showing.
+ * Shared with the Library's tiles, so a preview types what the film types.
  */
-function Words({ clip, frame, fps }: { clip: TextClip; frame: number; fps: number }) {
+export function Words({
+  clip,
+  frame,
+  fps,
+}: {
+  clip: Pick<TextClip, "text" | "reveal" | "revealFrames" | "caret">;
+  frame: number;
+  fps: number;
+}) {
   const progress = revealProgress(frame, clip.revealFrames);
   const typing = clip.reveal === "type" && progress < 1;
   const caret = clip.caret ? <Caret visible={caretVisible(frame, fps, typing)} /> : null;

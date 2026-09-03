@@ -48,6 +48,7 @@ const GROUP_OF: Record<Element["kind"], Group> = {
   image: "Media",
   video: "Media",
   device: "Media",
+  html: "Media",
   audio: "Sound",
 };
 

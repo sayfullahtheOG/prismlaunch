@@ -4,6 +4,7 @@ import { useRef } from "react";
 import {
   AudioLines,
   Image as ImageIcon,
+  LayoutTemplate,
   Smartphone,
   Sparkle,
   Sparkles,
@@ -67,6 +68,7 @@ const ICONS: Record<ClipKind, typeof Type> = {
   icon: Star,
   particles: Sparkle,
   device: Smartphone,
+  html: LayoutTemplate,
   audio: AudioLines,
 };
 
@@ -270,6 +272,8 @@ function label(clip: Clip): string {
       return clip.style;
     case "device":
       return clip.src ? clip.src.split("/").pop() ?? clip.device : clip.device;
+    case "html":
+      return "component";
     case "image":
     case "video":
     case "audio":

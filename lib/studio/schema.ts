@@ -497,6 +497,28 @@ export const AudioClipSchema = z.object({
   playbackRate: z.number().min(0.25).max(4).default(1),
 });
 
+/**
+ * A piece of the product's own interface, rebuilt from its source.
+ *
+ * An agent with file tools reads the real component — its markup, its
+ * tokens, its copy — and writes it back as one self-contained snippet:
+ * markup with an inline `<style>`, no scripts, no external files. The
+ * renderer scales it so `width` CSS pixels fill the box, and drives its
+ * liveness frame by frame through data attributes (`data-in`, `data-out`,
+ * `data-press`, `data-lift`, `data-count`, `data-type`), so the export
+ * shows exactly what the preview did. This is how the product appears in
+ * the film as itself rather than as a screenshot.
+ */
+export const MAX_HTML_LENGTH = 24_000;
+
+export const HtmlClipSchema = z.object({
+  ...VisualBase,
+  kind: z.literal("html"),
+  html: z.string().min(1).max(MAX_HTML_LENGTH),
+  /** The width the snippet was written for, in CSS px. It is scaled so that width fills the box. */
+  width: z.number().int().min(64).max(4096).default(800),
+});
+
 export const VisualClipSchema = z.discriminatedUnion("kind", [
   TextClipSchema,
   ShapeClipSchema,
@@ -505,6 +527,7 @@ export const VisualClipSchema = z.discriminatedUnion("kind", [
   IconClipSchema,
   ParticlesClipSchema,
   DeviceClipSchema,
+  HtmlClipSchema,
 ]);
 
 export const ClipSchema = z.discriminatedUnion("kind", [
@@ -515,10 +538,11 @@ export const ClipSchema = z.discriminatedUnion("kind", [
   IconClipSchema,
   ParticlesClipSchema,
   DeviceClipSchema,
+  HtmlClipSchema,
   AudioClipSchema,
 ]);
 
-export const VISUAL_CLIP_KINDS = ["text", "shape", "image", "video", "icon", "particles", "device"] as const;
+export const VISUAL_CLIP_KINDS = ["text", "shape", "image", "video", "icon", "particles", "device", "html"] as const;
 export const AUDIO_CLIP_KINDS = ["audio"] as const;
 
 // ---------------------------------------------------------------------------
@@ -599,6 +623,7 @@ export const VideoElementSchema = VideoClipSchema.omit(PLACEMENT).extend(Element
 export const IconElementSchema = IconClipSchema.omit(PLACEMENT).extend(ElementBase);
 export const ParticlesElementSchema = ParticlesClipSchema.omit(PLACEMENT).extend(ElementBase);
 export const DeviceElementSchema = DeviceClipSchema.omit(PLACEMENT).extend(ElementBase);
+export const HtmlElementSchema = HtmlClipSchema.omit(PLACEMENT).extend(ElementBase);
 export const AudioElementSchema = AudioClipSchema.omit(PLACEMENT).extend(ElementBase);
 
 export const ElementSchema = z.discriminatedUnion("kind", [
@@ -609,10 +634,11 @@ export const ElementSchema = z.discriminatedUnion("kind", [
   IconElementSchema,
   ParticlesElementSchema,
   DeviceElementSchema,
+  HtmlElementSchema,
   AudioElementSchema,
 ]);
 
-export const ELEMENT_KINDS = ["text", "shape", "image", "video", "icon", "particles", "device", "audio"] as const;
+export const ELEMENT_KINDS = ["text", "shape", "image", "video", "icon", "particles", "device", "html", "audio"] as const;
 
 // ---------------------------------------------------------------------------
 // Tracks

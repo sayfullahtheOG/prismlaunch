@@ -205,6 +205,8 @@ function clipWords(clip: Clip): string {
       return clip.style;
     case "device":
       return clip.src ? clip.src.split("/").pop() ?? clip.device : clip.device;
+    case "html":
+      return "component";
     default:
       return clip.src.split("/").pop() ?? clip.kind;
   }

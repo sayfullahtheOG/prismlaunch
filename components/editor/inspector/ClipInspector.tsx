@@ -9,6 +9,7 @@ import {
   AnimationFields,
   DepthFields,
   DeviceFields,
+  HtmlFields,
   IconFields,
   MotionFields,
   ParticlesFields,
@@ -117,6 +118,7 @@ export function ClipInspector({
         {clip.kind === "icon" ? <IconFields value={clip} set={set} /> : null}
         {clip.kind === "particles" ? <ParticlesFields value={clip} set={set} /> : null}
         {clip.kind === "device" ? <DeviceFields value={clip} set={set} /> : null}
+        {clip.kind === "html" ? <HtmlFields value={clip} set={set} /> : null}
         {clip.kind === "audio" ? <AudioFields value={clip} set={set} /> : null}
 
         <Row>

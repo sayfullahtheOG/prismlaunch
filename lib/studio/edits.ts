@@ -633,13 +633,19 @@ export function trimToContent(file: ProjectFile): ProjectFile {
 /** Every asset path the composition refers to — clips and elements — deduplicated. */
 export function referencedAssets(file: ProjectFile): string[] {
   const paths = new Set<string>();
+  // A component's markup refers to files by the same `assets/` paths.
+  const inMarkup = (html: string) => {
+    for (const match of html.matchAll(/assets\/[A-Za-z0-9._/-]+/g)) paths.add(match[0]);
+  };
   for (const track of file.tracks) {
     for (const clip of track.clips) {
       if ("src" in clip && typeof clip.src === "string") paths.add(clip.src);
+      if (clip.kind === "html") inMarkup(clip.html);
     }
   }
   for (const element of file.elements) {
     if ("src" in element && typeof element.src === "string") paths.add(element.src);
+    if (element.kind === "html") inMarkup(element.html);
   }
   return [...paths];
 }

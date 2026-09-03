@@ -165,6 +165,7 @@ describe("the library's motion pieces", () => {
       "sparkle-trail",
       "confetti",
       "sparkles",
+      "live-card",
       "highlight",
     ]);
     for (const item of LIBRARY) {

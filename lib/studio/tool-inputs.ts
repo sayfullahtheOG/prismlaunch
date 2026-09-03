@@ -8,6 +8,7 @@ import {
   CameraMoveSchema,
   DeviceClipSchema,
   ELEMENT_KINDS,
+  HtmlClipSchema,
   IconClipSchema,
   ImageClipSchema,
   MAX_CAMERA_MOVES,
@@ -296,6 +297,21 @@ export const AddDeviceInput = z.object({
   radius: loose(DeviceClipSchema.shape.radius).describe("Corner radius as a fraction of the shorter side. Default 0.06; a phone wants ~0.14."),
 });
 
+const htmlFields = {
+  html: HtmlClipSchema.shape.html.describe(
+    "One self-contained snippet: markup with an inline <style>. No scripts, no external files; images by their assets/ path. Fonts: var(--font-body), var(--font-display), var(--font-mono). Bring it alive with data-in=\"12\" (arrives at frame 12; add rise, fade or blur after the frame for the style, pop is the default), data-out=\"80\", data-press=\"40\" (a click), data-lift=\"30\" (a hover), data-count=\"12\" (its number counts up over 30 frames), data-type=\"12\" (its text types); var(--frame) is the current frame for your own CSS.",
+  ),
+  width: loose(HtmlClipSchema.shape.width).describe(
+    "The width the snippet was written for, in CSS px; it is scaled so that width fills the box. Default 800.",
+  ),
+};
+
+export const AddHtmlInput = z.object({
+  ...timing,
+  ...visualExtras,
+  ...htmlFields,
+});
+
 export const SetCameraInput = z.object({
   moves: z
     .array(
@@ -412,6 +428,8 @@ export const UpdateClipInput = z.object({
   device: deviceFields.device.describe("device: phone, browser, window, card."),
   screen: deviceFields.screen.describe("device: the screen colour."),
   frame: deviceFields.frame.describe("device: the bezel colour."),
+  html: loose(HtmlClipSchema.shape.html).describe("html: the snippet. See add_html."),
+  width: htmlFields.width.describe("html: the width the snippet was written for, in px."),
 });
 
 export const RemoveClipInput = z.object({
@@ -501,6 +519,8 @@ const elementFields = {
   device: deviceFields.device.describe("device only. phone, browser, window, card."),
   screen: deviceFields.screen.describe("device only."),
   frame: deviceFields.frame.describe("device only."),
+  html: loose(HtmlClipSchema.shape.html).describe("html only. The snippet — see add_html for the data attributes that make it move."),
+  width: htmlFields.width.describe("html only. The width the snippet was written for, in px."),
   // visual
   box: patchOf(BoxSchema)
     .optional()
@@ -519,7 +539,7 @@ const elementFields = {
 export const AddElementInput = z.object({
   kind: z
     .enum(ELEMENT_KINDS)
-    .describe("text: a type style. shape: a rule, a block, a dot, a gradient bar. image or video: a file in the project folder. icon: a check, an arrow, a sparkle. particles: confetti, a burst, sparkles. device: a phone, browser, window or card around a screenshot. audio: a file for an audio track."),
+    .describe("text: a type style. shape: a rule, a block, a dot, a gradient bar. image or video: a file in the project folder. icon: a check, an arrow, a sparkle. particles: confetti, a burst, sparkles. device: a phone, browser, window or card around a screenshot. html: a component of the product rebuilt from its source, alive frame by frame. audio: a file for an audio track."),
   ...elementIdentity,
   ...elementFields,
 });
@@ -540,7 +560,7 @@ export const AddFromLibraryInput = z.object({
   itemId: z
     .enum(LIBRARY.map((item) => item.id) as [string, ...string[]])
     .describe(
-      "Which prebuilt piece. Motion: cursor, hand-cursor, tap-ring, typewriter, word-by-word, kinetic-line, counter, progress-bar, check, sparkle-trail, confetti, sparkles, highlight. Type: headline, support, label, blank-type. Shapes: accent-rule, device, phone, browser, window, card, pill, button, gradient-bar, dot, panel, blank-shape. Sound: sfx-whoosh, sfx-click, sfx-tick, sfx-impact, sfx-rise. Music: bed-calm, bed-upbeat, bed-cinematic.",
+      "Which prebuilt piece. Motion: cursor, hand-cursor, tap-ring, typewriter, word-by-word, kinetic-line, counter, progress-bar, check, sparkle-trail, confetti, sparkles, live-card, highlight. Type: headline, support, label, blank-type. Shapes: accent-rule, device, phone, browser, window, card, pill, button, gradient-bar, dot, panel, blank-shape. Sound: sfx-whoosh, sfx-click, sfx-tick, sfx-impact, sfx-rise. Music: bed-calm, bed-upbeat, bed-cinematic.",
     ),
   name: z
     .string()

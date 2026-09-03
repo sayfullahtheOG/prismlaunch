@@ -8,6 +8,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { FONT_STACK, VARIABLE_WEIGHT } from "./fonts";
+import { liveHtml, sanitizeHtml } from "./html";
 import { drawProgress, ICON_PATHS } from "./icons";
 import {
   boxStyle,
@@ -33,6 +34,7 @@ import type {
   Background,
   Clip,
   DeviceClip,
+  HtmlClip,
   IconClip,
   ImageClip,
   ParticlesClip,
@@ -306,8 +308,42 @@ function Placed({
       {clip.kind === "icon" ? <IconBody clip={clip} /> : null}
       {clip.kind === "particles" ? <ParticlesBody clip={clip} /> : null}
       {clip.kind === "device" ? <DeviceBody clip={clip} assets={assets} /> : null}
+      {clip.kind === "html" ? <HtmlBody clip={clip} assets={assets} /> : null}
     </div>
   );
+}
+
+/**
+ * A component from the product, scaled to the box.
+ *
+ * The snippet is laid out at the width it was written for and scaled so
+ * that width fills the box, anchored at the top-left; its height is its
+ * own. The film's three faces are handed in as CSS variables, and the
+ * frame as `--frame`, so the snippet can be set in the product's type and
+ * move with the film. Everything in it has already been through
+ * `sanitizeHtml` and `liveHtml`.
+ */
+function HtmlBody({ clip, assets }: { clip: HtmlClip; assets: AssetMap }) {
+  const frame = useCurrentFrame();
+  const { width } = useVideoConfig();
+  const scale = (clip.box.width * width) / clip.width;
+  const markup = liveHtml(sanitizeHtml(clip.html), frame, assets);
+  const style = {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: clip.width,
+    transform: `scale(${scale})`,
+    transformOrigin: "0 0",
+    fontFamily: FONT_STACK.body,
+    color: "#111114",
+    lineHeight: 1.3,
+    "--frame": String(frame),
+    "--font-display": FONT_STACK.display,
+    "--font-body": FONT_STACK.body,
+    "--font-mono": FONT_STACK.mono,
+  } as React.CSSProperties;
+  return <div style={style} dangerouslySetInnerHTML={{ __html: markup }} />;
 }
 
 /** The colour a glow takes: the thing's own. */
@@ -860,6 +896,8 @@ export function clipSummary(clip: Clip): string {
       return clip.style;
     case "device":
       return clip.src ? clip.src.split("/").pop() ?? clip.device : clip.device;
+    case "html":
+      return "component";
     case "image":
     case "video":
     case "audio":

@@ -86,7 +86,12 @@ the star in the logo. Every cut is crossed by something already in flight.
   at least half the time, tilted 8–25° with `shadow` 0.4–0.6, flying in with
   `travel` 0.25–0.35 and `spring` 0.3–0.4, then drifting 0.02–0.04 of the
   canvas over the whole beat. A product film without the product is text on a
-  gradient. Get the assets at the brief (§5).
+  gradient. Get the assets at the brief (§5). When you can read the codebase,
+  go further: rebuild the product's own components — the pricing card, the
+  command palette, the row with the button — as `html` clips from their
+  source, with the real copy and tokens, and make them move: `data-in` on
+  each row 4–6f apart, `data-press` on the button as the cursor lands
+  (SKILL.md, *Components from the codebase*).
 - **The cursor is the narrator.** Interactions are shown, not described: a
   hand glides in over 12–20f, presses, and the thing pressed answers on the
   next frame — the card lifts to 1.04, the button turns the accent colour,

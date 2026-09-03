@@ -540,6 +540,59 @@ pushes into a region; 0.8 pulls back with the edges showing.
 moves in a film, never faster than 15 frames, and the thing being pushed
 into holds still while the camera moves.
 
+### Components from the codebase
+
+The best thing you can put on screen is the product itself, as itself. When
+the person has linked their repository and you have file tools, do not
+settle for a screenshot: find the component the film is about — the pricing
+card, the command palette, the row with the button, the empty state — and
+rebuild it as an `html` clip.
+
+1. **Find it.** Search the codebase for the feature's name; read the
+   component (JSX, Svelte, Vue, templates all read the same for this), the
+   styles it uses, and the design tokens or Tailwind config behind them.
+   Note the real copy, the real colours, radii, spacing and font sizes.
+2. **Rebuild it as one snippet.** Markup plus one inline `<style>`, written
+   for a fixed `width` in CSS px (its natural width, say 520). Resolve every
+   token to a literal value. No scripts, no framework, no external files:
+   the renderer strips them. Images by their `assets/` path; icons as inline
+   SVG. Fonts through `var(--font-body)`, `var(--font-display)` and
+   `var(--font-mono)`, which are the film's three faces. Keep it under 24 KB.
+3. **Make it alive.** The renderer drives a few attributes frame by frame,
+   so the export moves exactly as the preview does:
+
+   | Attribute | What it does |
+   | --- | --- |
+   | `data-in="12"` | Arrives at clip frame 12 with a pop over 6 frames. `"12 rise"`, `"12 fade"`, `"12 blur"` for the other styles. |
+   | `data-out="80"` | Leaves at frame 80 over 5 frames. |
+   | `data-press="40"` | Dips once at frame 40 — a click. Put it on the button, timed to the cursor's arrival. |
+   | `data-lift="30"` | Lifts with a shadow from frame 30 — a hover. |
+   | `data-count="12"` | The number in its text counts up from frame 12 over 30 frames, keeping its commas. |
+   | `data-type="12"` | Its text types from frame 12, two frames a character. |
+
+   Stagger the rows 4–6 frames apart; press the button when the cursor gets
+   there; count the number that matters. `var(--frame)` is the current
+   frame if your own CSS wants it: `opacity: clamp(0, calc((var(--frame) - 12) / 6), 1)`.
+4. **Place it like any clip.** `prism.add_html` (or `prism.add_element` with
+   `kind: "html"`, then place it). Give the box the snippet's aspect — it is
+   scaled to the box's width and anchored at the top-left. Then the usual:
+   `pop` or `scale` in with `spring` 0.25, a little `tiltY`, `shadow` 0.3,
+   a slow drift, and a hand cursor arriving to press it.
+
+```
+{
+  "kind": "html", "width": 520,
+  "html": "<style>.card{width:520px;padding:22px;border-radius:18px;background:#FFF;font-family:var(--font-body)} .row{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid #EEE}</style><div class=\"card\"><h3 data-in=\"0\">Library</h3><div class=\"row\" data-in=\"8 rise\"><span>History lecture</span><b data-count=\"8\">1,200</b></div><div class=\"btn\" data-in=\"16\" data-press=\"40\">Distribute</div></div>",
+  "box": { "x": 0.5, "y": 0.5, "width": 0.3, "height": 0.4, "tiltY": -8 },
+  "animation": { "enter": "scale", "enterFrames": 10, "spring": 0.25, "exit": "fade", "exitFrames": 8 },
+  "shadow": 0.3
+}
+```
+
+The Motion section's *Live component* piece is a worked example; replace its
+markup with the product's own. Never invent a component the product does not
+have — the point is that it is real.
+
 ### Fonts
 
 `display` (Instrument Serif), `body` (Inter), `mono` (JetBrains Mono).
@@ -602,6 +655,7 @@ rather than crashing the render. It is still a hole, so check.
 | `prism.add_icon` | One of the studio's icons: a check that draws itself on, a sparkle, a cursor. |
 | `prism.add_particles` | Confetti, a burst, sparkles or dust rising. The box is the emitter. |
 | `prism.add_device` | A phone, browser, window or card frame around a screenshot. |
+| `prism.add_html` | A component of the product rebuilt from its source as one snippet of markup, alive frame by frame through `data-in`, `data-press`, `data-count` and friends. See *Components from the codebase*. |
 | `prism.add_audio` | Music, voiceover or an effect. |
 | `prism.update_clip` | Change one clip. Send only what you are changing; every field above is accepted. |
 | `prism.remove_clip` | Delete a clip. |

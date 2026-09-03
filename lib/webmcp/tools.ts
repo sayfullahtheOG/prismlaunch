@@ -46,6 +46,7 @@ import {
   AddDeviceInput,
   AddElementInput,
   AddFromLibraryInput,
+  AddHtmlInput,
   AddIconInput,
   AddImageInput,
   AddParticlesInput,
@@ -494,6 +495,28 @@ export function buildTools(): ModelContextTool[] {
     }),
 
     tool({
+      name: "prism.add_html",
+      description:
+        "Put a piece of the product's own interface on screen, rebuilt from its source: one self-contained snippet of markup with an inline <style>, written for `width` CSS pixels and scaled so that width fills the box (anchored at the box's top-left; give the box the snippet's aspect). No scripts, no external files; images by their assets/ path. When you have file tools, read the real component and its tokens first — the copy, the colours, the radii — so the product appears as itself. Bring it alive with data attributes the renderer drives frame by frame: data-in=\"12\" (arrives at frame 12 with a pop; \"12 rise\", \"12 fade\", \"12 blur\" for the other styles), data-out=\"80\", data-press=\"40\" (a click), data-lift=\"30\" (a hover), data-count=\"12\" (its number counts up), data-type=\"12\" (its text types). Stagger rows 4–6 frames apart; press the button when the cursor arrives. Then treat it like any clip: pop or scale it in with a little spring, tilt it, float it, drift it.",
+      schema: AddHtmlInput,
+      execute: (input) =>
+        createClip(
+          input.trackId,
+          defined({
+            kind: "html",
+            from: input.from,
+            durationInFrames: input.durationInFrames,
+            html: input.html,
+            width: input.width ?? 800,
+            label: input.label,
+            ...visual(input),
+          }) as Omit<Clip, "id">,
+          "agent",
+          input.note,
+        ),
+    }),
+
+    tool({
       name: "prism.add_device",
       description:
         "Add a device around a screenshot: a phone with a bezel and an island, a browser with three dots in its bar, a frameless window with a hairline, or a white card. `src` is the screenshot in the project folder; without it the screen is a colour. Tilt it with `box.tiltX`/`tiltY`, float it with `shadow`, fly it in with `animation.travel` and `spring`, and drift it with `motion`.",
@@ -685,6 +708,23 @@ export function buildTools(): ModelContextTool[] {
               ...depth,
             };
             break;
+          case "html": {
+            if (!fields.html) {
+              return {
+                ok: false,
+                code: "invalid-input",
+                message: "An html element needs `html` — the component's markup with an inline <style>. See prism.add_html.",
+              };
+            }
+            element = {
+              kind,
+              ...identity,
+              html: fields.html,
+              width: fields.width ?? 800,
+              ...depth,
+            };
+            break;
+          }
           case "image": {
             const file = media();
             if (!file.ok) return { ok: false, code: "invalid-input", message: file.message };

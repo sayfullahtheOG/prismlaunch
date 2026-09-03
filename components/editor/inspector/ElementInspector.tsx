@@ -12,6 +12,7 @@ import {
   AnimationFields,
   DepthFields,
   DeviceFields,
+  HtmlFields,
   IconFields,
   MotionFields,
   ParticlesFields,
@@ -98,6 +99,7 @@ export function ElementInspector({
         {element.kind === "icon" ? <IconFields value={element} set={set} /> : null}
         {element.kind === "particles" ? <ParticlesFields value={element} set={set} /> : null}
         {element.kind === "device" ? <DeviceFields value={element} set={set} /> : null}
+        {element.kind === "html" ? <HtmlFields value={element} set={set} /> : null}
         {element.kind === "audio" ? <AudioFields value={element} set={set} /> : null}
 
         {"box" in element ? <BoxFields box={element.box} set={(box) => set({ box })} /> : null}

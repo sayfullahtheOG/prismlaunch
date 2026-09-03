@@ -20,6 +20,8 @@ import type {
   FilmProjectSchema,
   FitSchema,
   FontFamilySchema,
+  HtmlClipSchema,
+  HtmlElementSchema,
   IconClipSchema,
   IconElementSchema,
   IconNameSchema,
@@ -81,6 +83,7 @@ export type VideoClip = z.infer<typeof VideoClipSchema>;
 export type IconClip = z.infer<typeof IconClipSchema>;
 export type ParticlesClip = z.infer<typeof ParticlesClipSchema>;
 export type DeviceClip = z.infer<typeof DeviceClipSchema>;
+export type HtmlClip = z.infer<typeof HtmlClipSchema>;
 export type AudioClip = z.infer<typeof AudioClipSchema>;
 export type VisualClip = z.infer<typeof VisualClipSchema>;
 export type Clip = z.infer<typeof ClipSchema>;
@@ -104,6 +107,7 @@ export type VideoElement = z.infer<typeof VideoElementSchema>;
 export type IconElement = z.infer<typeof IconElementSchema>;
 export type ParticlesElement = z.infer<typeof ParticlesElementSchema>;
 export type DeviceElement = z.infer<typeof DeviceElementSchema>;
+export type HtmlElement = z.infer<typeof HtmlElementSchema>;
 export type AudioElement = z.infer<typeof AudioElementSchema>;
 export type Element = z.infer<typeof ElementSchema>;
 export type ElementKind = Element["kind"];

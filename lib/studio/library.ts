@@ -171,6 +171,42 @@ function device(
   };
 }
 
+/**
+ * The sample component: what an agent's rebuild of a product's own card
+ * should look like — one snippet, inline style, the product's copy, and a
+ * few data attributes that make it move frame by frame.
+ */
+export const LIVE_CARD_HTML = `<style>
+.card{width:520px;padding:22px 24px;border-radius:18px;background:#FFFFFF;color:#111114;font-family:var(--font-body);box-shadow:0 1px 2px rgba(17,17,20,.06),0 14px 36px rgba(17,17,20,.10)}
+.card h3{margin:0 0 4px;font-size:22px;font-weight:600;letter-spacing:-.02em}
+.card p{margin:0 0 14px;font-size:14px;color:#6E6E73}
+.row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-top:1px solid #EEEEF2;font-size:15px}
+.pill{font-size:12px;padding:3px 10px;border-radius:999px;background:#EAF1FF;color:#2F7CF6;font-weight:600}
+.btn{margin-top:16px;display:inline-block;padding:11px 18px;border-radius:999px;background:#111114;color:#FFFFFF;font-size:14px;font-weight:600}
+</style>
+<div class="card">
+  <h3 data-in="0">Library</h3>
+  <p data-in="4 fade">Everything you dropped in, translated.</p>
+  <div class="row" data-in="8 rise"><span>History lecture</span><span class="pill">Italian</span></div>
+  <div class="row" data-in="12 rise"><span>Span travel</span><span class="pill">English</span></div>
+  <div class="row" data-in="16 rise"><span>How-to video</span><span class="pill">Portuguese</span></div>
+  <div class="btn" data-in="22" data-press="40">Distribute to YouTube</div>
+</div>`;
+
+function component(
+  overrides: Partial<Extract<ElementDraft, { kind: "html" }>>,
+): Extract<ElementDraft, { kind: "html" }> {
+  return {
+    kind: "html",
+    name: "Component",
+    role: "product",
+    html: LIVE_CARD_HTML,
+    width: 520,
+    ...VISUAL,
+    ...overrides,
+  };
+}
+
 /** The arrow the Cursor piece moves. An SVG the studio ships, so it is crisp at any size. */
 export const CURSOR_SRC = `${LIBRARY_PREFIX}cursor/arrow.svg`;
 /** The pointing hand the Hand cursor piece moves — the cursor of the kinetic register. */
@@ -583,6 +619,18 @@ export const LIBRARY: readonly LibraryItem[] = [
     }),
   },
   {
+    id: "live-card",
+    name: "Live component",
+    blurb: "A product card rebuilt as markup, its rows arriving one by one and its button pressed at frame 40. Replace the markup with the product's own component.",
+    group: "Motion",
+    draft: component({
+      name: "Live component",
+      shadow: 0.2,
+      box: { ...DEFAULT_BOX, width: 0.3, height: 0.42, y: 0.5 },
+      animation: { ...DEFAULT_ANIMATION, enter: "scale", exit: "fade", enterFrames: 10, exitFrames: 8, spring: 0.25 },
+    }),
+  },
+  {
     id: "highlight",
     name: "Highlight",
     blurb: "A soft accent block that comes up behind a feature, to point at it without an arrow.",
@@ -665,6 +713,7 @@ export function isAnimated(draft: ElementDraft): boolean {
   if (draft.kind === "text" && draft.reveal !== "none") return true;
   if (draft.kind === "particles") return true;
   if (draft.kind === "icon" && draft.draw) return true;
+  if (draft.kind === "html" && /data-(in|out|press|lift|count|type)=/.test(draft.html)) return true;
   return animation.enter !== "none" || animation.exit !== "none";
 }
 
@@ -685,5 +734,10 @@ export function previewFrames(draft: ElementDraft): number {
     end = Math.max(end, draft.revealStagger > 0 ? draft.revealStagger * words + draft.revealFrames : draft.revealFrames);
   }
   if (draft.kind === "particles") end = Math.max(end, 40);
+  if (draft.kind === "html") {
+    for (const match of draft.html.matchAll(/data-(?:in|out|press|lift|count|type)="(\d+)/g)) {
+      end = Math.max(end, Number(match[1]) + 12);
+    }
+  }
   return Math.max(30, end + 12);
 }

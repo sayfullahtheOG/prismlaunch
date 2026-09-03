@@ -1,6 +1,6 @@
 "use client";
 
-import { AudioLines, Hand, MousePointer2, Music, Sparkles } from "lucide-react";
+import { AudioLines, Hand, LayoutTemplate, MousePointer2, Music, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { HAND_SRC, isAnimated, previewFrames } from "@/lib/studio/library";
 import { Words } from "@/remotion/Film";
@@ -30,7 +30,7 @@ const HOLD = 20;
 
 type VisualDraft = Extract<
   ElementDraft,
-  { kind: "text" | "shape" | "image" | "video" | "icon" | "particles" | "device" }
+  { kind: "text" | "shape" | "image" | "video" | "icon" | "particles" | "device" | "html" }
 >;
 
 /** A shape's fill, a gradient if it has one. */
@@ -207,6 +207,10 @@ export function Preview({ draft, large = false }: { draft: ElementDraft; large?:
         <span className="absolute inset-0 flex items-center justify-center">
           <DeviceGlyph draft={draft} width={width} height={height} />
         </span>
+      ) : draft.kind === "html" ? (
+        <span className="absolute inset-0 flex items-center justify-center text-[#F5F5F7]">
+          <LayoutTemplate size={large ? 40 : 22} strokeWidth={1.6} />
+        </span>
       ) : draft.kind === "audio" ? (
         <span className="absolute inset-0 flex items-center justify-center text-[#5B8CFF]">
           {draft.role === "music" ? (
@@ -319,6 +323,14 @@ function Playing({
     return (
       <span style={{ ...placed, display: "block", lineHeight: 0 }}>
         <DeviceGlyph draft={draft} width={width} height={height} />
+      </span>
+    );
+  }
+
+  if (draft.kind === "html") {
+    return (
+      <span style={{ ...placed, display: "block", lineHeight: 0, color: "#F5F5F7" }}>
+        <LayoutTemplate size={Math.max(16, Math.round(width * 0.18))} strokeWidth={1.6} />
       </span>
     );
   }

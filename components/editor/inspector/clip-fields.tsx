@@ -374,6 +374,34 @@ export function DeviceFields({ value, set }: { value: DeviceStyle; set: Setter<D
   );
 }
 
+export type HtmlSource = { html: string; width: number };
+
+/** A component's markup and the width it was written for. */
+export function HtmlFields({ value, set }: { value: HtmlSource; set: Setter<HtmlSource> }) {
+  return (
+    <>
+      <Field label="Markup (inline <style>, no scripts)" htmlFor="html-markup">
+        <TextArea
+          id="html-markup"
+          value={value.html}
+          onChange={(event) => set({ html: event.target.value })}
+          rows={12}
+          className="font-mono text-2xs"
+          spellCheck={false}
+        />
+      </Field>
+      <NumberField
+        label="Written for width (px)"
+        value={value.width}
+        step={10}
+        min={64}
+        max={4096}
+        onChange={(width) => set({ width })}
+      />
+    </>
+  );
+}
+
 export type Depth = { shadow: number; glow: number; blur: number };
 
 /** What every visual clip has besides its box: how it sits in the frame. */

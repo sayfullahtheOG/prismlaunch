@@ -245,7 +245,7 @@ function requireStageForElements(
   const stage = currentStage(project.file.process);
   return fail(
     "stage-gated",
-    `Elements come with the style frames, after the animatic is approved. The process is at ${stage ? STAGE_LABELS[stage] : "the end"}${stage ? ` — ${nextInstruction(project.file.process).instruction}` : ""}`,
+    `Elements come with the style frames, after the animatic is approved. The process is at ${stage ? STAGE_LABELS[stage] : "the end"}${stage ? `. ${nextInstruction(project.file.process).instruction}` : ""}`,
   );
 }
 
@@ -873,6 +873,13 @@ function selectionFor(file: ProjectFile, id: string): Selection | null {
 }
 
 /** Which section the rail shows. Tab state, so an agent may move it too. */
+/** Open a stage's review in the middle of the editor. HUMAN ONLY. */
+export function reviewStage(stage: StageId): void {
+  const store = useStudioStore.getState();
+  store.setTab("process");
+  store.setOpenStage(stage);
+}
+
 /** Back to the canvas and the timeline, whatever stage the film is at. HUMAN ONLY. */
 export function showEditor(): void {
   const store = useStudioStore.getState();
@@ -927,7 +934,7 @@ export type CaptureResult =
  * export produces — at a cadence or at named moments, and returns them six
  * to a sheet, numbered like boards, so the agent reads each sheet as a
  * sequence and can name one cell. Read-only: nothing in the file changes,
- * and the person sees the same sheets in the Agent panel, because the two
+ * and the person sees the same sheets in the Activity panel, because the two
  * of them should never be looking at different things.
  *
  * Saved beside the project too, when there is a folder, for agents whose
@@ -1021,7 +1028,7 @@ export async function captureFrames(input: CaptureInput): Promise<CaptureResult>
       ? `That is the first ${MAX_CAPTURE_FRAMES}; narrow the window or widen the cadence for the rest.`
       : null,
     saved.length > 0 ? `Also saved as ${saved.join(", ")}, if you would rather open the files.` : null,
-    "The person can see the same sheets in the Agent panel.",
+    "The person can see the same sheets in the Activity panel.",
   ]
     .filter(Boolean)
     .join(" ");

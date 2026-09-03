@@ -35,6 +35,7 @@ import { useDiskSync } from "./useDiskSync";
 import { useWebMcp } from "./WebMcpProvider";
 import { AgentPanel } from "./panels/AgentPanel";
 import { ElementsPanel } from "./panels/ElementsPanel";
+import { LibraryPanel } from "./panels/LibraryPanel";
 import { ProcessPanel } from "./panels/ProcessPanel";
 import { StoryboardPanel } from "./panels/StoryboardPanel";
 
@@ -154,6 +155,7 @@ export function EditorShell() {
             {tab === "process" ? <ProcessPanel file={file} /> : null}
             {tab === "storyboard" ? <StoryboardPanel file={file} /> : null}
             {tab === "elements" ? <ElementsPanel file={file} /> : null}
+            {tab === "library" ? <LibraryPanel file={file} /> : null}
             {tab === "agent" ? (
               <AgentPanel
                 activity={project?.activity ?? []}

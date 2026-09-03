@@ -4,18 +4,24 @@ import type { ReactNode } from "react";
 export function PanelShell({
   title,
   hint,
+  action,
   children,
 }: {
   title: string;
   hint?: string;
+  /** One control that belongs to the whole panel, at the title's right. */
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 px-4 pt-4 pb-3">
-        <h2 className="text-md font-semibold tracking-[var(--ds-tracking-tight)] text-ink">
-          {title}
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="min-w-0 flex-1 text-md font-semibold tracking-[var(--ds-tracking-tight)] text-ink">
+            {title}
+          </h2>
+          {action}
+        </div>
         {hint ? (
           <p className="mt-1 text-xs leading-[var(--ds-leading-body)] text-muted">{hint}</p>
         ) : null}

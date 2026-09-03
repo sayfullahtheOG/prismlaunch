@@ -5,20 +5,21 @@ export type { RailTab };
 /**
  * The sections, in rail order.
  *
- * Fewer than there were. A Layers section duplicated the timeline's own
- * header column; a Canvas section held four fields that are properties of the
- * background and now live in the inspector when its row is selected; a Folder
- * section listed compositions the title bar already lists. What is left is
- * what has no other home: the process, the storyboard, the elements, and the
- * agent.
+ * Each is a place to look at one kind of thing: the process and its
+ * decisions, the boards, the elements the film is built from, the library
+ * of pieces that can become elements, and the record of what the agent did.
+ * Nothing here duplicates the editor; the timeline has its own layer
+ * column, the inspector has the properties, the title bar has the
+ * compositions.
  */
 export const RAIL_TABS: ReadonlyArray<{
   id: RailTab;
   label: string;
-  icon: "ListChecks" | "LayoutGrid" | "Shapes" | "Sparkles";
+  icon: "ListChecks" | "LayoutGrid" | "Shapes" | "Blocks" | "Activity";
 }> = [
   { id: "process", label: "Process", icon: "ListChecks" },
   { id: "storyboard", label: "Storyboard", icon: "LayoutGrid" },
   { id: "elements", label: "Elements", icon: "Shapes" },
-  { id: "agent", label: "Agent", icon: "Sparkles" },
+  { id: "library", label: "Library", icon: "Blocks" },
+  { id: "agent", label: "Activity", icon: "Activity" },
 ];

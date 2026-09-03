@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { showTab } from "@/lib/studio/actions";
+import { reviewStage, showTab } from "@/lib/studio/actions";
 import {
   currentStage,
   STAGE_LABELS,
@@ -306,7 +306,7 @@ function Artifact({
           </p>
           <Button
             variant="secondary"
-            onClick={() => showTab("storyboard")}
+            onClick={() => reviewStage("storyboard")}
             icon={<LayoutGrid size={14} strokeWidth={1.9} aria-hidden />}
           >
             Open the boards

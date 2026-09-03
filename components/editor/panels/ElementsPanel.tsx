@@ -4,12 +4,8 @@ import {
   AudioLines,
   Image as ImageIcon,
   Plus,
-  Sparkles,
-  Square,
-  Type,
   Video as VideoIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import { createElement, select } from "@/lib/studio/actions";
 import { elementUses } from "@/lib/studio/edits";
 import { DEFAULT_ANIMATION, DEFAULT_BOX } from "@/lib/studio/schema";
@@ -17,17 +13,15 @@ import { selectedIdOf } from "@/lib/studio/selection";
 import { useStudioStore } from "@/lib/studio/store";
 import type { Element, ElementDraft, ElementKind, ProjectFile } from "@/types/prism";
 import { PanelShell, PanelSection } from "./PanelShell";
-import { StageDecision, StageStatusChip } from "./StageDecision";
 
 /**
- * The library.
+ * The film's elements.
  *
- * Everything the film is built from, grouped by what it is: the type
- * styles, the shapes, the media. Your agent defines these at the style stage
- * — the method's "a style frame must settle the ground, the ink, the accent,
- * the one family that owns headlines…" — and builds by placing them. This
- * column is where a person reads that look as a list, approves it, and
- * reaches any piece of it.
+ * Everything this film is built from, grouped by what it is: the type
+ * styles, the shapes, the media. The agent defines them at the style stage
+ * and builds by placing them; the person reaches any of them here. New ones
+ * come from the Library. The style stage's decision lives in the process,
+ * not here: this column is for seeing the pieces.
  *
  * Files in the project's `assets/` folder that no element refers to are
  * listed too, one click from becoming one: the agent may have put a
@@ -35,7 +29,6 @@ import { StageDecision, StageStatusChip } from "./StageDecision";
  * in Finder, and either way it should not be invisible.
  */
 export function ElementsPanel({ file }: { file: ProjectFile }) {
-  const process = file.process;
   const selected = useStudioStore((state) => selectedIdOf(state.project, "element"));
   const files = useStudioStore((state) => state.assetFiles);
 
@@ -48,48 +41,11 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
   const loose = files.filter((path) => !referenced.has(path));
 
   return (
-    <PanelShell
-      title="Elements"
-      hint="The pieces the film is made of. Your agent defines the look here at the style stage, then builds by placing them."
-    >
-      <PanelSection label="Style frames">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <StageStatusChip status={process.style.status} />
-            {process.style.look ? (
-              <span className="font-mono text-2xs text-subtle capitalize">{process.style.look}</span>
-            ) : null}
-          </div>
-          {process.style.summary ? (
-            <p className="flex items-start gap-2 text-xs leading-[var(--ds-leading-body)] text-muted">
-              <Sparkles size={12} strokeWidth={2.2} className="mt-0.5 shrink-0 text-accent" aria-hidden />
-              <span>
-                <span className="font-semibold text-ink">Agent: </span>
-                {process.style.summary}
-              </span>
-            </p>
-          ) : null}
-          {process.style.clipIds.length > 0 ? (
-            <p className="text-2xs text-subtle">
-              {process.style.clipIds.length} frame{process.style.clipIds.length === 1 ? "" : "s"} built
-              for real. Select them in the timeline to review them.
-            </p>
-          ) : null}
-          {process.style.note ? (
-            <p className="text-xs leading-[var(--ds-leading-body)] text-warning">
-              <span className="font-medium">You said: </span>
-              {process.style.note}
-            </p>
-          ) : null}
-          <StageDecision stage="style" state={process.style} process={process} />
-        </div>
-      </PanelSection>
-
+    <PanelShell title="Elements">
       {file.elements.length === 0 && loose.length === 0 ? (
-        <p className="border-t border-line-soft py-4 text-xs leading-[var(--ds-leading-body)] text-subtle">
-          Nothing yet. Once the animatic is approved, your agent defines the
-          look as elements (the type roles, the accent, the device, the
-          product shot) and places them to build the film.
+        <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">
+          Nothing yet. Your agent defines the look as elements at the style
+          stage, or add pieces from the Library.
         </p>
       ) : null}
 
@@ -98,7 +54,7 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
       <Group label="Media" elements={media} file={file} selected={selected} />
 
       {loose.length > 0 ? (
-        <PanelSection label="Files in assets/">
+        <PanelSection label="Files in assets">
           <ul className="flex flex-col gap-1">
             {loose.map((path) => (
               <li key={path} className="flex items-center gap-2">
@@ -119,26 +75,6 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
         </PanelSection>
       ) : null}
 
-      <PanelSection label="Add">
-        <div className="flex gap-1.5">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => createElement(blankElement("text", nextName(file, "Style")))}
-            icon={<Type size={12} strokeWidth={2} aria-hidden />}
-          >
-            Type style
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => createElement(blankElement("shape", nextName(file, "Shape")))}
-            icon={<Square size={12} strokeWidth={2} aria-hidden />}
-          >
-            Shape
-          </Button>
-        </div>
-      </PanelSection>
     </PanelShell>
   );
 }
@@ -234,34 +170,6 @@ function Swatch({ element }: { element: Element }) {
       )}
     </span>
   );
-}
-
-/** "Style 2" when "Style" and "Style 1" are taken. */
-function nextName(file: ProjectFile, stem: string): string {
-  const taken = new Set(file.elements.map((element) => element.name));
-  if (!taken.has(stem)) return stem;
-  let n = 2;
-  while (taken.has(`${stem} ${n}`)) n += 1;
-  return `${stem} ${n}`;
-}
-
-function blankElement(kind: "text" | "shape", name: string): ElementDraft {
-  const visual = { box: { ...DEFAULT_BOX }, animation: { ...DEFAULT_ANIMATION } };
-  if (kind === "text") {
-    return {
-      kind: "text",
-      name,
-      fontSize: 0.09,
-      fontFamily: "display",
-      fontWeight: 400,
-      color: "#F5F5F7",
-      align: "center",
-      lineHeight: 1.1,
-      letterSpacing: -0.02,
-      ...visual,
-    };
-  }
-  return { kind: "shape", name, shape: "rect", fill: "#F5F5F7", radius: 0, ...visual };
 }
 
 /** A media element for a file in `assets/`, by extension. */

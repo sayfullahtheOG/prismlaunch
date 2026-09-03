@@ -435,7 +435,7 @@ does the eye have one thing to follow. When a moment looks wrong, capture it
 closely (`at: [6.0, 6.1, 6.2, 6.3]`) to see the easing, then fix the clip
 and capture again. Do this before you ask the person to look; they should be
 reviewing your judgement rather than finding your bugs. They see every sheet
-you capture in the Agent panel.
+you capture in the Activity panel.
 
 ## After you submit
 

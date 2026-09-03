@@ -61,7 +61,7 @@ export type PendingRender = {
  * Process panel opens the storyboard and the elements from a link, and an
  * action has to be able to say which.
  */
-export type RailTab = "process" | "storyboard" | "elements" | "agent";
+export type RailTab = "process" | "storyboard" | "elements" | "library" | "agent";
 
 export type StudioState = {
   workspace: WorkspaceState;

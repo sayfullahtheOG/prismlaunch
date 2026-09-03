@@ -5,11 +5,15 @@ import type { RailTab } from "./store";
 /**
  * What the middle of the editor shows.
  *
- * Some stages produce a document — a brief, three directions, a script, a
- * sound plan, a checklist — and a document is reviewed at reading size, not
- * in a 300px column. Those get a page. The storyboard gets the boards. The
- * rest — animatic, style frames, build — ARE the canvas and the timeline,
- * so reviewing them is looking at the editor.
+ * Some stages produce a document (a brief, three directions, a script, a
+ * sound plan, a checklist), and a document is reviewed at reading size, not
+ * in a 300px column. Those get a page. The storyboard stage gets the boards
+ * at full size. The rest (animatic, style frames, build) are the canvas and
+ * the timeline, so reviewing them is looking at the editor.
+ *
+ * The Storyboard section of the rail is a list beside the editor, not the
+ * big boards: the boards at full size are a review, and reviews open from
+ * the process.
  */
 export const REVIEW_PAGES: readonly StageId[] = ["brief", "concept", "script", "sound", "polish"];
 
@@ -26,7 +30,6 @@ export function middleView(
   process: Process,
   reviewing = true,
 ): MiddleView {
-  if (tab === "storyboard") return "boards";
   if (tab !== "process" || !reviewing) return "editor";
   const stage = reviewedStage(openStage, process);
   if (stage === "storyboard") return "boards";

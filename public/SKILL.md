@@ -10,7 +10,7 @@ model of its own and no opinion about what makes a good video. **You** decide
 what goes on screen, when, and in what order. It renders what you write in the
 person's own browser, shows it to them, and holds the gate on export.
 
-Open the studio at **https://prismlaunch-doddlesoft.vercel.app**.
+Open the studio at **https://tryprismlaunch.vercel.app**.
 
 ## The model
 
@@ -70,7 +70,7 @@ mode yet; build with text and shapes.
 
 ## Before you build anything
 
-Read **https://prismlaunch-doddlesoft.vercel.app/PRISM_METHOD.md** first.
+Read **https://tryprismlaunch.vercel.app/PRISM_METHOD.md** first.
 
 This file tells you how to operate the tool. That one tells you how to make
 something worth watching: how to find the one idea, write the line, time the

@@ -38,7 +38,7 @@ tracks[3]      audio
 
 Each track holds clips — text, shapes, images, video, sound — with a start frame and a length. Clips on one track cannot overlap; that is what a track is. Two things on screen at once means two tracks, and the track order decides which is in front.
 
-1. You give your agent one line: `set up https://prismlaunch-doddlesoft.vercel.app/SKILL.md`
+1. You give your agent one line: `set up https://tryprismlaunch.vercel.app/SKILL.md`
 2. You open the studio and click **Link project folder**. (Your agent cannot — browsers only open that picker for a real click.)
 3. Your agent writes the film's files, either with its own file tools or through the WebMCP tools registered on the page. The studio picks up a change to any of them within a second.
 4. Its clips appear on your timeline as drafts. You accept or reject each one; the studio writes `"approval": "accepted"` back to disk, where your agent can read it.

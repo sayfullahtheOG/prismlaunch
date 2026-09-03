@@ -36,7 +36,7 @@ import { useStudioStore } from "@/lib/studio/store";
  * to yet; an inert editor is not a place to leave someone.
  */
 
-const SKILL_URL = "https://prismlaunch-doddlesoft.vercel.app/SKILL.md";
+const SKILL_URL = "https://tryprismlaunch.vercel.app/SKILL.md";
 const SKILL_COMMAND = `set up ${SKILL_URL}`;
 
 export function SetupDialog() {

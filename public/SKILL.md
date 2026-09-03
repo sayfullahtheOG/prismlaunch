@@ -6,7 +6,7 @@ description: Make a short promo, launch or demo video. Use when someone asks for
 # PrismLaunch
 
 PrismLaunch is a video canvas with a layer timeline, driven by you. It has no
-model of its own and no opinion about what makes a good video — **you** decide
+model of its own and no opinion about what makes a good video. **You** decide
 what goes on screen, when, and in what order. It renders what you write in the
 person's own browser, shows it to them, and holds the gate on export.
 
@@ -24,19 +24,19 @@ tracks[2]      audio    ← music, voiceover, effects
 tracks[3]      audio
 ```
 
-Each track holds **clips** — text, a shape, an image, a video, a sound. A clip
+Each track holds **clips**: text, a shape, an image, a video, a sound. A clip
 has a start frame and a length. **Clips on one track cannot overlap**: that is
 what a track is, one thing at a time in this lane. Two things on screen at once
 means two tracks, and the track order decides which is in front.
 
-There is no scene structure and no required shape. Four beats or eleven, a
-single word held for two seconds, six things stacked on a cut — it is a
-timeline, and it is yours.
+There is no scene structure and no required shape. It can be four beats or
+eleven, a single word held for two seconds, or six things stacked on a cut. It
+is a timeline, and it is yours.
 
 **Elements** are clips without a place on the timeline: a Headline type
 style, an accent rule, a device frame, the product screenshot, the music bed.
 They live in `elements` in the file, and a clip placed from one carries its
-`elementId` and follows it — change the element, and every clip placed from
+`elementId` and follows it: change the element, and every clip placed from
 it changes. The style stage defines them; the build places them. See
 *Elements* below.
 
@@ -44,21 +44,21 @@ it changes. The style stage defines them; the build places them. See
 
 **The folder.** A composition lives in `.prismlaunch/<slug>/project.json` inside
 whatever repository the person is working in. If you have file tools, write that
-file directly — it is the source of truth, and the studio picks up changes
+file directly. It is the source of truth, and the studio picks up changes
 within a second of you saving. This is the fastest way to build anything with
 more than a few clips.
 
 The slug follows the composition's name: renaming "Untitled composition" to
 "First video" in the studio moves the folder to `first-video/`. **So do not
 cache a path.** If a write fails because the folder is gone, call
-`prism.get_project_context` — it always reports the current `path` — and write
+`prism.get_project_context`, which always reports the current `path`, and write
 there instead.
 
 **The page.** The studio registers WebMCP tools on its own tab. Use them when
 you have no file access, and for the things a file cannot do: moving the
 playhead, playing the composition on the person's screen, proposing a render.
 
-**Or no folder at all.** Some browsers cannot hand the page a folder —
+**Or no folder at all.** Some browsers cannot hand the page a folder:
 ChatGPT's built-in browser opens the picker and then refuses it; Safari and
 Firefox have no picker. There the person clicks **Start in the browser**
 instead, and the composition lives in the page. Nothing changes for you
@@ -73,21 +73,22 @@ mode yet; build with text and shapes.
 Read **https://prismlaunch-doddlesoft.vercel.app/PRISM_METHOD.md** first.
 
 This file tells you how to operate the tool. That one tells you how to make
-something worth watching — how to find the one idea, write the line, time the
-cuts, choose the colour, place the sound. The tool is a timeline; the method
-is the craft. A composition built without it will be technically valid and
-look like every other AI-made video, which is the thing this exists to stop.
+something worth watching: how to find the one idea, write the line, time the
+cuts, choose the colour, place the sound. This file covers the timeline; that
+one covers the craft. A composition built without it will be technically
+valid and look like every other AI-made video, which is the thing this exists
+to stop.
 
 ## Getting started
 
 1. Ask the person to open the studio and click **Link project folder**, then
-   choose the repository you are both working in — or **Start in the browser**
-   if you are in ChatGPT's built-in browser, Safari or Firefox. You cannot do
-   either for them; both take a real click.
+   choose the repository you are both working in, or click **Start in the
+   browser** if you are in ChatGPT's built-in browser, Safari or Firefox. You
+   cannot do either for them; both take a real click.
 2. Call `prism.get_project_context`. Read its `process` block first: it says
    which stage the film is at, what the person said about the last thing you
    submitted, and exactly what to do next.
-3. There is probably already a blank composition open — linking an empty folder
+3. There is probably already a blank composition open. Linking an empty folder
    makes one, because there is nothing to ask. If you want another, or a
    specific folder name, call `prism.create_project`; or write the file
    yourself and call `prism.open_project`.
@@ -99,7 +100,7 @@ look like every other AI-made video, which is the thing this exists to stop.
    animatic locks the timing and opens the elements: define the look as
    elements, then build by placing them.
 6. Every clip you add is a draft the person accepts or rejects.
-   **You cannot accept your own work** — there is no tool for it, by design.
+   **You cannot accept your own work.** There is no tool for it, by design.
 7. When polish is approved, call `prism.request_render`. That renders nothing;
    it raises a confirmation the person has to approve.
 
@@ -107,19 +108,19 @@ look like every other AI-made video, which is the thing this exists to stop.
 
 The nine stages of PRISM_METHOD.md are nine fields in `project.json` and
 nine tools. The tool for a stage refuses until the person has approved every
-stage before it, so you cannot skip ahead — not because a document says so,
-but because the tool says no.
+stage before it, so you cannot skip ahead. The order is enforced by the tool
+itself rather than by a document.
 
 | Stage | Tool | What you submit | Approving it… |
 | --- | --- | --- | --- |
 | 1 Brief | `prism.submit_brief` | audience, message, feeling, length; the truth and the demo moment from immersion | lets you concept |
-| 2 Concept | `prism.submit_concepts` | 2–4 directions, one recommended | picks the idea |
+| 2 Concept | `prism.submit_concepts` | 2 to 4 directions, one recommended | picks the idea |
 | 3 Script | `prism.submit_script` | beats with words and seconds; VO if any | lets you board |
 | 4 Storyboard | `prism.submit_storyboard` | one panel per beat: frame, action, frames, in/out, sound, words | opens the timeline |
 | 5 Animatic | `prism.lay_animatic`, then `prism.submit_animatic` | the boards on the timeline, music underneath, cut to the grid | **locks the timing** |
-| 6 Style frames | `prism.submit_style_frames` | the look, the elements it is made of, and the 2–3 frames built from them | fixes the look |
-| 7 Build | `prism.submit_build` | every beat built, inside its window | — |
-| 8 Sound | `prism.submit_sound` | the sound plan; effects, ducking, tone placed | — |
+| 6 Style frames | `prism.submit_style_frames` | the look, the elements it is made of, and the 2 to 3 frames built from them | fixes the look |
+| 7 Build | `prism.submit_build` | every beat built, inside its window | lets you do sound |
+| 8 Sound | `prism.submit_sound` | the sound plan; effects, ducking, tone placed | lets you polish |
 | 9 Polish | `prism.submit_polish` | the §14 checklist, run, with verdicts | unblocks the render |
 
 **Laying the animatic.** Once the storyboard is approved, `prism.lay_animatic`
@@ -130,9 +131,9 @@ music, move any board onto the beat grid, and submit.
 
 **The timing lock.** When the animatic is approved, every visual clip on the
 timeline becomes a locked beat. From then on a visual clip you add or move
-must sit inside one of those windows — `prism.add_text` and `prism.update_clip`
+must sit inside one of those windows. `prism.add_text` and `prism.update_clip`
 refuse otherwise, and list the beats. Fill the slots; do not move them. If the
-cut genuinely needs to change, say so and ask the person to reopen the
+cut needs to change, say so and ask the person to reopen the
 animatic in the Process panel. Audio is exempt: a music bed spans the film.
 
 **Sent back.** A stage the person rejects comes with their note. It appears in
@@ -146,12 +147,12 @@ you are held to the order.
 
 PRISM_METHOD.md §7 says a style frame settles the ground, the ink, the accent,
 the one family that owns headlines, the size for each type role, the margins,
-how the product is shown, and the motif — and that everything built afterwards
-is an *application* of those decisions, not a new one. Elements are where
-they live.
+how the product is shown, and the motif. It also says that everything built
+afterwards is an *application* of those decisions rather than a new one.
+Elements are where they live.
 
-An element is the matching clip minus its placement: no start, no length, no
-approval, no label — plus a `name`. Five kinds, the same as clips. A `text`
+An element is the matching clip minus its placement (no start, no length, no
+approval, no label) plus a `name`. Five kinds, the same as clips. A `text`
 element is a type style and usually has no `text` of its own; the words
 arrive when it is placed.
 
@@ -162,12 +163,12 @@ arrive when it is placed.
 | `prism.update_element` | Change one, and every clip placed from it. Send only what changes. Those clips become drafts again. |
 | `prism.remove_element` | Delete one. Its clips stay, unlinked. |
 
-The order the method wants: at the style stage, define the elements — the
-type roles, the accent, the device, the product, the music — then build the
+The order the method wants: at the style stage, define the elements (the
+type roles, the accent, the device, the product, the music), then build the
 hook, the reveal and the endcard for real by placing them, and submit the
-stage naming both the elements and the clips. In the build, place; do not
-invent. `prism.add_text` and friends are for things that are genuinely
-one-off, and if you reach for one twice, it is an element.
+stage naming both the elements and the clips. In the build, place elements
+rather than inventing new clips. `prism.add_text` and friends are for things
+that are one-off, and if you reach for one twice, it is an element.
 
 Writing the file by hand: `elements` is an array of these, each with a unique
 `id` and a `name`, and a clip's `elementId` must name one of them.
@@ -315,7 +316,7 @@ These are enforced. A file that breaks one is refused with the field named.
 - **Clips on one track may not overlap.** Put simultaneous things on separate
   tracks.
 - **Every clip must end inside `durationInFrames`.** Placing one past the end
-  through a tool grows the composition automatically — a new composition starts
+  through a tool grows the composition automatically. A new composition starts
   at one frame and lengthens as you build, so you never have to pick a duration
   up front. Writing the file by hand, set `durationInFrames` yourself.
 - **Ids are unique** across every track and clip in the file.
@@ -327,9 +328,10 @@ These are enforced. A file that breaks one is refused with the field named.
 
 ### Positions
 
-`box` is in fractions of the canvas, and **`x`/`y` are the box's centre** — so
-`{ "x": 0.5, "y": 0.5 }` is dead centre, and you never subtract half the width.
-Values outside 0–1 are legal and are how you slide something in from off-screen.
+`box` is in fractions of the canvas, and **`x`/`y` are the box's centre**, so
+`{ "x": 0.5, "y": 0.5 }` is dead centre and you never subtract half the width.
+Values outside 0 to 1 are legal and are how you slide something in from
+off-screen.
 
 `fontSize` is a fraction of canvas **height**: `0.05` a caption, `0.1` a
 headline, `0.22` a hero word. Nothing here is in pixels, so a composition looks
@@ -340,12 +342,12 @@ the same at 720p and 4K.
 `enter` and `exit` each take one of: `none`, `fade`, `rise`, `fall`,
 `slide-left`, `slide-right`, `scale`, `blur`. `enterFrames` and `exitFrames`
 set how long each runs; both are clamped to half the clip, so a short clip with
-a long fade simply fades faster.
+a long fade fades faster.
 
 ### Fonts
 
 `display` (Instrument Serif), `body` (Inter), `mono` (JetBrains Mono).
-`fontWeight` only does anything on `body` — the other two ship one weight each,
+`fontWeight` only does anything on `body`; the other two ship one weight each,
 and synthesised bold looks cheap.
 
 ### Assets
@@ -353,7 +355,7 @@ and synthesised bold looks cheap.
 `src` is a path inside the project's own folder, like `assets/logo.png`. The
 file has to be there already; put it in with your file tools first. A path that
 does not resolve renders as a hole in the frame and is reported in the app
-rather than crashing the render — but it is still a hole, so check.
+rather than crashing the render. It is still a hole, so check.
 
 ## The tools
 
@@ -386,12 +388,12 @@ rather than crashing the render — but it is still a hole, so check.
 | `prism.seek` | Move the playhead so you are both looking at the same moment. |
 | `prism.preview` | Play or pause on the person's screen. |
 | `prism.request_render` | Propose the export. **Renders nothing.** |
-| `prism.confirm_render` | Start the render — only after a human approves. |
+| `prism.confirm_render` | Start the render, and only after a human approves. |
 
 There is no tool to accept a draft, approve a stage, reopen the timing lock,
-or approve a render. That is not an oversight and not a policy you can talk
-your way around: the functions exist in the app and are never registered.
-Asking the person is the only path.
+or approve a render. That is deliberate, and it is enforced in code rather
+than by a policy you could talk your way around: the functions exist in the
+app and are never registered. Asking the person is the only path.
 
 ## Making a good one
 
@@ -402,10 +404,10 @@ You are directing, so the craft is yours. What the medium rewards:
 - **Open on the problem, not the product.** "Six clicks to assign an issue"
   earns attention that "Introducing Vector" spends.
 - **Hold long enough to read.** A line of text needs roughly 0.3 seconds per
-  word plus a second — under two seconds for anything but a single word is too
+  word plus a second. Under two seconds for anything but a single word is too
   fast, and everyone gets this wrong in the same direction.
 - **Move the eye deliberately.** If two things animate at once the viewer sees
-  neither. Stagger by 6–12 frames.
+  neither. Stagger by 6 to 12 frames.
 - **Let the ground do work.** A gradient background and one accent colour will
   carry a whole film; four colours will not.
 - **Silence is a choice.** If there is no audio, the fades have to carry the
@@ -416,13 +418,13 @@ as a teaser; over forty and people leave.
 
 ## Look before you show
 
-You can see the film. `prism.capture_frames` renders exact frames — the same
-pixels export produces — and returns them as storyboard sheets: six to a
+You can see the film. `prism.capture_frames` renders exact frames (the same
+pixels export produces) and returns them as storyboard sheets: six to a
 sheet, three across, each cell captioned with its board number, time and
 frame. It is not a screenshot of a playing video, so there is nothing to
 catch: "one per second from six to nine" is frames 180, 210, 240 and 270,
 every time. Six frames is one sheet and the cheapest look; ask for more and
-you get more sheets, never smaller frames. If a grid is hard to read, or you
+you get more sheets at the same frame size. If a grid is hard to read, or you
 want one moment large, pass `layout: "single"` and each frame comes back as
 its own full-width image.
 
@@ -430,10 +432,10 @@ Use it the way an editor scrubs. After you build a section, capture it at one
 frame per second and read the sheet as a sequence: does the headline arrive
 when the script says, does anything overlap, is the text legible at that size,
 does the eye have one thing to follow. When a moment looks wrong, capture it
-closely — `at: [6.0, 6.1, 6.2, 6.3]` — to see the easing, then fix the clip
+closely (`at: [6.0, 6.1, 6.2, 6.3]`) to see the easing, then fix the clip
 and capture again. Do this before you ask the person to look; they should be
-reviewing your judgement, not finding your bugs. They see every sheet you
-capture in the Agent panel.
+reviewing your judgement rather than finding your bugs. They see every sheet
+you capture in the Agent panel.
 
 ## After you submit
 
@@ -448,17 +450,17 @@ tell you in chat what the tool will tell you itself.
 
 ## Working with the person
 
-Show, don't describe. After you build something, call `prism.preview` so they
-watch it rather than reading your summary of it. When you are discussing one
-moment, `prism.seek` to it first — it is much easier to agree about a frame you
-are both looking at.
+Show it rather than describing it. After you build something, call
+`prism.preview` so they watch it rather than reading your summary of it. When
+you are discussing one moment, `prism.seek` to it first; it is much easier to
+agree about a frame you are both looking at.
 
 Then stop and let them review. Every clip you added is waiting on their screen
 with your `revisionNote` under it. They accept, or they reject and it is
 removed.
 
 When everything is accepted, propose the render. Say why you think it is ready.
-Then wait — `prism.confirm_render` fails until they have clicked approve, and
+Then wait. `prism.confirm_render` fails until they have clicked approve, and
 retrying will not change that.
 
 ## When something is wrong
@@ -468,7 +470,7 @@ retrying will not change that.
   either.
 - **"A folder is remembered but the browser dropped its permission."** Ask them
   to click **Re-open folder**. This happens on every fresh page load; it is
-  normal, not a fault.
+  normal behaviour rather than a fault.
 - **"clips … overlap".** Two clips on one track want the same frames. Put one on
   another track.
 - **"Track … is locked."** The person locked it to protect it. Ask before
@@ -480,6 +482,6 @@ retrying will not change that.
 
 PrismLaunch does not read the person's source code, run it, or send it
 anywhere. It reads one JSON file and the assets that file names, renders in the
-browser with WebCodecs, and writes the MP4 back into the folder. Nothing is
-uploaded — no video, no code, no project file. If you tell someone their
-repository was analysed, that is not true.
+browser with WebCodecs, and writes the MP4 back into the folder. No video,
+code or project file is uploaded. If you tell someone their repository was
+analysed, that is not true.

@@ -215,7 +215,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.get_project_context",
       description:
-        "Where things stand: whether the person has linked a project folder, which compositions are in it, and — if one is open — its canvas, every track front to back, every clip with its id and timing, the playhead, and where the process stands. Call this first, and again after anything you are not sure landed.",
+        "Read storage mode, compositions, open canvas, tracks, clips, playhead and process state. Call first and after uncertain changes. Read SKILL.md and PRISM_METHOD.md before making a film.",
       schema: EmptyInput,
       annotations: { readOnlyHint: true },
       execute: () => ({ ok: true, message: JSON.stringify(getProjectContext()) }),
@@ -224,7 +224,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.create_project",
       description:
-        "Create an empty composition at .prismlaunch/<slug>/project.json and open it. You get a background, one visual track and one audio track, no clips and no runtime — it grows as you place things, so there is no length to guess. PrismLaunch writes no content. Needs a folder to be linked first.",
+        "Create and open an empty composition in linked storage. Starts with visual/audio tracks and grows as clips are placed. Needs storage setup first.",
       schema: CreateProjectInput,
       execute: (input) =>
         createProject({
@@ -259,7 +259,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_brief",
       description:
-        "Stage 1 of 8. Submit the brief: one audience, one message, one feeling, one length — after asking the person for the product (logo, screenshots, brand colour). The person approves it in the Process panel before you go further. PRISM_METHOD.md §5.",
+        "Stage 1: audience, message, feeling, length. Gather product assets first. End your turn after submission; only the person approves in Process. Follow PRISM_METHOD.md §5.",
       schema: SubmitBriefInput,
       execute: ({ summary, ...brief }) => submitBrief(brief, summary),
     }),
@@ -267,7 +267,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_concepts",
       description:
-        "Stage 2 of 8. Submit two to four directions with one recommended — generated from 8–12 angles, scored on the six tests, not the first idea. Refuses until the brief is approved. PRISM_METHOD.md §5.",
+        "Stage 2: submit 2–4 directions, scored with the six tests, and recommend one. Requires approved brief. PRISM_METHOD.md §5.",
       schema: SubmitConceptsInput,
       execute: ({ summary, ...concept }) => submitConcepts(concept, summary),
     }),
@@ -275,7 +275,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_script",
       description:
-        "Stage 3 of 8. Submit the lines and runs with their seconds — seconds that follow from what happens, never a budget filled with a headline — and the voiceover if there is one. Refuses until the concept is approved. PRISM_METHOD.md §1 and §6.",
+        "Stage 3: submit timed beats and optional voiceover. Timing follows events. Requires approved concept. PRISM_METHOD.md §1, §6.",
       schema: SubmitScriptInput,
       execute: ({ summary, ...script }) => submitScript(script, summary),
     }),
@@ -283,7 +283,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_storyboard",
       description:
-        "Stage 4 of 8. One panel per section, written as its events: what is in the frame, the events in order with their frames (action), what carries into the next panel (handoff), durationInFrames as the SUM of the events, transition in and out, what the sound does, the words. This is the film before it exists — the person reads it as boards. Refuses until the script is approved. PRISM_METHOD.md §2 and §10.",
+        "Stage 4: panels with ordered events, frame durations, handoffs, transitions and sound. Duration is the sum of events. Requires approved script. PRISM_METHOD.md §2, §10.",
       schema: SubmitStoryboardInput,
       execute: ({ summary, ...storyboard }) => submitStoryboard(storyboard, summary),
     }),
@@ -291,7 +291,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.lay_animatic",
       description:
-        "Put the approved storyboard on the timeline: one placeholder clip per panel, at cumulative frames from the panels' durations, with each panel's words and transitions. Does the frame arithmetic so you do not. Then add the music with prism.add_audio and call prism.submit_animatic. Refuses until the storyboard is approved; re-running replaces the placeholders.",
+        "Lay approved storyboard panels as cumulative timeline placeholders. Re-running replaces placeholders. Add music, then submit_animatic. Requires approved storyboard.",
       schema: LayAnimaticInput,
       execute: () => layAnimatic(),
     }),
@@ -299,7 +299,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_animatic",
       description:
-        "Stage 6 of 8. The animatic IS the timeline: the boards laid by prism.lay_animatic, adjusted to the beat grid, with the music underneath. Call this when it is laid out. Approving it LOCKS the length and the section starts — after that, clips may cross sections but not run past the end. Refuses until the storyboard is approved. PRISM_METHOD.md §10.",
+        "Stage 6: submit the timeline rough with music. Human approval locks length and section starts; clips may cross sections but not the end. Requires approved storyboard. PRISM_METHOD.md §10.",
       schema: SubmitAnimaticInput,
       execute: (input) => submitAnimatic(input.summary),
     }),
@@ -307,7 +307,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_style_frames",
       description:
-        "Stage 5 of 8. Name the look and the two or three clips you built for real — the hook, the reveal, the endcard. Everything else will copy them. Refuses until the storyboard is approved. PRISM_METHOD.md §7.",
+        "Stage 5: submit the look, elements and 2–3 real clips (hook, reveal, endcard). Requires approved storyboard. PRISM_METHOD.md §7.",
       schema: SubmitStyleFramesInput,
       execute: ({ summary, ...style }) => submitStyleFrames(style, summary),
     }),
@@ -315,7 +315,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_build",
       description:
-        "Stage 8 of 8, the last. Every remaining placeholder replaced with real clips in the approved look — two events a second, the handoff object built as one clip across each cut, the product on screen most of the time — with the sound placed from the polish plan. Refuses until the polish is approved. After the person approves this, prism.request_render. PRISM_METHOD.md §10.",
+        "Stage 8: submit the finished film with placeholders replaced and sound placed. Requires approved polish. After human approval, request_render. PRISM_METHOD.md §10.",
       schema: SubmitBuildInput,
       execute: (input) => submitBuild(input.summary),
     }),
@@ -323,7 +323,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_polish",
       description:
-        "Stage 7 of 8. The rough, reviewed before the build: rethink the sound against the person's notes (include the updated soundPlan), then run the §12 checklist against the animatic — sound on, muted, half size — and report it line by line with a verdict on each. Refuses until the animatic is approved. PRISM_METHOD.md §9 and §12.",
+        "Stage 7: submit checklist verdicts and revised sound plan after reviewing the rough with sound, muted and half size. Requires approved animatic. PRISM_METHOD.md §9, §12.",
       schema: SubmitPolishInput,
       execute: ({ summary, ...polish }) => submitPolish(polish, summary),
     }),
@@ -331,7 +331,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.wait_for_decision",
       description:
-        "Read the person's decision on the stage you submitted — approved or sent back, their note, and what to do next. Call it ONCE when they ping you after a review (it also waits up to timeoutSeconds if they are mid-click). Do not use it to poll: after submitting, end your turn and ask them to message you when they have decided. Read-only.",
+        "Read the submitted stage’s human decision and note. Call once when the person returns after review. Do not poll: submit, end your turn and ask for review. Read-only.",
       schema: WaitForDecisionInput,
       annotations: { readOnlyHint: true },
       execute: (input) =>
@@ -341,7 +341,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_track",
       description:
-        "Add a layer. Visual tracks stack above the background — the first is nearest the viewer — and audio tracks sit below it for music, voiceover and effects. Clips on one track cannot overlap, so two things on screen at once means two tracks.",
+        "Add a visual or audio layer. First visual track is frontmost. Clips on one track cannot overlap; simultaneous objects need separate tracks.",
       schema: AddTrackInput,
       execute: (input) => createTrack(input.kind, input.name),
     }),
@@ -385,7 +385,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_text",
       description:
-        "Put words on screen. Position with `box` in canvas fractions — x/y are the CENTRE, so { x: 0.5, y: 0.5 } is centred. `fontSize` is a fraction of canvas height. Star a word (\"Turn *books* into audio\") and set `accent` for a two-tone line; `fill` with `radius` 0.5 makes it a button.",
+        "Add text. box uses canvas fractions with centre x/y; fontSize uses canvas height. Star words and set accent for two-tone text; fill and radius make a button.",
       schema: AddTextInput,
       execute: (input) =>
         createClip(
@@ -421,7 +421,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_shape",
       description:
-        "Add a rectangle or ellipse — a colour block behind a title, a rule, a dot; with `fillTo`, a gradient bar. `enter: \"wipe\"` over 45 frames makes it a progress bar.",
+        "Add a rectangle or ellipse. fillTo adds a gradient; a wipe entrance can form a progress bar.",
       schema: AddShapeInput,
       execute: (input) =>
         createClip(
@@ -446,7 +446,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_icon",
       description:
-        "Add one of the studio's own icons — a check, an arrow, a sparkle, a cursor — crisp at any size, in any colour. `draw: true` draws an outlined icon on over its enter, like a pen: the check under \"Done\". Size it with `box`.",
+        "Add a scalable studio icon. Size with box; draw animates outlined strokes over the entrance.",
       schema: AddIconInput,
       execute: (input) =>
         createClip(
@@ -470,7 +470,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_particles",
       description:
-        "Add particles: confetti bursting from a point, a burst in every direction, sparkles twinkling in a region, or dust rising through it. The clip's `box` is the emitter; its length is how long the burst lasts (40 frames for confetti). Deterministic from `seed`, so the export matches the preview. Once per film for confetti — on the payoff.",
+        "Add seeded particles. box is the emitter; clip duration is burst duration. Use confetti once, on the payoff.",
       schema: AddParticlesInput,
       execute: (input) =>
         createClip(
@@ -497,7 +497,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_html",
       description:
-        "Put a piece of the product's own interface on screen, rebuilt from its source: one self-contained snippet of markup with an inline <style>, written for `width` CSS pixels and scaled so that width fills the box (anchored at the box's top-left; give the box the snippet's aspect). No scripts, no external files; images by their assets/ path. When you have file tools, read the real component and its tokens first — the copy, the colours, the radii — so the product appears as itself. Bring it alive with data attributes the renderer drives frame by frame: data-in=\"12\" (arrives at frame 12 with a pop; \"12 rise\", \"12 fade\", \"12 blur\" for the other styles), data-out=\"80\", data-press=\"40\" (a click), data-lift=\"30\" (a hover), data-count=\"12\" (its number counts up), data-type=\"12\" (its text types). Stagger rows 4–6 frames apart; press the button when the cursor arrives. Then treat it like any clip: pop or scale it in with a little spring, tilt it, float it, drift it.",
+        "Rebuild real product UI from its source as self-contained HTML/CSS. No scripts or external files. width is CSS pixels, scaled to box width and anchored top-left; match aspect ratio. Frame-driven data attributes and examples: SKILL.md.",
       schema: AddHtmlInput,
       execute: (input) =>
         createClip(
@@ -519,7 +519,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_device",
       description:
-        "Add a device around a screenshot: a phone with a bezel and an island, a browser with three dots in its bar, a frameless window with a hairline, or a white card. `src` is the screenshot in the project folder; without it the screen is a colour. Tilt it with `box.tiltX`/`tiltY`, float it with `shadow`, fly it in with `animation.travel` and `spring`, and drift it with `motion`.",
+        "Frame a screenshot as a phone, browser, window or card. src must exist in project storage; omit for a solid screen. Supports tilt, shadow, animation and motion.",
       schema: AddDeviceInput,
       execute: (input) =>
         createClip(
@@ -545,7 +545,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_image",
       description:
-        "Show an image from the project's own folder, e.g. 'assets/logo.png'. The file must already be there — put it in the folder with your file tools first, or ask the person to.",
+        "Add an image already in project storage, e.g. assets/logo.png. Upload or write the asset first.",
       schema: AddImageInput,
       execute: (input) =>
         createClip(
@@ -568,7 +568,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_video",
       description:
-        "Show a video from the project's own folder, e.g. 'assets/demo.mp4'. `startFrom` trims its head. Silent by default — set `volume` if you want its sound.",
+        "Add a stored video. startFrom trims source frames; silent unless volume is set.",
       schema: AddVideoInput,
       execute: (input) =>
         createClip(
@@ -594,7 +594,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_audio",
       description:
-        "Add music, a voiceover or a sound effect from the project's own folder. Must go on an audio track. `fadeInFrames` and `fadeOutFrames` ramp the gain, which is how you duck music under a voiceover without editing the file.",
+        "Add stored music, voiceover or SFX to an audio track. fadeInFrames/fadeOutFrames ramp gain.",
       schema: AddAudioInput,
       execute: (input) =>
         createClip(
@@ -621,7 +621,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_element",
       description:
-        "Define a piece of the look, to be placed later: a type style (kind 'text' — Headline, Support, Label; leave `text` empty, the words arrive when it is placed), a shape (an accent rule, a block), an image or video from the project folder (a device frame, the product shot), or a sound. Elements are the style stage's artifact, right after the storyboard: the approved boards say what pieces the film needs. Define them, build the two or three style frames by placing them, and submit_style_frames names them. Refuses until the storyboard is approved. PRISM_METHOD.md §7.",
+        "Define a reusable style or media element, then place_element. Text styles may omit default words. Requires approved storyboard; submit_style_frames names the elements and sample clips. PRISM_METHOD.md §7.",
       schema: AddElementInput,
       execute: (input) => {
         const { kind, name, role, note, box, animation, motion, shadow, glow, blur, ...fields } = input;
@@ -777,7 +777,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.update_element",
       description:
-        "Change an element — and every clip placed from it follows. Send only the fields you are changing. This is how the look is adjusted: the Headline's size once, not once per headline. The clips that follow it keep your note as provenance.",
+        "Patch an element and its linked clips. Send only changed fields; note is kept on affected clips.",
       schema: UpdateElementInput,
       execute: (input) => {
         const { elementId, note, box, animation, motion, ...rest } = input;
@@ -818,7 +818,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_from_library",
       description:
-        "Add one of the studio's prebuilt pieces as an element of this film, exactly as the person clicking it in the Text, Shapes, Motion or Audio section would: a cursor that glides to a spot and clicks, a tap ring, a typewriter line, a word-by-word headline, a counter, a highlight, the type styles, the shapes, the sound effects and the music beds. Then place it with prism.place_element and tune it with prism.update_element. Refuses until the storyboard is approved, like add_element.",
+        "Add a prebuilt motion, type, shape or sound element. Then place_element and tune with update_element. Requires approved storyboard.",
       schema: AddFromLibraryInput,
       execute: (input) => {
         const item = LIBRARY.find((candidate) => candidate.id === input.itemId);
@@ -836,7 +836,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.place_element",
       description:
-        "Put an element on the timeline as a clip: the element supplies the look, you supply the track, the first frame, the length, and — for a text style — the words. Obeys the timing lock like add_text. This is how the build should be done; add_text and friends are for things that are genuinely one-off.",
+        "Place a reusable element with track, timing and optional text/visual overrides. Obeys timing locks. Prefer this for repeated styles; add_text etc. for one-offs.",
       schema: PlaceElementInput,
       execute: (input) => {
         const { elementId, trackId, from, durationInFrames, label, note, text, box, animation, motion } =
@@ -914,7 +914,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.set_camera",
       description:
-        "Set the camera's moves, replacing the whole list. Every visual layer is drawn, then the camera looks at a point of the canvas at a zoom: a move says where it looks and how close by the time it is done, and it holds there until the next. Push into the button as the cursor reaches it (scale 1.6 over 18 frames), pull back to show the whole window. It starts at the centre at ×1; an empty list stills it. At most four moves in a film, none faster than 15 frames, and the thing being pushed into holds still while the camera moves.",
+        "Replace all camera moves. Starts centred at ×1, holds between moves; [] resets. Keep the subject still during a push. Use at most four moves, each at least 15 frames.",
       schema: SetCameraInput,
       execute: (input) =>
         setCamera(
@@ -933,7 +933,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.set_duration",
       description:
-        "Set how long the whole composition runs. It also grows on its own when you place a clip past the end, so you rarely need this before adding clips — mostly to trim afterwards.",
+        "Set composition length; clips also grow it automatically before timing is locked.",
       schema: SetDurationInput,
       execute: (input) => setDuration(Math.round(input.durationSeconds * fps())),
     }),
@@ -941,7 +941,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.seek",
       description:
-        "Move the playhead, so the person is looking at the moment you are talking about. The preview follows it.",
+        "Move the playhead and visible preview to a time in seconds.",
       schema: SeekInput,
       annotations: { readOnlyHint: true },
       execute: (input) => seek(Math.round(input.seconds * fps())),
@@ -950,7 +950,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.preview",
       description:
-        "Play or pause the composition on the person's screen. Use it after you build something, so they watch it rather than reading your description of it.",
+        "Play or pause the composition, optionally seeking first.",
       schema: PreviewInput,
       annotations: { readOnlyHint: true },
       execute: (input) => {
@@ -970,7 +970,7 @@ export function buildTools(): ModelContextTool[] {
     {
       name: "prism.capture_frames",
       description:
-        "See your own work. Renders exact frames of the open composition — the same pixels export produces, not a screenshot of a playing video — and returns them as storyboard sheets by default: six frames to a sheet, three across, read left to right then top to bottom, each cell captioned with its board number, time and frame. Pass `layout: \"single\"` for one full-width image per frame instead — to study one or two moments closely, or if a grid is hard to read. Ask for a cadence (`every` seconds, optionally between `from` and `to`) or exact moments (`at`). Use it after you build a section to check timing, overlap, legibility and easing before asking the person to look; when something is off, name the board and fix it. Up to 24 frames per call — six frames on one sheet is the cheapest look. Read-only.",
+        "Render exact composition frames for visual review. Default: six labelled frames per storyboard sheet, read across then down. layout=single returns one image per frame. Choose every/from/to or at; max 24 frames. Check timing, overlap, legibility and easing. Read-only.",
       inputSchema: toolInputJsonSchema(CaptureFramesInput) as JsonSchema,
       annotations: { readOnlyHint: true },
       execute: async (raw) => {
@@ -996,7 +996,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.request_render",
       description:
-        "Propose exporting the composition as an MP4. This renders NOTHING: it records what would be rendered and raises a confirmation in the app. The person must approve it, and only then can confirm_render proceed. The person's approval is the only thing that starts it.",
+        "Request MP4 export approval in the app; this does not render. Only the person can approve, then confirm_render may run.",
       schema: RequestRenderInput,
       execute: (input) => requestRender(input.reason),
     }),
@@ -1004,7 +1004,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.confirm_render",
       description:
-        "Start the render that request_render proposed, using the confirmation id it returned. This only works after the person has approved that confirmation in the app — the id alone is not permission, and retrying will not change that. The MP4 is encoded in their browser and saved into the project folder.",
+        "Start an approved render using the id from request_render. Requires the person’s approval in the app; the id alone is insufficient. Encodes MP4 in their browser.",
       schema: ConfirmRenderInput,
       execute: (input) => confirmRender(input.confirmationId),
     }),

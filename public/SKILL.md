@@ -96,23 +96,27 @@ to stop.
    linked, your own file tools can put them there too. Do not start without
    them. A product film without the product is text on a gradient, which is
    the thing this exists to stop.
-3. Call `prism.get_project_context`. Read its `process` block first: it says
+3. PrismLaunch exposes one compact toolset at a time so browser hosts do not
+   reject an oversized catalog. It starts on `workflow`. Call
+   `prism.use_toolset` whenever you need `graphics`, `media`, `elements`,
+   `edit`, or to return to `workflow`, then refresh your tool list.
+4. Call `prism.get_project_context`. Read its `process` block first: it says
    which stage the film is at, what the person said about the last thing you
    submitted, and exactly what to do next.
-4. There is probably already a blank composition open. Linking an empty folder
+5. There is probably already a blank composition open. Linking an empty folder
    makes one, because there is nothing to ask. If you want another, or a
    specific folder name, call `prism.create_project`; or write the file
    yourself and call `prism.open_project`.
-5. Work the stages, in order, one at a time. Each has a `submit_*` tool. After
+6. Work the stages, in order, one at a time. Each has a `submit_*` tool. After
    each submit, call `prism.wait_for_decision`: it returns when the person
    approves the stage or sends it back with a note. You cannot approve a
    stage yourself; there is no tool for it.
-6. The timeline opens up once the storyboard is approved. Approving the
+7. The timeline opens up once the storyboard is approved. Approving the
    animatic locks the timing and opens the elements: define the look as
    elements, then build by placing them.
-7. The person approves each stage; nothing moves past one without them.
+8. The person approves each stage; nothing moves past one without them.
    **You cannot approve your own work.** There is no tool that approves a stage or a render, by design.
-8. When polish is approved, call `prism.request_render`. That renders nothing;
+9. When polish is approved, call `prism.request_render`. That renders nothing;
    it raises a confirmation the person has to approve.
 
 ## The process
@@ -662,6 +666,7 @@ rather than crashing the render. It is still a hole, so check.
 
 | Tool | What it does |
 | --- | --- |
+| `prism.use_toolset` | Switch the visible tools: `workflow`, `graphics`, `media`, `elements`, or `edit`. Refresh the tool list after calling it. |
 | `prism.get_project_context` | Where things stand: the folder, the canvas, every track and clip with its id, the playhead, and which clips are unreviewed. **Call this first.** |
 | `prism.create_project` | Create an empty composition and open it. It starts with no runtime and grows as you place clips. |
 | `prism.open_project` | Show one that already exists in the folder. |

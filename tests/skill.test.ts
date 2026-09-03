@@ -121,7 +121,8 @@ describe("public/SKILL.md", () => {
 
   it("documents every tool the app registers, and no others", async () => {
     const { buildTools } = await import("@/lib/webmcp/tools");
-    const registered = buildTools().map((tool) => tool.name);
+    const { PRISM_TOOLSET_SWITCH } = await import("@/lib/webmcp/register");
+    const registered = [...buildTools().map((tool) => tool.name), PRISM_TOOLSET_SWITCH];
 
     const documented = [
       ...SKILL.matchAll(/`(prism\.[a-z_]+)`/g),

@@ -1,0 +1,39 @@
+{
+  "plugin": "devpost-hackathon",
+  "version": 2,
+  "hackathon": {
+    "slug": "webmcp",
+    "name": "The WebMCP Challenge",
+    "url": "https://webmcp.devpost.com/",
+    "selected": true,
+    "source": "known"
+  },
+  "participant": {
+    "name": "Khalid Sayfullah",
+    "display_name": "Khalid"
+  },
+  "project": {
+    "name": "PrismLaunch",
+    "summary": "Your AI agent builds your product's promo video. You direct it on a shared timeline, review each stage, and decide what ships.",
+    "ai_usage": "Claude Code for the core application; Codex for WebMCP browser testing, fixes, branding, and draft preparation.",
+    "codex_usage": "Browser testing and debugging of the WebMCP workflow; image generation for branding; draft preparation."
+  },
+  "current_stage": "prepare-submission",
+  "completed_stages": [
+    "start-hackathon",
+    "review-hackathon-rules"
+  ],
+  "rules_acknowledged": true,
+  "learning": {
+    "status": "not-started",
+    "current_step": "",
+    "completed_steps": [],
+    "plan_file": "",
+    "checklist_file": ""
+  },
+  "submission": {
+    "draft_file": "devpost-submission.md",
+    "status": "drafting"
+  },
+  "next_command": "prepare-submission"
+}

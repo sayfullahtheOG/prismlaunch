@@ -170,37 +170,37 @@ const visualExtras = {
   box: patchOf(BoxSchema)
     .optional()
     .describe(
-      "Position and size as fractions of the canvas. x/y are the CENTRE, so { x: 0.5, y: 0.5 } is centred. tiltX/tiltY are perspective degrees: tiltX leans it back like a card on a desk, tiltY turns it like a door; ±12 floats a product shot, ±30 is a phone flying past. Defaults to a centred, flat band.",
+      "Canvas fractions; x/y are the centre (0.5, 0.5). rotation and tiltX/tiltY are degrees. Default: centred, flat band.",
     ),
   animation: patchOf(AnimationSchema)
     .optional()
     .describe(
-      "How it enters and leaves. enter/exit: none, fade, rise, fall, slide-left, slide-right, scale, blur, pop (out of focus and a touch large, settling — the kinetic word), zoom (through the camera), flip (a card turning up), wipe (a true mask, left to right). travel: how far rise/fall/slides move in canvas fractions (0.03 settles, 0.25 arrives from off-stage). spring: overshoot on the enter, 0–1 (0.3 lands past and settles; never on text). Defaults to no animation.",
+      "Enter/exit transitions, timed in frames. travel is canvas fraction; spring is enter overshoot (avoid on text). Default: none. Examples in SKILL.md.",
     ),
   motion: patchOf(MotionSchema)
     .optional()
     .describe(
-      "One move over the clip's life: x/y how far the box travels in canvas fractions, scale what it grows to, frames how long (0 is the whole clip), delay when it starts, easing 'out' | 'in-out' | 'linear', press to dip once on arrival like a click, rotate degrees turned by the end, opacity and blur (0–1) at the end, arc −1..1 to bow the path, spring 0–1 to land past the mark and settle, trail true for a streak behind it. Defaults to still.",
+      "One move: x/y canvas-fraction travel; scale, opacity, blur are end values; rotate is degrees. frames=0 uses the whole clip; delay is frames. press dips on arrival, arc bows the path, spring overshoots, trail adds a streak. Default: still.",
     ),
   shadow: loose(TextClipSchema.shape.shadow)
-    .describe("Depth, 0–1: a soft tinted shadow under it. 0.3 a card, 0.6 a phone in the air. Default 0."),
+    .describe("Tinted shadow strength. Default 0."),
   glow: loose(TextClipSchema.shape.glow)
-    .describe("A halo in its own colour, 0–1. Ration it. Default 0."),
+    .describe("Halo strength. Default 0."),
   blur: loose(TextClipSchema.shape.blur)
-    .describe("Defocus held for the whole clip, 0–1: a wall of text or a screenshot behind the subject. Default 0."),
+    .describe("Defocus for the whole clip. Default 0."),
 };
 
 const reveal = {
   reveal: loose(TextClipSchema.shape.reveal)
     .describe(
-      "How the words arrive: 'type' a character at a time, 'words' one word after another, 'count' runs the first number in the text up from zero. Defaults to none.",
+      "type: characters; words: staggered words; count: first number rises from zero. Default none.",
     ),
   revealFrames: loose(TextClipSchema.shape.revealFrames)
-    .describe("How many frames the reveal takes from the clip's first frame; with revealStagger set, how long each word takes. Defaults to 30."),
+    .describe("Reveal duration in frames; per word when revealStagger is set. Default 30."),
   revealStagger: loose(TextClipSchema.shape.revealStagger)
-    .describe("For 'words': frames between one word starting and the next. 6–9 is a kinetic line; 15 appends a word at a time. 0 spreads the words across revealFrames."),
+    .describe("Frames between word starts; 0 distributes them across revealFrames."),
   revealStyle: loose(TextClipSchema.shape.revealStyle)
-    .describe("For 'words': how each word lands — 'rise' (default), 'fade', 'pop' (out of focus and a touch large, settling), 'blur'."),
+    .describe("Word entrance. Default rise."),
   caret: loose(TextClipSchema.shape.caret)
     .describe("A blinking text caret after the words. Types along with 'type'."),
 };
@@ -245,7 +245,7 @@ export const AddShapeInput = z.object({
 
 const iconFields = {
   icon: loose(IconClipSchema.shape.icon)
-    .describe("Which icon: check, x, plus, minus, arrow-right, arrow-up-right, chevron-right, chevron-down, sparkle, star, heart, bolt, play, search, circle, cursor, hand. sparkle, star, heart, bolt, play and cursor are filled; the rest are outlines."),
+    .describe("sparkle, star, heart, bolt, play, cursor are filled; others outlined."),
   stroke: loose(IconClipSchema.shape.stroke)
     .describe("Stroke width for the outlined icons, 0.5–4. Default 2."),
   draw: loose(IconClipSchema.shape.draw)
@@ -263,7 +263,7 @@ export const AddIconInput = z.object({
 
 const particleFields = {
   style: loose(ParticlesClipSchema.shape.style)
-    .describe("confetti (up from the box centre, falling and spinning), burst (every direction), sparkles (twinkling points inside the box), rise (drifting up through the box). Default confetti."),
+    .describe("confetti falls from centre; burst flies out; sparkles twinkle; rise drifts up. Default confetti."),
   count: loose(ParticlesClipSchema.shape.count).describe("How many pieces, 1–400. 90 is a payoff; 24 is sparkles. Default 80."),
   colors: loose(ParticlesClipSchema.shape.colors)
     .describe("One to six hex colours the pieces are drawn from. Default the accent blue, its light, and a pink."),
@@ -281,7 +281,7 @@ export const AddParticlesInput = z.object({
 
 const deviceFields = {
   device: loose(DeviceClipSchema.shape.device)
-    .describe("phone (bezel and island), browser (title bar with three dots), window (a hairline and a shadow), card (a plain white panel). Default browser."),
+    .describe("Device frame. Default browser; phone has bezel/island, window a hairline, card a white panel."),
   screen: loose(DeviceClipSchema.shape.screen)
     .describe("The screen colour when there is no screenshot, and the ground under one. Default white."),
   frame: loose(DeviceClipSchema.shape.frame).describe("The bezel, the title bar, the hairline. Default near-black."),
@@ -300,7 +300,7 @@ export const AddDeviceInput = z.object({
 
 const htmlFields = {
   html: HtmlClipSchema.shape.html.describe(
-    "One self-contained snippet: markup with an inline <style>. No scripts, no external files; images by their assets/ path. Fonts: var(--font-body), var(--font-display), var(--font-mono). Bring it alive with data-in=\"12\" (arrives at frame 12; add rise, fade or blur after the frame for the style, pop is the default), data-out=\"80\", data-press=\"40\" (a click), data-lift=\"30\" (a hover), data-count=\"12\" (its number counts up over 30 frames), data-type=\"12\" (its text types); var(--frame) is the current frame for your own CSS.",
+    "Markup with inline <style>; no scripts/external files. Images: assets/ paths. Fonts: var(--font-body), var(--font-display), var(--font-mono). Frame-driven data attributes and var(--frame): see SKILL.md.",
   ),
   width: loose(HtmlClipSchema.shape.width).describe(
     "The width the snippet was written for, in CSS px; it is scaled so that width fills the box. Default 800.",
@@ -561,7 +561,7 @@ export const AddFromLibraryInput = z.object({
   itemId: z
     .enum(LIBRARY.map((item) => item.id) as [string, ...string[]])
     .describe(
-      "Which prebuilt piece. Motion: cursor, hand-cursor, tap-ring, typewriter, word-by-word, kinetic-line, counter, progress-bar, check, sparkle-trail, confetti, sparkles, live-card, highlight. Type: headline, support, label, blank-type. Shapes: accent-rule, device, phone, browser, window, card, pill, button, gradient-bar, dot, panel, blank-shape. Sound: sfx-whoosh, sfx-click, sfx-tick, sfx-typing, sfx-impact, sfx-rise. Music: bed-calm, bed-upbeat, bed-cinematic, bed-bright (120 BPM), bed-minimal (90 BPM).",
+      "Prebuilt motion, type, shape, SFX or music element. bed-bright: 120 BPM; bed-minimal: 90 BPM. See SKILL.md for examples.",
     ),
   name: z
     .string()

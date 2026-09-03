@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { acquirePrismTools, releasePrismTools } from "@/lib/webmcp/register";
+import {
+  acquirePrismTools,
+  PRISM_TOOLSETS,
+  releasePrismTools,
+} from "@/lib/webmcp/register";
+import { buildTools } from "@/lib/webmcp/tools";
 
 /**
  * One registration, however many components ask.
@@ -41,15 +46,15 @@ afterEach(() => {
 });
 
 describe("the shared registration", () => {
-  it("registers once for two holders, all tools, no duplicates", async () => {
+  it("registers one workflow toolset for two holders, with no duplicates", async () => {
     const registry = stubDocument();
 
     const [first, second] = await Promise.all([acquirePrismTools(), acquirePrismTools()]);
     expect(first).toBe(second);
-    expect(first?.registered).toBe(41);
+    expect(first?.registered).toBe(PRISM_TOOLSETS.workflow.length + 1);
     expect(first?.failed).toEqual([]);
     expect(registry.duplicates).toEqual([]);
-    expect(registry.calls.length).toBe(41);
+    expect(registry.calls.length).toBe(PRISM_TOOLSETS.workflow.length + 1);
 
     // The first release keeps the tools; the last tears them down, and a
     // fresh acquire after that is a new registration.
@@ -60,9 +65,25 @@ describe("the shared registration", () => {
 
     const third = await acquirePrismTools();
     expect(third).not.toBe(first);
-    expect(third?.registered).toBe(41);
+    expect(third?.registered).toBe(PRISM_TOOLSETS.workflow.length + 1);
     expect(registry.duplicates).toEqual([]);
     releasePrismTools();
     await Promise.resolve();
+  });
+
+  it("keeps every operation reachable while each advertised toolset stays bounded", () => {
+    const tools = buildTools();
+    const byName = new Map(tools.map((tool) => [tool.name, tool]));
+    const reachable = new Set(Object.values(PRISM_TOOLSETS).flat());
+
+    expect([...reachable].sort()).toEqual(tools.map((tool) => tool.name).sort());
+    for (const [name, names] of Object.entries(PRISM_TOOLSETS)) {
+      const descriptors = names.map((toolName) => byName.get(toolName));
+      expect(descriptors.every(Boolean), `${name} contains only registered tools`).toBe(true);
+      expect(
+        new TextEncoder().encode(JSON.stringify(descriptors)).byteLength,
+        `${name} metadata budget`,
+      ).toBeLessThan(30_000);
+    }
   });
 });

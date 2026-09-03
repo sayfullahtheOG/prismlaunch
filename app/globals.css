@@ -122,6 +122,15 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* The transparent silver mark becomes graphite on a light editor surface. */
+.prism-brand-mark {
+  filter: brightness(0.58) saturate(1.15);
+}
+
+[data-theme="dark"] .prism-brand-mark {
+  filter: none;
+}
+
 /*
    The film, fullscreen. The frame is sized in pixels for the stage; as the
    fullscreen element it takes the whole screen, and the Player letterboxes

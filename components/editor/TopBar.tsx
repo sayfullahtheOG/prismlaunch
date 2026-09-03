@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+import prismMark from "@/public/brand/prismlaunch-mark.png";
 import {
   Check,
   Download,
@@ -76,7 +78,7 @@ export function TopBar({
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line-soft bg-surface px-3">
-      <span className="flex items-center gap-2 pl-1 text-sm font-semibold tracking-[var(--ds-tracking-tight)]">
+      <span className="flex shrink-0 items-center gap-2.5 pl-1 text-[14px] font-bold tracking-[-0.035em]">
         <Mark />
         PrismLaunch
       </span>
@@ -304,27 +306,17 @@ function ProjectMenuItems({
   );
 }
 
-/** Prism mark: a split beam. Monochrome, inherits ink. */
+/** A freestanding silver-and-cobalt P with a transparent play aperture. */
 function Mark() {
   return (
-    <span
-      aria-hidden
-      className="grid size-6 place-items-center rounded-xs bg-ink"
-    >
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-        <path
-          d="M8 2 13.5 12.5H2.5L8 2Z"
-          stroke="var(--ds-color-inverse)"
-          strokeWidth="1.3"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M8 2v10.5"
-          stroke="var(--ds-color-inverse)"
-          strokeWidth="1.3"
-          opacity="0.5"
-        />
-      </svg>
-    </span>
+    <Image
+      src={prismMark}
+      alt=""
+      width={28}
+      height={28}
+      className="prism-brand-mark size-7 shrink-0"
+      loading="eager"
+      unoptimized
+    />
   );
 }

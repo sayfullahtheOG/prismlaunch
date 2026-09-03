@@ -1,9 +1,11 @@
 "use client";
 
-import { ChevronRight, File as FileIcon, Folder, FolderOpen, RefreshCw } from "lucide-react";
+import { ChevronRight, File as FileIcon, Folder, FolderOpen, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { IconButton } from "@/components/ui/IconButton";
-import { openFile } from "@/lib/studio/actions";
+import { deleteProject, openFile } from "@/lib/studio/actions";
+import { WORKSPACE_DIR } from "@/lib/studio/schema";
+import { COMPOSITIONS_DIR } from "@/lib/workspace/fs";
 import { useStudioStore } from "@/lib/studio/store";
 import { listDirectory, LIST_LIMIT, type DirEntry } from "@/lib/workspace/fs";
 import { Connection, type ConnectionProps } from "./Connection";
@@ -34,6 +36,36 @@ export function FilesPanel(connection: ConnectionProps) {
   const [listings, setListings] = useState<Record<string, Listing>>({});
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set([""]));
   const [generation, setGeneration] = useState(0);
+  /** The composition folder whose delete is asking, and the last outcome. */
+  const [asking, setAsking] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  /**
+   * The one folder kind this panel may delete: a composition, under
+   * .prismlaunch on disk or compositions/ in a browser workspace. Nothing
+   * else in a person's repository is this app's to remove.
+   */
+  function compositionSlug(path: string): string | null {
+    const parts = path.split("/");
+    if (parts.length !== 2) return null;
+    const root = workspace?.kind === "disk" ? WORKSPACE_DIR : COMPOSITIONS_DIR;
+    return parts[0] === root ? (parts[1] ?? null) : null;
+  }
+
+  async function removeComposition(path: string, slug: string) {
+    if (asking !== path) {
+      setAsking(path);
+      setNote(null);
+      return;
+    }
+    setAsking(null);
+    const result = await deleteProject(slug);
+    setNote(result.message);
+    if (result.ok) {
+      if (selected?.startsWith(`${path}/`) || selected === path) openFile(null);
+      refresh();
+    }
+  }
 
   // A path with no listing yet is one being read; nothing is set until the
   // read comes back, so opening the panel is one render, not two.
@@ -56,6 +88,13 @@ export function FilesPanel(connection: ConnectionProps) {
   useEffect(() => {
     load("");
   }, [load, generation]);
+
+  // A delete left asking goes back to being a button. No timer survives a re-ask.
+  useEffect(() => {
+    if (!asking) return;
+    const timer = setTimeout(() => setAsking(null), 4000);
+    return () => clearTimeout(timer);
+  }, [asking]);
 
   function refresh() {
     setListings({});
@@ -101,9 +140,25 @@ export function FilesPanel(connection: ConnectionProps) {
         </>
       }
     >
+      {note ? (
+        <p role="status" className="mb-2 text-xs leading-[var(--ds-leading-body)] text-muted">
+          {note}
+        </p>
+      ) : null}
+
       {workspace ? (
         <ul role="tree" aria-label={rootName ?? "Files"} className="-mx-2 flex flex-col">
-          <Rows path="" depth={0} listings={listings} open={open} selected={selected} onToggle={toggle} />
+          <Rows
+            path=""
+            depth={0}
+            listings={listings}
+            open={open}
+            selected={selected}
+            onToggle={toggle}
+            asking={asking}
+            slugFor={compositionSlug}
+            onRemove={removeComposition}
+          />
         </ul>
       ) : (
         <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">
@@ -121,6 +176,9 @@ function Rows({
   open,
   selected,
   onToggle,
+  asking,
+  slugFor,
+  onRemove,
 }: {
   path: string;
   depth: number;
@@ -128,6 +186,9 @@ function Rows({
   open: ReadonlySet<string>;
   selected: string | null;
   onToggle: (entry: DirEntry) => void;
+  asking: string | null;
+  slugFor: (path: string) => string | null;
+  onRemove: (path: string, slug: string) => void;
 }) {
   const listing = listings[path];
   const note = (text: string) => (
@@ -145,8 +206,15 @@ function Rows({
         const isDirectory = entry.kind === "directory";
         const expanded = isDirectory && open.has(entry.path);
         const current = entry.path === selected;
+        const slug = isDirectory ? slugFor(entry.path) : null;
         return (
-          <li key={entry.path} role="treeitem" aria-expanded={isDirectory ? expanded : undefined} aria-selected={current}>
+          <li
+            key={entry.path}
+            role="treeitem"
+            aria-expanded={isDirectory ? expanded : undefined}
+            aria-selected={current}
+            className={slug ? "group relative" : undefined}
+          >
             <button
               type="button"
               onClick={() => (isDirectory ? onToggle(entry) : openFile(entry.path))}
@@ -180,7 +248,35 @@ function Rows({
               {!isDirectory && entry.size !== undefined ? (
                 <span className="tabular shrink-0 font-mono text-2xs text-subtle">{formatSize(entry.size)}</span>
               ) : null}
+              {slug ? <span className="w-5 shrink-0" aria-hidden /> : null}
             </button>
+
+            {/*
+              A composition folder can be deleted from here — the whole film,
+              permanently, so the first press asks and the second does it.
+              A sibling of the row's button, because a button cannot hold one.
+            */}
+            {slug ? (
+              asking === entry.path ? (
+                <button
+                  type="button"
+                  onClick={() => onRemove(entry.path, slug)}
+                  className="ds-focus absolute top-1/2 right-1 -translate-y-1/2 rounded-xs bg-danger px-1.5 py-0.5 text-2xs font-medium text-inverse"
+                >
+                  Delete film?
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  aria-label={`Delete the composition ${slug} and everything in it`}
+                  title="Delete the composition, permanently"
+                  onClick={() => onRemove(entry.path, slug)}
+                  className="ds-focus absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded-xs text-subtle opacity-0 transition-opacity duration-140 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-sunken hover:text-danger"
+                >
+                  <Trash2 size={12} strokeWidth={2} aria-hidden />
+                </button>
+              )
+            ) : null}
             {expanded ? (
               <ul role="group">
                 <Rows
@@ -190,6 +286,9 @@ function Rows({
                   open={open}
                   selected={selected}
                   onToggle={onToggle}
+                  asking={asking}
+                  slugFor={slugFor}
+                  onRemove={onRemove}
                 />
               </ul>
             ) : null}

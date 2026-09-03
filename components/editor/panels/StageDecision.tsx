@@ -55,7 +55,7 @@ export function StageDecision({
   if (state.status === "pending") {
     return (
       <Button variant="quiet" size="sm" className="self-start" onClick={() => approveStage(stage)}>
-        Skip — approve as is
+        Approve as is
       </Button>
     );
   }

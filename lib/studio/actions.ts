@@ -873,6 +873,13 @@ function selectionFor(file: ProjectFile, id: string): Selection | null {
 }
 
 /** Which section the rail shows. Tab state, so an agent may move it too. */
+/** Back to the canvas and the timeline, whatever stage the film is at. HUMAN ONLY. */
+export function showEditor(): void {
+  const store = useStudioStore.getState();
+  store.setReviewing(false);
+  if (store.tab === "storyboard") store.setTab("process");
+}
+
 export function showTab(tab: RailTab): ActionResult {
   useStudioStore.getState().setTab(tab);
   return ok(`Showing ${tab}.`);
@@ -1262,7 +1269,7 @@ export function patchClip(
   );
   if (rejected) return rejected;
 
-  return ok(origin === "agent" ? "Proposed a change — it is a draft." : "Updated.");
+  return ok(origin === "agent" ? "Proposed a change. It is a draft." : "Updated.");
 }
 
 /** Drag along the timeline, or across to another track. */
@@ -2315,7 +2322,7 @@ export async function renameProject(name: string): Promise<ActionResult> {
   });
   await refreshProjects();
 
-  return ok(`Renamed to “${trimmed}” — now at ${WORKSPACE_DIR}/${wanted}/.`);
+  return ok(`Renamed to “${trimmed}”. Now at ${WORKSPACE_DIR}/${wanted}/.`);
 }
 
 // ---------------------------------------------------------------------------

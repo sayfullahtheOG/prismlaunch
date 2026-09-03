@@ -46,8 +46,8 @@ export function PanelInspector({
         <p className="mx-4 mb-3 flex items-start gap-2 border-y border-line-soft py-2.5 text-xs leading-[var(--ds-leading-body)] text-muted">
           <Lock size={11} strokeWidth={2.2} className="mt-px shrink-0 text-subtle" aria-hidden />
           {timingLocked(file.process)
-            ? "The storyboard and the timing are approved. Editing a board here does not move its beat on the timeline; reopen the animatic for that."
-            : "The storyboard is approved. Editing a board here does not re-lay the timeline; your agent can run prism.lay_animatic again."}
+            ? "The storyboard and the timing are approved. Editing a board here does not move its beat on the timeline. Reopen the animatic for that."
+            : "The storyboard is approved. Editing a board here does not re-lay the timeline. Your agent can run prism.lay_animatic again."}
         </p>
       ) : null}
 

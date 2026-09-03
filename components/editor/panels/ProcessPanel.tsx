@@ -330,7 +330,7 @@ function Artifact({
             visual clip{visual === 1 ? "" : "s"},{" "}
             <span className="text-ink">{audio}</span> audio.
             {audio === 0 ? (
-              <span className="text-warning"> No music yet — timing should lock to it.</span>
+              <span className="text-warning"> No music yet. Timing should lock to it.</span>
             ) : null}
           </p>
           {locked.length > 0 ? (
@@ -391,8 +391,8 @@ function Artifact({
           <span className="text-ink">{clips}</span> clips on the timeline
           {drafts > 0 ? (
             <>
-              , <span className="text-warning">{drafts} still unreviewed</span> —
-              accept them in the timeline before approving the build.
+              , <span className="text-warning">{drafts} still unreviewed</span>.
+              Accept them in the timeline before approving the build.
             </>
           ) : (
             ", all accepted."

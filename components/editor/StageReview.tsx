@@ -4,6 +4,7 @@ import { Check, Sparkles, X } from "lucide-react";
 import { STAGE_LABELS, STAGE_PURPOSE, stageIndex } from "@/lib/studio/process";
 import type { Process, ProjectFile, StageId } from "@/types/prism";
 import { StageDecision, StageStatusChip } from "./panels/StageDecision";
+import { ReviewBar } from "./ReviewBar";
 
 /**
  * A stage's output, at reading size.
@@ -22,9 +23,14 @@ export function StageReview({ stage, file }: { stage: StageId; file: ProjectFile
   return (
     <section
       aria-label={`${STAGE_LABELS[stage]} review`}
-      className="thin-scroll flex min-h-0 flex-1 flex-col overflow-y-auto bg-canvas"
+      className="flex min-h-0 flex-1 flex-col bg-canvas"
     >
-      <article className="mx-auto w-full max-w-[720px] px-10 py-10">
+      <ReviewBar>
+        <span className="text-xs text-subtle">Process</span>
+        <span className="text-xs text-subtle" aria-hidden>/</span>
+        <span className="text-xs font-medium text-ink">{STAGE_LABELS[stage]}</span>
+      </ReviewBar>
+      <article className="thin-scroll mx-auto w-full max-w-[720px] min-h-0 flex-1 overflow-y-auto px-10 py-10">
         <header className="flex flex-col gap-2">
           <p className="flex items-center gap-3 font-mono text-xs text-subtle">
             <span className="tabular">{String(stageIndex(stage) + 1).padStart(2, "0")}</span>

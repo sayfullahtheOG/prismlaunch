@@ -54,7 +54,7 @@ export function TextFields({
           value={value.text ?? ""}
           onChange={(event) => set({ text: event.target.value })}
           rows={3}
-          placeholder={words === "optional" ? "None — the words come when it is placed" : undefined}
+          placeholder={words === "optional" ? "None. The words come when it is placed." : undefined}
         />
       </Field>
       <Row>

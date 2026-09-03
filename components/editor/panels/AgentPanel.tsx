@@ -79,7 +79,7 @@ export function AgentPanel({ activity, kind, toolCount, slug }: Props) {
             </p>
             <p className="mt-0.5 text-xs leading-[var(--ds-leading-body)] text-muted">
               {inBrowser
-                ? "Kept in this browser's storage. Your agent reads it back whole through the tools; nothing is uploaded."
+                ? "Kept in this browser's storage. Your agent reads it back whole through the tools, and nothing is uploaded."
                 : "Read and written on this machine. Nothing here is uploaded."}
             </p>
           </div>

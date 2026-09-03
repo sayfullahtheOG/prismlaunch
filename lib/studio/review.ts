@@ -24,9 +24,10 @@ export function middleView(
   tab: RailTab,
   openStage: StageId | null,
   process: Process,
+  reviewing = true,
 ): MiddleView {
   if (tab === "storyboard") return "boards";
-  if (tab !== "process") return "editor";
+  if (tab !== "process" || !reviewing) return "editor";
   const stage = reviewedStage(openStage, process);
   if (stage === "storyboard") return "boards";
   if (stage && REVIEW_PAGES.includes(stage)) return "review";

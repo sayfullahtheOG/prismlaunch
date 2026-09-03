@@ -100,7 +100,7 @@ export function SetupDialog() {
           </h1>
           <p className="mt-2 text-center text-sm leading-[var(--ds-leading-body)] text-muted">
             A video canvas with a layer timeline, driven by your agent. It
-            writes the layers; this page renders them, and you decide what
+            writes the layers, this page renders them, and you decide what
             ships.
           </p>
         </header>

@@ -120,7 +120,7 @@ export async function linkWorkspace(): Promise<FsResult<Workspace>> {
     if (isAbort(error)) {
       return fail(
         "cancelled",
-        "No folder was linked. If you did choose one, this browser refused to hand it over — start in the browser instead.",
+        "No folder was linked. If you did choose one, this browser refused to hand it over. Start in the browser instead.",
       );
     }
     return fail("permission-denied", "Could not open that folder.");

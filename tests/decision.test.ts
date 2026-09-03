@@ -114,6 +114,8 @@ describe("what the middle shows", () => {
     expect(middleView("process", "build", process)).toBe("editor");
     expect(middleView("elements", "brief", process)).toBe("editor");
     expect(middleView("storyboard", null, process)).toBe("boards");
+    // "Back to editor": the canvas, whatever stage the film is at.
+    expect(middleView("process", "brief", process, false)).toBe("editor");
   });
 
   it("follows the film when nothing is opened, and the person when something is", () => {
@@ -122,6 +124,10 @@ describe("what the middle shows", () => {
     expect(reviewedStage("sound", process)).toBe("sound");
     useStudioStore.getState().setOpenStage("script");
     expect(useStudioStore.getState().openStage).toBe("script");
+    actions.showEditor();
+    expect(useStudioStore.getState().reviewing).toBe(false);
+    useStudioStore.getState().setOpenStage("brief");
+    expect(useStudioStore.getState().reviewing).toBe(true);
     resetStudio();
     expect(useStudioStore.getState().openStage).toBeNull();
   });

@@ -72,7 +72,7 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
           {process.style.clipIds.length > 0 ? (
             <p className="text-2xs text-subtle">
               {process.style.clipIds.length} frame{process.style.clipIds.length === 1 ? "" : "s"} built
-              for real — select them in the timeline to review.
+              for real. Select them in the timeline to review them.
             </p>
           ) : null}
           {process.style.note ? (
@@ -88,8 +88,8 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
       {file.elements.length === 0 && loose.length === 0 ? (
         <p className="border-t border-line-soft py-4 text-xs leading-[var(--ds-leading-body)] text-subtle">
           Nothing yet. Once the animatic is approved, your agent defines the
-          look as elements — the type roles, the accent, the device, the
-          product — and places them to build the film.
+          look as elements (the type roles, the accent, the device, the
+          product shot) and places them to build the film.
         </p>
       ) : null}
 

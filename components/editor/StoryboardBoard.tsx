@@ -8,6 +8,7 @@ import { selectedIdOf } from "@/lib/studio/selection";
 import { useStudioStore } from "@/lib/studio/store";
 import { timecode } from "@/lib/studio/timing";
 import type { ProjectFile, StoryboardPanel } from "@/types/prism";
+import { ReviewBar } from "./ReviewBar";
 
 /**
  * The boards, drawn large.
@@ -51,25 +52,25 @@ export function StoryboardBoard({ file }: { file: ProjectFile }) {
   return (
     <section
       aria-label="Storyboard"
-      className="thin-scroll flex min-h-0 flex-1 flex-col overflow-y-auto bg-canvas"
+      className="flex min-h-0 flex-1 flex-col bg-canvas"
     >
-      <header className="sticky top-0 z-[var(--ds-z-sticky)] flex h-10 items-center gap-3 border-b border-line-soft bg-canvas px-6">
-        <h2 className="text-sm font-medium text-ink">{file.name}</h2>
+      <ReviewBar>
+        <h2 className="text-xs font-medium text-ink">{file.name}</h2>
         <span className="tabular font-mono text-2xs text-subtle">
           {panels.length} panels · {timecode(total / file.fps)}
           {file.process.brief.lengthSeconds ? ` of ${file.process.brief.lengthSeconds}s` : ""}
         </span>
         {locked ? (
-          <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-2xs text-subtle">
+          <span className="inline-flex items-center gap-1.5 font-mono text-2xs text-subtle">
             <Lock size={11} strokeWidth={2.2} aria-hidden />
             timing locked
           </span>
         ) : null}
-      </header>
+      </ReviewBar>
 
       <ol
         ref={grid}
-        className="grid gap-x-6 gap-y-8 p-6"
+        className="thin-scroll grid min-h-0 flex-1 content-start gap-x-6 gap-y-8 overflow-y-auto p-6"
         style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}
       >
         {panels.map((panel, index) => {
@@ -204,8 +205,12 @@ function EmptyBoard({ file }: { file: ProjectFile }) {
   return (
     <section
       aria-label="Storyboard"
-      className="flex min-h-0 flex-1 items-center justify-center bg-canvas p-6"
+      className="flex min-h-0 flex-1 flex-col bg-canvas"
     >
+      <ReviewBar>
+        <h2 className="text-xs font-medium text-ink">{file.name}</h2>
+      </ReviewBar>
+      <div className="flex min-h-0 flex-1 items-center justify-center p-6">
       <div className="max-w-[360px] text-center">
         <p className="text-sm font-medium text-ink">No boards yet</p>
         <p className="mt-1.5 text-xs leading-[var(--ds-leading-body)] text-muted">
@@ -213,6 +218,7 @@ function EmptyBoard({ file }: { file: ProjectFile }) {
             ? `Your agent boards the film once the script is approved. The process is at ${STAGE_LABELS[stage]}.`
             : "Your agent submits the boards with prism.submit_storyboard: one panel per beat, in order."}
         </p>
+      </div>
       </div>
     </section>
   );

@@ -70,6 +70,12 @@ export type StudioState = {
    * of the editor follows it: a document stage opens as a page there.
    */
   openStage: StageId | null;
+  /**
+   * Whether the middle shows the stage under review or the editor. Opening a
+   * stage sets it; "Back to editor" clears it. Without this there would be
+   * no way to reach the canvas while the film's current stage is a document.
+   */
+  reviewing: boolean;
   project: FilmProject | null;
   /** `project.json`'s mtime when we last read it, for change detection. */
   loadedAt: number;
@@ -103,6 +109,7 @@ export type StudioState = {
 
   setTab: (tab: RailTab) => void;
   setOpenStage: (stage: StageId | null) => void;
+  setReviewing: (reviewing: boolean) => void;
   setWorkspace: (workspace: WorkspaceState) => void;
   setProjects: (projects: ProjectEntry[]) => void;
   setProject: (project: FilmProject | null, loadedAt: number) => void;
@@ -126,6 +133,7 @@ export const useStudioStore = create<StudioState>((set) => ({
   workspace: { kind: "checking" },
   tab: "process",
   openStage: null,
+  reviewing: true,
   project: null,
   loadedAt: 0,
   loadError: null,
@@ -141,7 +149,8 @@ export const useStudioStore = create<StudioState>((set) => ({
   snap: true,
 
   setTab: (tab) => set({ tab }),
-  setOpenStage: (openStage) => set({ openStage }),
+  setOpenStage: (openStage) => set({ openStage, reviewing: true }),
+  setReviewing: (reviewing) => set({ reviewing }),
   setWorkspace: (workspace) => set({ workspace }),
   setProjects: (projects) =>
     set((state) =>
@@ -201,6 +210,7 @@ export function resetStudio(): void {
     workspace: { kind: "checking" },
     tab: "process",
     openStage: null,
+    reviewing: true,
     pixelsPerSecond: DEFAULT_ZOOM,
     snap: true,
   });

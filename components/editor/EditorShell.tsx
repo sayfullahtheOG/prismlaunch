@@ -64,6 +64,7 @@ export function EditorShell() {
   const renderNote = useStudioStore((state) => state.renderNote);
   const tab = useStudioStore((state) => state.tab);
   const openStage = useStudioStore((state) => state.openStage);
+  const reviewOpen = useStudioStore((state) => state.reviewing);
 
   useDiskSync();
   useTimelineKeys();
@@ -81,7 +82,7 @@ export function EditorShell() {
   const stage = currentStage(file.process);
   const stageWaiting = stage !== null && file.process[stage].status === "submitted";
 
-  const view = middleView(tab, openStage, file.process);
+  const view = middleView(tab, openStage, file.process, reviewOpen);
   const reviewing = reviewedStage(openStage, file.process);
 
   async function exportFilm() {
@@ -219,7 +220,12 @@ function useTimelineKeys(): void {
       if (!store.project) return;
       // No timeline on screen, no timeline shortcuts: space over the boards
       // or a brief should not start a player nobody can see.
-      if (middleView(store.tab, store.openStage, store.project.file.process) !== "editor") return;
+      if (
+        middleView(store.tab, store.openStage, store.project.file.process, store.reviewing) !==
+        "editor"
+      ) {
+        return;
+      }
 
       const step = event.shiftKey ? store.project.file.fps : 1;
 

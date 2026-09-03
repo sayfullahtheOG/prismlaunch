@@ -76,9 +76,9 @@ export function RenderConfirm() {
         ) : null}
 
         <p className="mt-3 text-xs leading-[var(--ds-leading-body)] text-muted">
-          Nothing has been rendered yet: your agent recorded what it would
+          Nothing has been rendered yet. Your agent recorded what it would
           export and stopped, because starting it needs you. The film is encoded
-          on this device and downloads straight to you; nothing is uploaded.
+          on this device and downloads straight to you. Nothing is uploaded.
         </p>
 
         {error ? (

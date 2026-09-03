@@ -14,9 +14,12 @@ import type { ElementDraft } from "@/types/prism";
  * the person tunes it, and every clip placed from it follows.
  *
  * The sounds are files the studio ships under `library/`, served from the
- * site itself, so they work in every workspace with nothing to copy. The
- * effects are synthesised (scripts/make-sfx.mjs): short, dry, and honest
- * about being effects rather than recordings.
+ * site itself, so they work in every workspace with nothing to copy. They
+ * were generated with ElevenLabs: the effects with Eleven SFX, cut to their
+ * content and levelled; the beds with Eleven Music, thirty seconds each and
+ * instrumental, so a film can sit on one without a lyric fighting the
+ * headline. A bed longer than the film is cut by the clip, and fades out by
+ * default so the cut is not a cliff.
  */
 
 export type LibraryItem = {
@@ -24,14 +27,15 @@ export type LibraryItem = {
   name: string;
   /** One line on what it is for. */
   blurb: string;
-  group: "Type" | "Shapes" | "Sound";
+  group: "Type" | "Shapes" | "Sound" | "Music";
   draft: ElementDraft;
 };
 
 function sound(
   name: string,
   file: string,
-  role: string,
+  role: "effect" | "music",
+  overrides: Partial<Extract<ElementDraft, { kind: "audio" }>> = {},
 ): Extract<ElementDraft, { kind: "audio" }> {
   return {
     kind: "audio",
@@ -43,7 +47,13 @@ function sound(
     fadeInFrames: 0,
     fadeOutFrames: 0,
     playbackRate: 1,
+    ...overrides,
   };
+}
+
+/** A music bed: under the film, a little quieter, and fading out rather than stopping. */
+function bed(name: string, file: string): Extract<ElementDraft, { kind: "audio" }> {
+  return sound(name, file, "music", { volume: 0.8, fadeOutFrames: 24 });
 }
 
 const INK = "#F5F5F7";
@@ -201,38 +211,59 @@ export const LIBRARY: readonly LibraryItem[] = [
   {
     id: "sfx-whoosh",
     name: "Whoosh",
-    blurb: "Air moving, 0.6s. Under a slide or a wipe.",
+    blurb: "Air moving past, 0.9s. Under a slide or a wipe.",
     group: "Sound",
     draft: sound("Whoosh", "whoosh.wav", "effect"),
   },
   {
     id: "sfx-click",
     name: "Click",
-    blurb: "A short mechanical click, 0.1s. A button, a cut.",
+    blurb: "A short mechanical click, 0.4s. A button, a cut.",
     group: "Sound",
     draft: sound("Click", "click.wav", "effect"),
   },
   {
     id: "sfx-tick",
     name: "Tick",
-    blurb: "A softer, higher click, 0.08s. Keystrokes, list items landing.",
+    blurb: "A small wooden tick, 0.3s. Keystrokes, list items landing.",
     group: "Sound",
     draft: sound("Tick", "tick.wav", "effect"),
   },
   {
     id: "sfx-impact",
     name: "Impact",
-    blurb: "A low hit that falls away, 0.9s. The downbeat under a reveal.",
+    blurb: "A low hit that falls away, 1s. The downbeat under a reveal.",
     group: "Sound",
     draft: sound("Impact", "impact.wav", "effect"),
   },
   {
     id: "sfx-rise",
     name: "Rise",
-    blurb: "Noise opening up over 1.6s and stopping. The beat before the reveal.",
+    blurb: "Noise opening up over a second and stopping. The beat before the reveal.",
     group: "Sound",
     draft: sound("Rise", "rise.wav", "effect"),
   },
+  {
+    id: "bed-calm",
+    name: "Calm bed",
+    blurb: "Warm pads and a sparse piano at 80 BPM, 30s. For a film that explains.",
+    group: "Music",
+    draft: bed("Calm bed", "bed-calm.mp3"),
+  },
+  {
+    id: "bed-upbeat",
+    name: "Upbeat bed",
+    blurb: "Plucked synths over a driving kick at 120 BPM, 30s. For a film that moves.",
+    group: "Music",
+    draft: bed("Upbeat bed", "bed-upbeat.mp3"),
+  },
+  {
+    id: "bed-cinematic",
+    name: "Cinematic bed",
+    blurb: "Strings and sub swells that build for 30s. For a film with one big reveal.",
+    group: "Music",
+    draft: bed("Cinematic bed", "bed-cinematic.mp3"),
+  },
 ];
 
-export const LIBRARY_GROUPS = ["Type", "Shapes", "Sound"] as const;
+export const LIBRARY_GROUPS = ["Type", "Shapes", "Sound", "Music"] as const;

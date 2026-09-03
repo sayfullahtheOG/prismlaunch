@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as actions from "@/lib/studio/actions";
 import { LIBRARY, LIBRARY_GROUPS } from "@/lib/studio/library";
@@ -39,5 +41,27 @@ describe("the library", () => {
     expect(elements.filter((element) => element.kind === "text").length).toBe(
       LIBRARY.filter((item) => item.group === "Type").length,
     );
+  });
+
+  it("ships every sound it lists, from the site itself", () => {
+    const sounds = LIBRARY.filter((item) => item.draft.kind === "audio");
+    expect(sounds.length).toBeGreaterThanOrEqual(8);
+    for (const item of sounds) {
+      if (item.draft.kind !== "audio") continue;
+      expect(item.draft.src.startsWith("library/audio/")).toBe(true);
+      expect(existsSync(join(process.cwd(), "public", item.draft.src)), item.draft.src).toBe(true);
+    }
+  });
+
+  it("has music beds that fade out, and effects that do not", () => {
+    const beds = LIBRARY.filter((item) => item.group === "Music");
+    expect(beds.length).toBe(3);
+    for (const item of beds) {
+      expect(item.draft.kind === "audio" && item.draft.role).toBe("music");
+      expect(item.draft.kind === "audio" && item.draft.fadeOutFrames).toBeGreaterThan(0);
+    }
+    for (const item of LIBRARY.filter((item) => item.group === "Sound")) {
+      expect(item.draft.kind === "audio" && item.draft.fadeOutFrames).toBe(0);
+    }
   });
 });

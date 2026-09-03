@@ -353,10 +353,15 @@ and synthesised bold looks cheap.
 ### Assets
 
 `src` is a path inside the project's own folder, like `assets/logo.png`, or
-one of the studio's own files under `library/`: the sound effects in the
-Library section (`library/audio/whoosh.wav`, `click.wav`, `tick.wav`,
-`impact.wav`, `rise.wav`) resolve in every workspace with nothing to copy,
-so `prism.add_audio` with one of those works even where there is no folder.
+one of the studio's own files under `library/`, which resolve in every
+workspace with nothing to copy, so `prism.add_audio` with one of those works
+even where there is no folder. The effects: `library/audio/whoosh.wav`
+(0.9s), `click.wav` (0.4s), `tick.wav` (0.3s), `impact.wav` (1s), `rise.wav`
+(1s). The music beds, thirty seconds each and instrumental:
+`library/audio/bed-calm.mp3` (warm pads, 80 BPM), `bed-upbeat.mp3` (driving,
+120 BPM), `bed-cinematic.mp3` (strings that build to a peak). A bed longer
+than the film is cut by the clip's duration, so give it `fadeOutFrames` and
+it will not stop dead.
 The person can also drop an image, a video or a sound onto the Elements
 section, which puts it in `assets/` and makes it an element. Otherwise the
 file has to be there already; put it in with your file tools first. A path that

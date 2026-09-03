@@ -1,6 +1,6 @@
 "use client";
 
-import { AudioLines, Check, Play, Plus, Square } from "lucide-react";
+import { AudioLines, Check, Music, Play, Plus, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createElement } from "@/lib/studio/actions";
 import { libraryUrl } from "@/lib/studio/files";
@@ -236,7 +236,11 @@ function Preview({ draft, large = false }: { draft: ElementDraft; large?: boolea
         </span>
       ) : draft.kind === "audio" ? (
         <span className="absolute inset-0 flex items-center justify-center text-[#5B8CFF]">
-          <AudioLines size={large ? 44 : 24} strokeWidth={1.6} />
+          {draft.role === "music" ? (
+            <Music size={large ? 44 : 24} strokeWidth={1.6} />
+          ) : (
+            <AudioLines size={large ? 44 : 24} strokeWidth={1.6} />
+          )}
         </span>
       ) : draft.kind === "shape" ? (
         <span

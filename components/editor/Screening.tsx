@@ -18,7 +18,7 @@ import { Canvas } from "./Canvas";
  * decision sits in the Process panel beside it, and the layers are one
  * click away in the Editor for anyone who wants to see the seams.
  */
-export function Screening({ file }: { file: ProjectFile }) {
+export function Screening({ file, stage }: { file: ProjectFile; stage: "animatic" | "build" }) {
   const playhead = useStudioStore((state) => state.playhead);
   const playing = useStudioStore((state) => state.playing);
   const room = useRef<HTMLDivElement>(null);
@@ -29,8 +29,8 @@ export function Screening({ file }: { file: ProjectFile }) {
   }
 
   return (
-    <section aria-label="Animatic screening" className="flex min-h-0 flex-1 flex-col bg-canvas">
-      <div ref={room} className="flex min-h-0 flex-1">
+    <section aria-label={stage === "animatic" ? "Animatic screening" : "Build screening"} className="flex min-h-0 flex-1 flex-col bg-canvas">
+      <div ref={room} inert className="pointer-events-none flex min-h-0 flex-1">
         <Canvas file={file} />
       </div>
 

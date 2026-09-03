@@ -28,6 +28,7 @@ import { blankProjectFile } from "./blank";
 import { roughInk } from "./color";
 import { boardAssetPaths } from "./storyboard";
 import { pickLanding } from "./landing";
+import { shouldFollowStyleWork } from "./review";
 import {
   agentMayPlaceClips,
   agentMayShapeElements,
@@ -389,9 +390,17 @@ function commit(
   const store = useStudioStore.getState();
   store.pushHistory(project.file);
   store.setProject(updated.data, store.loadedAt);
+  if (event.origin === "agent") followStyleWork(project.file, parsed.data);
   schedulePersist();
   ensureAssets(parsed.data);
   return null;
+}
+
+function followStyleWork(previous: ProjectFile, next: ProjectFile): void {
+  const store = useStudioStore.getState();
+  if (shouldFollowStyleWork(previous, next, store.tab, store.openStage)) {
+    reviewStage("style");
+  }
 }
 
 /**
@@ -903,6 +912,7 @@ export async function reloadFromDisk(): Promise<ActionResult> {
   // An agent's edit, arriving through the file, is undoable like any other.
   useStudioStore.getState().pushHistory(current.file);
   useStudioStore.getState().setProject(parsed.data, read.value.modifiedAt);
+  followStyleWork(current.file, parsed.data.file);
   useStudioStore.getState().setLoadError(null);
   schedulePersist();
   await flushWrites();

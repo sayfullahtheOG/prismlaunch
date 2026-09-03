@@ -24,6 +24,8 @@ import type {
   DirectionSchema,
   LockedBeatSchema,
   LookSchema,
+  MotionSchema,
+  RevealSchema,
   StageIdSchema,
   StageStatusSchema,
   StoryboardPanelSchema,
@@ -49,6 +51,8 @@ export type Color = z.infer<typeof ColorSchema>;
 export type Box = z.infer<typeof BoxSchema>;
 export type Transition = z.infer<typeof TransitionSchema>;
 export type Animation = z.infer<typeof AnimationSchema>;
+export type Motion = z.infer<typeof MotionSchema>;
+export type Reveal = z.infer<typeof RevealSchema>;
 export type FontFamily = z.infer<typeof FontFamilySchema>;
 export type TextAlign = z.infer<typeof TextAlignSchema>;
 export type Fit = z.infer<typeof FitSchema>;

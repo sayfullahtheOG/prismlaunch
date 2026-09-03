@@ -39,7 +39,7 @@ describe("the library", () => {
     const elements = readProject()!.file.elements;
     expect(elements).toHaveLength(LIBRARY.length);
     expect(elements.filter((element) => element.kind === "text").length).toBe(
-      LIBRARY.filter((item) => item.group === "Type").length,
+      LIBRARY.filter((item) => item.draft.kind === "text").length,
     );
   });
 

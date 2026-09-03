@@ -8,7 +8,8 @@ import {
   useVideoConfig,
 } from "remotion";
 import { FONT_STACK, VARIABLE_WEIGHT } from "./fonts";
-import { boxStyle, clipStyle, fadeGain } from "./motion";
+import { boxStyle, clipStyle, fadeGain, motionState } from "./motion";
+import { caretVisible, isSpace, revealProgress, revealed, splitWords, wordProgress } from "./reveal";
 import type {
   AudioClip,
   Background,
@@ -135,12 +136,24 @@ function VisualLayer({
     fps,
   );
 
+  // The move shifts the box itself, so a cursor that travels is laid out
+  // where it is, not transformed from where it was; the scale rides on the
+  // transform with the transitions, which is what keeps text crisp.
+  const move = motionState(clip.motion, frame, clip.durationInFrames);
+  const box =
+    move.dx === 0 && move.dy === 0
+      ? clip.box
+      : { ...clip.box, x: clip.box.x + move.dx, y: clip.box.y + move.dy };
+  const transform = [style.transform, move.scale !== 1 ? `scale(${move.scale})` : ""]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div
       style={{
-        ...boxStyle(clip.box),
+        ...boxStyle(box),
         opacity: style.opacity,
-        transform: style.transform || undefined,
+        transform: transform || undefined,
         ...(style.filter ? { filter: style.filter } : {}),
       }}
     >
@@ -155,7 +168,8 @@ function VisualLayer({
 }
 
 function TextBody({ clip }: { clip: TextClip }) {
-  const { height } = useVideoConfig();
+  const { height, fps } = useVideoConfig();
+  const frame = useCurrentFrame();
 
   return (
     <div
@@ -185,8 +199,74 @@ function TextBody({ clip }: { clip: TextClip }) {
         overflowWrap: "anywhere",
       }}
     >
-      <span style={{ width: "100%" }}>{clip.text}</span>
+      <span style={{ width: "100%" }}>
+        <Words clip={clip} frame={frame} fps={fps} />
+      </span>
     </div>
+  );
+}
+
+/**
+ * The words at one frame: all of them, or as many as the reveal has let in.
+ *
+ * `words` lays every word out from the first frame and fades each in where
+ * it already is, so the line never reflows as it arrives. The caret is a
+ * block of the text's own colour, an em tall, after whatever is showing.
+ */
+function Words({ clip, frame, fps }: { clip: TextClip; frame: number; fps: number }) {
+  const progress = revealProgress(frame, clip.revealFrames);
+  const typing = clip.reveal === "type" && progress < 1;
+  const caret = clip.caret ? <Caret visible={caretVisible(frame, fps, typing)} /> : null;
+
+  if (clip.reveal === "words") {
+    const parts = splitWords(clip.text);
+    const count = parts.filter((part) => !isSpace(part)).length;
+    let index = 0;
+    return (
+      <>
+        {parts.map((part, at) => {
+          if (isSpace(part)) return part;
+          const p = wordProgress(index++, count, progress);
+          return (
+            <span
+              key={at}
+              style={{
+                display: "inline-block",
+                opacity: p,
+                transform: p < 1 ? `translateY(${(1 - p) * 0.35}em)` : undefined,
+              }}
+            >
+              {part}
+            </span>
+          );
+        })}
+        {caret}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {revealed(clip.reveal, clip.text, progress)}
+      {caret}
+    </>
+  );
+}
+
+function Caret({ visible }: { visible: boolean }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-block",
+        width: "0.08em",
+        height: "0.95em",
+        marginLeft: "0.06em",
+        verticalAlign: "-0.12em",
+        background: "currentColor",
+        opacity: visible ? 1 : 0,
+      }}
+    />
   );
 }
 

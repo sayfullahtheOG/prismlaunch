@@ -37,12 +37,14 @@ import {
 import {
   DEFAULT_ANIMATION,
   DEFAULT_BOX,
+  DEFAULT_MOTION,
   explainZodError,
   toolInputJsonSchema,
 } from "@/lib/studio/schema";
 import {
   AddAudioInput,
   AddElementInput,
+  AddFromLibraryInput,
   AddImageInput,
   AddShapeInput,
   AddTextInput,
@@ -79,7 +81,8 @@ import {
   WaitForDecisionInput,
 } from "@/lib/studio/tool-inputs";
 import { useStudioStore } from "@/lib/studio/store";
-import type { Animation, Box, Clip, Element, ElementDraft } from "@/types/prism";
+import { LIBRARY } from "@/lib/studio/library";
+import type { Animation, Box, Clip, Element, ElementDraft, Motion } from "@/types/prism";
 import type { JsonSchema, ModelContextTool } from "./types";
 
 /**
@@ -173,10 +176,12 @@ type Loose<T> = { [K in keyof T]?: T[K] | undefined };
 function visual(input: {
   box?: Loose<Box> | undefined;
   animation?: Loose<Animation> | undefined;
-}): { box: Box; animation: Animation } {
+  motion?: Loose<Motion> | undefined;
+}): { box: Box; animation: Animation; motion: Motion } {
   return {
     box: { ...DEFAULT_BOX, ...defined(input.box ?? {}) },
     animation: { ...DEFAULT_ANIMATION, ...defined(input.animation ?? {}) },
+    motion: { ...DEFAULT_MOTION, ...defined(input.motion ?? {}) },
   };
 }
 
@@ -386,6 +391,9 @@ export function buildTools(): ModelContextTool[] {
             align: input.align ?? "center",
             lineHeight: input.lineHeight ?? 1.1,
             letterSpacing: input.letterSpacing ?? -0.02,
+            reveal: input.reveal,
+            revealFrames: input.revealFrames,
+            caret: input.caret,
             label: input.label,
             ...visual(input),
           }) as Omit<Clip, "id">,
@@ -503,7 +511,7 @@ export function buildTools(): ModelContextTool[] {
         "Define a piece of the look, to be placed later: a type style (kind 'text' — Headline, Support, Label; leave `text` empty, the words arrive when it is placed), a shape (an accent rule, a block), an image or video from the project folder (a device frame, the product shot), or a sound. Elements are the style stage's artifact: define them, build the two or three style frames by placing them, and submit_style_frames names them. Refuses until the animatic is approved. PRISM_METHOD.md §7.",
       schema: AddElementInput,
       execute: (input) => {
-        const { kind, name, role, note, box, animation, ...fields } = input;
+        const { kind, name, role, note, box, animation, motion, ...fields } = input;
         const identity = { name, ...defined({ role }) };
         const media = () =>
           fields.src
@@ -527,7 +535,10 @@ export function buildTools(): ModelContextTool[] {
               align: fields.align ?? "center",
               lineHeight: fields.lineHeight ?? 1.1,
               letterSpacing: fields.letterSpacing ?? -0.02,
-              ...visual({ box, animation }),
+              reveal: fields.reveal ?? "none",
+              revealFrames: fields.revealFrames ?? 30,
+              caret: fields.caret ?? false,
+              ...visual({ box, animation, motion }),
             };
             break;
           case "shape":
@@ -537,7 +548,7 @@ export function buildTools(): ModelContextTool[] {
               shape: fields.shape ?? "rect",
               fill: fields.fill ?? "#FFFFFF",
               radius: fields.radius ?? 0,
-              ...visual({ box, animation }),
+              ...visual({ box, animation, motion }),
             };
             break;
           case "image": {
@@ -549,7 +560,7 @@ export function buildTools(): ModelContextTool[] {
               src: file.src,
               fit: fields.fit ?? "cover",
               radius: fields.radius ?? 0,
-              ...visual({ box, animation }),
+              ...visual({ box, animation, motion }),
             };
             break;
           }
@@ -565,7 +576,7 @@ export function buildTools(): ModelContextTool[] {
               startFrom: fields.startFrom ?? 0,
               volume: fields.volume ?? 0,
               playbackRate: fields.playbackRate ?? 1,
-              ...visual({ box, animation }),
+              ...visual({ box, animation, motion }),
             };
             break;
           }
@@ -595,7 +606,7 @@ export function buildTools(): ModelContextTool[] {
         "Change an element — and every clip placed from it follows. Send only the fields you are changing. This is how the look is adjusted: the Headline's size once, not once per headline. Clips that follow the element become DRAFTS again for the person to accept.",
       schema: UpdateElementInput,
       execute: (input) => {
-        const { elementId, note, box, animation, ...rest } = input;
+        const { elementId, note, box, animation, motion, ...rest } = input;
         const patch = defined(rest) as Partial<Element>;
 
         const current = useStudioStore
@@ -609,6 +620,12 @@ export function buildTools(): ModelContextTool[] {
           (patch as { animation: typeof current.animation }).animation = {
             ...current.animation,
             ...defined(animation),
+          };
+        }
+        if (motion && current && "motion" in current) {
+          (patch as { motion: typeof current.motion }).motion = {
+            ...current.motion,
+            ...defined(motion),
           };
         }
 
@@ -625,12 +642,31 @@ export function buildTools(): ModelContextTool[] {
     }),
 
     tool({
+      name: "prism.add_from_library",
+      description:
+        "Add one of the studio's prebuilt pieces as an element of this film, exactly as the person clicking it in the Library would: a cursor that glides to a spot and clicks, a tap ring, a typewriter line, a word-by-word headline, a counter, a highlight, the type styles, the shapes, the sound effects and the music beds. Then place it with prism.place_element and tune it with prism.update_element. Refuses until the animatic is approved, like add_element.",
+      schema: AddFromLibraryInput,
+      execute: (input) => {
+        const item = LIBRARY.find((candidate) => candidate.id === input.itemId);
+        if (!item) {
+          return { ok: false, code: "not-found", message: `No library piece "${input.itemId}".` };
+        }
+        return createElement(
+          { ...item.draft, name: input.name ?? item.draft.name },
+          "agent",
+          input.note ?? item.blurb,
+        );
+      },
+    }),
+
+    tool({
       name: "prism.place_element",
       description:
         "Put an element on the timeline as a clip: the element supplies the look, you supply the track, the first frame, the length, and — for a text style — the words. Obeys the timing lock like add_text, and lands as a DRAFT. This is how the build should be done; add_text and friends are for things that are genuinely one-off.",
       schema: PlaceElementInput,
       execute: (input) => {
-        const { elementId, trackId, from, durationInFrames, label, note, text, box, animation } = input;
+        const { elementId, trackId, from, durationInFrames, label, note, text, box, animation, motion } =
+          input;
         return placeElement(
           elementId,
           trackId,
@@ -640,6 +676,7 @@ export function buildTools(): ModelContextTool[] {
             ...defined({ label, text }),
             ...(box ? { box: defined(box) } : {}),
             ...(animation ? { animation: defined(animation) } : {}),
+            ...(motion ? { motion: defined(motion) } : {}),
           },
           "agent",
           note,
@@ -653,11 +690,11 @@ export function buildTools(): ModelContextTool[] {
         "Change one clip — its timing, position, animation, text or colour. Send only the fields you are changing. The clip becomes a DRAFT again for the person to accept.",
       schema: UpdateClipInput,
       execute: (input) => {
-        const { clipId, note, box, animation, ...rest } = input;
+        const { clipId, note, box, animation, motion, ...rest } = input;
         const patch = defined(rest) as Partial<Clip>;
 
-        // Partial box and animation merge onto what is already there, so an
-        // agent nudging `y` does not reset the width someone tuned by hand.
+        // Partial box, animation and motion merge onto what is already there,
+        // so an agent nudging `y` does not reset the width someone tuned by hand.
         const current = useStudioStore.getState().project?.file.tracks
           .flatMap((track) => track.clips)
           .find((clip) => clip.id === clipId);
@@ -672,6 +709,12 @@ export function buildTools(): ModelContextTool[] {
           (patch as { animation: typeof current.animation }).animation = {
             ...current.animation,
             ...defined(animation),
+          };
+        }
+        if (motion && current && "motion" in current) {
+          (patch as { motion: typeof current.motion }).motion = {
+            ...current.motion,
+            ...defined(motion),
           };
         }
 

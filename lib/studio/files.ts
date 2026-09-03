@@ -1,4 +1,4 @@
-import { DEFAULT_ANIMATION, DEFAULT_BOX } from "./schema";
+import { DEFAULT_ANIMATION, DEFAULT_BOX, DEFAULT_MOTION } from "./schema";
 import type { ElementDraft, ElementKind } from "@/types/prism";
 
 /**
@@ -35,7 +35,11 @@ export function kindForPath(path: string): Extract<ElementKind, "image" | "video
 export function elementForFile(path: string): ElementDraft {
   const name = (path.split("/").pop() ?? path).replace(/\.[^.]+$/, "");
   const kind = kindForPath(path);
-  const visual = { box: { ...DEFAULT_BOX, width: 0.8, height: 0.45 }, animation: { ...DEFAULT_ANIMATION } };
+  const visual = {
+    box: { ...DEFAULT_BOX, width: 0.8, height: 0.45 },
+    animation: { ...DEFAULT_ANIMATION },
+    motion: { ...DEFAULT_MOTION },
+  };
   if (kind === "audio") {
     return { kind, name, src: path, startFrom: 0, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, playbackRate: 1 };
   }

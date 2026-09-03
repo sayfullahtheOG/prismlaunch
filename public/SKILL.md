@@ -160,6 +160,7 @@ arrive when it is placed.
 | --- | --- |
 | `prism.add_element` | Define one. Refuses until the animatic is approved. |
 | `prism.place_element` | Put one on a track as a clip. You supply the track, the frame, the length, and the words; the element supplies the look. Lands as a draft, inside a locked beat. |
+| `prism.add_from_library` | Add one of the Library's prebuilt pieces as an element: the Motion pieces, the type styles, the shapes, the effects, the beds. Then place it. |
 | `prism.update_element` | Change one, and every clip placed from it. Send only what changes. Those clips become drafts again. |
 | `prism.remove_element` | Delete one. Its clips stay, unlinked. |
 
@@ -344,6 +345,28 @@ the same at 720p and 4K.
 set how long each runs; both are clamped to half the clip, so a short clip with
 a long fade fades faster.
 
+### Reveals
+
+A text clip can also bring its words in, on top of its enter. `reveal` is
+`none`, `type` (a character at a time), `words` (one word after another, each
+fading up where it already sits, so the line never reflows) or `count` (the
+first number in the text runs up from zero, keeping its commas and decimals,
+so "10,000+ users" counts to itself). `revealFrames` is how long that takes
+from the clip's first frame; 30 is the default. `caret: true` puts a blinking
+text caret after the words, and with `type` it types along.
+
+### Motion
+
+Every visual clip can make one move over its life, on top of its enter and
+exit: `motion` is `{ x, y, scale, frames, delay, easing, press }`. `x` and
+`y` are how far the box travels, in canvas fractions; `scale` what it grows
+to; `frames` how long the move takes (0 means the whole clip); `delay` the
+frame it starts on; `easing` one of `out`, `in-out`, `linear`. The move holds
+where it lands. `press: true` dips the clip once as it arrives, which is what
+a click looks like. A cursor gliding to a button is
+`{ "x": 0.12, "y": -0.08, "frames": 24, "easing": "in-out", "press": true }`;
+a screenshot pushing in slowly is `{ "scale": 1.04, "easing": "linear" }`.
+
 ### Fonts
 
 `display` (Instrument Serif), `body` (Inter), `mono` (JetBrains Mono).
@@ -355,7 +378,12 @@ and synthesised bold looks cheap.
 `src` is a path inside the project's own folder, like `assets/logo.png`, or
 one of the studio's own files under `library/`, which resolve in every
 workspace with nothing to copy, so `prism.add_audio` with one of those works
-even where there is no folder. The effects: `library/audio/whoosh.wav`
+even where there is no folder. The Library's Motion section holds the pieces product films keep
+rebuilding, each an element with its reveal or motion already set: a cursor
+(`library/cursor/arrow.svg`, an image you can also use directly), a tap
+ring, a typewriter line, a word-by-word headline, a counter and a
+highlight. `prism.add_from_library` adds any Library piece as an element,
+sounds included. The effects: `library/audio/whoosh.wav`
 (0.9s), `click.wav` (0.4s), `tick.wav` (0.3s), `impact.wav` (1s), `rise.wav`
 (1s). The music beds, thirty seconds each and instrumental:
 `library/audio/bed-calm.mp3` (warm pads, 80 BPM), `bed-upbeat.mp3` (driving,

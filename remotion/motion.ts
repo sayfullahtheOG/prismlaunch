@@ -1,5 +1,5 @@
 import { Easing, interpolate, spring } from "remotion";
-import type { Animation, Box, Transition } from "@/types/prism";
+import type { Animation, Box, Motion, Transition } from "@/types/prism";
 
 /**
  * How a clip enters and leaves.
@@ -202,4 +202,66 @@ export function fadeGain(
       : 1;
 
   return rampIn * rampOut;
+}
+
+// ---------------------------------------------------------------------------
+// Motion
+// ---------------------------------------------------------------------------
+
+export type MotionState = {
+  /** How far the box has travelled, in canvas fractions. */
+  dx: number;
+  dy: number;
+  scale: number;
+};
+
+const STILL: MotionState = { dx: 0, dy: 0, scale: 1 };
+
+/** How long the press dip lasts. Eight frames: a click, not a bounce. */
+export const PRESS_FRAMES = 8;
+
+function ease(easing: Motion["easing"], progress: number): number {
+  switch (easing) {
+    case "linear":
+      return progress;
+    case "in-out":
+      return progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+    case "out":
+      return 1 - Math.pow(1 - progress, 3);
+  }
+}
+
+/**
+ * Where a clip's move has got to at one frame.
+ *
+ * Runs from `delay` for `frames` (or to the end of the clip), eased, and
+ * holds at the end: a cursor that reached the button stays on the button.
+ * `press` then dips the scale once, the way a click does. Frame is relative
+ * to the clip, like `clipStyle`.
+ */
+export function motionState(
+  motion: Motion,
+  frame: number,
+  durationInFrames: number,
+): MotionState {
+  const still =
+    motion.x === 0 && motion.y === 0 && motion.scale === 1 && !motion.press;
+  if (still) return STILL;
+
+  const span =
+    motion.frames > 0 ? motion.frames : Math.max(1, durationInFrames - motion.delay);
+  const raw = (frame - motion.delay) / span;
+  const progress = ease(motion.easing, Math.min(1, Math.max(0, raw)));
+
+  let scale = 1 + (motion.scale - 1) * progress;
+  if (motion.press) {
+    const since = frame - (motion.delay + span);
+    if (since >= 0 && since < PRESS_FRAMES) {
+      scale *= 1 - 0.18 * Math.sin((since / PRESS_FRAMES) * Math.PI);
+    }
+  }
+
+  return { dx: motion.x * progress, dy: motion.y * progress, scale };
 }

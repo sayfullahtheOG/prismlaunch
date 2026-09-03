@@ -3,12 +3,14 @@
 import { Field, TextArea, TextInput } from "@/components/ui/Field";
 import { Segmented } from "@/components/ui/Segmented";
 import { Select } from "@/components/ui/Select";
-import { TransitionSchema } from "@/lib/studio/schema";
+import { MotionEasingSchema, RevealSchema, TransitionSchema } from "@/lib/studio/schema";
 import type {
   Animation,
   Box,
   Fit,
   FontFamily,
+  Motion,
+  Reveal,
   TextAlign,
 } from "@/types/prism";
 import { ColorField, NumberField, Row } from "./fields";
@@ -336,6 +338,115 @@ export function AnimationFields({
           onChange={(exitFrames) => set({ ...animation, exitFrames })}
         />
       </Row>
+    </>
+  );
+}
+
+const ON_OFF = [
+  { value: "off", label: "Off" },
+  { value: "on", label: "On" },
+] as const;
+
+export type TextReveal = { reveal: Reveal; revealFrames: number; caret: boolean };
+
+const REVEALS = RevealSchema.options.map((name) => ({ value: name, label: name }));
+
+/** How a text clip's words arrive: typed, word by word, or counted up. */
+export function RevealFields({ value, set }: { value: TextReveal; set: Setter<TextReveal> }) {
+  return (
+    <>
+      <Row>
+        <Field label="Reveal">
+          <Select
+            label="Reveal"
+            options={REVEALS}
+            value={value.reveal}
+            onChange={(reveal) => set({ reveal: RevealSchema.parse(reveal) })}
+          />
+        </Field>
+        <NumberField
+          label="Reveal frames"
+          value={value.revealFrames}
+          step={1}
+          min={1}
+          max={600}
+          onChange={(revealFrames) => set({ revealFrames })}
+        />
+      </Row>
+      <Field label="Caret">
+        <Segmented
+          label="Caret"
+          options={ON_OFF}
+          value={value.caret ? "on" : "off"}
+          onChange={(next) => set({ caret: next === "on" })}
+        />
+      </Field>
+    </>
+  );
+}
+
+const EASINGS = MotionEasingSchema.options.map((name) => ({ value: name, label: name }));
+
+/** One move over the clip's life: where to, how big, how long, and whether it presses on arrival. */
+export function MotionFields({ motion, set }: { motion: Motion; set: (motion: Motion) => void }) {
+  return (
+    <>
+      <Row>
+        <NumberField
+          label="Move X"
+          value={motion.x}
+          step={0.01}
+          onChange={(x) => set({ ...motion, x })}
+        />
+        <NumberField
+          label="Move Y"
+          value={motion.y}
+          step={0.01}
+          onChange={(y) => set({ ...motion, y })}
+        />
+      </Row>
+      <Row>
+        <NumberField
+          label="Scale to"
+          value={motion.scale}
+          step={0.05}
+          min={0.1}
+          max={6}
+          onChange={(scale) => set({ ...motion, scale })}
+        />
+        <NumberField
+          label="Move frames"
+          value={motion.frames}
+          step={1}
+          min={0}
+          onChange={(frames) => set({ ...motion, frames })}
+        />
+      </Row>
+      <Row>
+        <NumberField
+          label="Move delay"
+          value={motion.delay}
+          step={1}
+          min={0}
+          onChange={(delay) => set({ ...motion, delay })}
+        />
+        <Field label="Easing">
+          <Select
+            label="Move easing"
+            options={EASINGS}
+            value={motion.easing}
+            onChange={(easing) => set({ ...motion, easing: MotionEasingSchema.parse(easing) })}
+          />
+        </Field>
+      </Row>
+      <Field label="Press on arrival">
+        <Segmented
+          label="Press on arrival"
+          options={ON_OFF}
+          value={motion.press ? "on" : "off"}
+          onChange={(next) => set({ ...motion, press: next === "on" })}
+        />
+      </Field>
     </>
   );
 }

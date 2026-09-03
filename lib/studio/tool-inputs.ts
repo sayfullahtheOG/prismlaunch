@@ -9,6 +9,7 @@ import {
   ImageClipSchema,
   MAX_FRAMES,
   MAX_TEXT_LENGTH,
+  MotionSchema,
   ShapeClipSchema,
   SlugSchema,
   StageIdSchema,
@@ -16,6 +17,7 @@ import {
   TrackKindSchema,
   VideoClipSchema,
 } from "./schema";
+import { LIBRARY } from "./library";
 
 /**
  * One schema per tool.
@@ -134,42 +136,80 @@ const timing = {
     .describe("One sentence on what this is for. Shown to the person on review."),
 };
 
+type StripDefault<F> = F extends z.ZodDefault<infer Inner> ? Inner : F;
+type PatchShape<T extends z.ZodRawShape> = { [K in keyof T]: z.ZodOptional<StripDefault<T[K]>> };
+
+/**
+ * A field made optional without its default.
+ *
+ * Zod applies a default to an absent optional field, so `fontSize.optional()`
+ * on an update input parsed a missing size as 0.09, and every update_clip
+ * quietly reset the size, colour and volume it did not mention. "Send only
+ * the fields you are changing" needs the field to stay absent.
+ */
+function loose<F extends z.ZodType>(field: F): z.ZodOptional<StripDefault<F>> {
+  const bare = field instanceof z.ZodDefault ? field.removeDefault() : field;
+  return (bare as z.ZodType).optional() as z.ZodOptional<StripDefault<F>>;
+}
+
+/** The same for a whole object: every field optional, no field defaulted. */
+function patchOf<T extends z.ZodRawShape>(schema: z.ZodObject<T>): z.ZodObject<PatchShape<T>> {
+  const shape: Record<string, z.ZodType> = {};
+  for (const [key, field] of Object.entries(schema.shape)) shape[key] = loose(field as z.ZodType);
+  return z.object(shape) as unknown as z.ZodObject<PatchShape<T>>;
+}
+
 const visualExtras = {
-  box: BoxSchema.partial()
+  box: patchOf(BoxSchema)
     .optional()
     .describe(
       "Position and size as fractions of the canvas. x/y are the CENTRE, so { x: 0.5, y: 0.5 } is centred. Defaults to a centred band.",
     ),
-  animation: AnimationSchema.partial()
+  animation: patchOf(AnimationSchema)
     .optional()
     .describe("How it enters and leaves. Defaults to no animation."),
+  motion: patchOf(MotionSchema)
+    .optional()
+    .describe(
+      "One move over the clip's life: x/y how far the box travels in canvas fractions, scale what it grows to, frames how long (0 is the whole clip), delay when it starts, easing 'out' | 'in-out' | 'linear', press to dip once on arrival like a click. Defaults to still.",
+    ),
+};
+
+const reveal = {
+  reveal: loose(TextClipSchema.shape.reveal)
+    .describe(
+      "How the words arrive: 'type' a character at a time, 'words' one word after another, 'count' runs the first number in the text up from zero. Defaults to none.",
+    ),
+  revealFrames: loose(TextClipSchema.shape.revealFrames)
+    .describe("How many frames the reveal takes from the clip's first frame. Defaults to 30."),
+  caret: loose(TextClipSchema.shape.caret)
+    .describe("A blinking text caret after the words. Types along with 'type'."),
 };
 
 export const AddTextInput = z.object({
   ...timing,
   ...visualExtras,
   text: TextClipSchema.shape.text.describe("The words on screen."),
-  fontSize: TextClipSchema.shape.fontSize
-    .optional()
+  fontSize: loose(TextClipSchema.shape.fontSize)
     .describe(
       "As a fraction of canvas height: 0.05 a caption, 0.09 a headline, 0.2 a hero word.",
     ),
-  fontFamily: TextClipSchema.shape.fontFamily.optional(),
-  fontWeight: TextClipSchema.shape.fontWeight
-    .optional()
+  fontFamily: loose(TextClipSchema.shape.fontFamily),
+  fontWeight: loose(TextClipSchema.shape.fontWeight)
     .describe("Only has an effect on the 'body' family."),
-  color: TextClipSchema.shape.color.optional(),
-  align: TextClipSchema.shape.align.optional(),
-  lineHeight: TextClipSchema.shape.lineHeight.optional(),
-  letterSpacing: TextClipSchema.shape.letterSpacing.optional(),
+  color: loose(TextClipSchema.shape.color),
+  align: loose(TextClipSchema.shape.align),
+  lineHeight: loose(TextClipSchema.shape.lineHeight),
+  letterSpacing: loose(TextClipSchema.shape.letterSpacing),
+  ...reveal,
 });
 
 export const AddShapeInput = z.object({
   ...timing,
   ...visualExtras,
   shape: ShapeClipSchema.shape.shape,
-  fill: ShapeClipSchema.shape.fill.optional(),
-  radius: ShapeClipSchema.shape.radius.optional(),
+  fill: loose(ShapeClipSchema.shape.fill),
+  radius: loose(ShapeClipSchema.shape.radius),
 });
 
 export const AddImageInput = z.object({
@@ -178,8 +218,8 @@ export const AddImageInput = z.object({
   src: ImageClipSchema.shape.src.describe(
     "Path inside the project folder, e.g. 'assets/logo.png'. The file has to exist — put it there first.",
   ),
-  fit: ImageClipSchema.shape.fit.optional(),
-  radius: ImageClipSchema.shape.radius.optional(),
+  fit: loose(ImageClipSchema.shape.fit),
+  radius: loose(ImageClipSchema.shape.radius),
 });
 
 export const AddVideoInput = z.object({
@@ -188,14 +228,12 @@ export const AddVideoInput = z.object({
   src: VideoClipSchema.shape.src.describe(
     "Path inside the project folder, e.g. 'assets/screen-capture.mp4'.",
   ),
-  fit: VideoClipSchema.shape.fit.optional(),
-  startFrom: VideoClipSchema.shape.startFrom
-    .optional()
+  fit: loose(VideoClipSchema.shape.fit),
+  startFrom: loose(VideoClipSchema.shape.startFrom)
     .describe("Frame to start at inside the source file. Trims its head."),
-  volume: VideoClipSchema.shape.volume
-    .optional()
+  volume: loose(VideoClipSchema.shape.volume)
     .describe("0 by default — video on a timeline is usually silent."),
-  playbackRate: VideoClipSchema.shape.playbackRate.optional(),
+  playbackRate: loose(VideoClipSchema.shape.playbackRate),
 });
 
 export const AddAudioInput = z.object({
@@ -203,11 +241,11 @@ export const AddAudioInput = z.object({
   src: AudioClipSchema.shape.src.describe(
     "Path inside the project folder, e.g. 'assets/voiceover.mp3'.",
   ),
-  startFrom: AudioClipSchema.shape.startFrom.optional(),
-  volume: AudioClipSchema.shape.volume.optional(),
-  fadeInFrames: AudioClipSchema.shape.fadeInFrames.optional(),
-  fadeOutFrames: AudioClipSchema.shape.fadeOutFrames.optional(),
-  playbackRate: AudioClipSchema.shape.playbackRate.optional(),
+  startFrom: loose(AudioClipSchema.shape.startFrom),
+  volume: loose(AudioClipSchema.shape.volume),
+  fadeInFrames: loose(AudioClipSchema.shape.fadeInFrames),
+  fadeOutFrames: loose(AudioClipSchema.shape.fadeOutFrames),
+  playbackRate: loose(AudioClipSchema.shape.playbackRate),
 });
 
 export const UpdateClipInput = z.object({
@@ -219,13 +257,15 @@ export const UpdateClipInput = z.object({
     .describe("One sentence on what you changed and why. Shown to the person."),
   from: z.number().int().min(0).max(MAX_FRAMES).optional(),
   durationInFrames: z.number().int().min(1).max(MAX_FRAMES).optional(),
-  box: BoxSchema.partial().optional(),
-  animation: AnimationSchema.partial().optional(),
-  text: TextClipSchema.shape.text.optional(),
-  fontSize: TextClipSchema.shape.fontSize.optional(),
-  color: TextClipSchema.shape.color.optional(),
-  fill: ShapeClipSchema.shape.fill.optional(),
-  volume: AudioClipSchema.shape.volume.optional(),
+  box: visualExtras.box,
+  animation: visualExtras.animation,
+  motion: visualExtras.motion,
+  text: loose(TextClipSchema.shape.text),
+  fontSize: loose(TextClipSchema.shape.fontSize),
+  color: loose(TextClipSchema.shape.color),
+  fill: loose(ShapeClipSchema.shape.fill),
+  volume: loose(AudioClipSchema.shape.volume),
+  ...reveal,
 });
 
 export const RemoveClipInput = z.object({
@@ -270,38 +310,42 @@ const elementFields = {
     .max(MAX_TEXT_LENGTH)
     .optional()
     .describe("text only. Default words. Usually omitted for a type style — the words arrive when it is placed."),
-  fontSize: TextClipSchema.shape.fontSize
-    .optional()
+  fontSize: loose(TextClipSchema.shape.fontSize)
     .describe("text only. As a fraction of canvas height: 0.045 a caption, 0.09 a headline, 0.2 a hero word."),
-  fontFamily: TextClipSchema.shape.fontFamily.optional().describe("text only."),
-  fontWeight: TextClipSchema.shape.fontWeight.optional().describe("text only. Only the 'body' family has weights."),
-  color: TextClipSchema.shape.color.optional().describe("text only."),
-  align: TextClipSchema.shape.align.optional().describe("text only."),
-  lineHeight: TextClipSchema.shape.lineHeight.optional().describe("text only."),
-  letterSpacing: TextClipSchema.shape.letterSpacing.optional().describe("text only."),
+  fontFamily: loose(TextClipSchema.shape.fontFamily).describe("text only."),
+  fontWeight: loose(TextClipSchema.shape.fontWeight).describe("text only. Only the 'body' family has weights."),
+  color: loose(TextClipSchema.shape.color).describe("text only."),
+  align: loose(TextClipSchema.shape.align).describe("text only."),
+  lineHeight: loose(TextClipSchema.shape.lineHeight).describe("text only."),
+  letterSpacing: loose(TextClipSchema.shape.letterSpacing).describe("text only."),
+  reveal: reveal.reveal.describe("text only. 'type', 'words' or 'count'; how the words arrive."),
+  revealFrames: reveal.revealFrames.describe("text only. Frames the reveal takes."),
+  caret: reveal.caret.describe("text only. A blinking caret after the words."),
   // shape
-  shape: ShapeClipSchema.shape.shape.optional().describe("shape only. Defaults to rect."),
-  fill: ShapeClipSchema.shape.fill.optional().describe("shape only."),
-  radius: ShapeClipSchema.shape.radius
-    .optional()
+  shape: loose(ShapeClipSchema.shape.shape).describe("shape only. Defaults to rect."),
+  fill: loose(ShapeClipSchema.shape.fill).describe("shape only."),
+  radius: loose(ShapeClipSchema.shape.radius)
     .describe("shape, image, video. Corner radius as a fraction of the shorter side; 0.5 rounds a rect into a pill."),
   // media
   src: AssetPathSchema.optional().describe(
     "image, video, audio. Path inside the project folder, e.g. 'assets/app.png'. The file must already be there.",
   ),
-  fit: ImageClipSchema.shape.fit.optional().describe("image, video."),
-  startFrom: VideoClipSchema.shape.startFrom.optional().describe("video, audio. Frame to start at inside the file."),
-  volume: AudioClipSchema.shape.volume.optional().describe("video, audio. Video defaults to 0."),
-  playbackRate: AudioClipSchema.shape.playbackRate.optional().describe("video, audio."),
-  fadeInFrames: AudioClipSchema.shape.fadeInFrames.optional().describe("audio only."),
-  fadeOutFrames: AudioClipSchema.shape.fadeOutFrames.optional().describe("audio only."),
+  fit: loose(ImageClipSchema.shape.fit).describe("image, video."),
+  startFrom: loose(VideoClipSchema.shape.startFrom).describe("video, audio. Frame to start at inside the file."),
+  volume: loose(AudioClipSchema.shape.volume).describe("video, audio. Video defaults to 0."),
+  playbackRate: loose(AudioClipSchema.shape.playbackRate).describe("video, audio."),
+  fadeInFrames: loose(AudioClipSchema.shape.fadeInFrames).describe("audio only."),
+  fadeOutFrames: loose(AudioClipSchema.shape.fadeOutFrames).describe("audio only."),
   // visual
-  box: BoxSchema.partial()
+  box: patchOf(BoxSchema)
     .optional()
     .describe("Every visual kind. The default position and size, in canvas fractions; a placement can override it."),
-  animation: AnimationSchema.partial()
+  animation: patchOf(AnimationSchema)
     .optional()
     .describe("Every visual kind. The default enter and exit; a placement can override it."),
+  motion: patchOf(MotionSchema)
+    .optional()
+    .describe("Every visual kind. The default move over a clip's life; a placement can override it. See add_text."),
 };
 
 export const AddElementInput = z.object({
@@ -322,6 +366,25 @@ export const UpdateElementInput = z.object({
     .optional()
     .describe("One sentence on what you changed and why. Shown on every clip that follows this element."),
   ...elementFields,
+});
+
+export const AddFromLibraryInput = z.object({
+  itemId: z
+    .enum(LIBRARY.map((item) => item.id) as [string, ...string[]])
+    .describe(
+      "Which prebuilt piece. Motion: cursor, tap-ring, typewriter, word-by-word, counter, highlight. Type: headline, support, label, blank-type. Shapes: accent-rule, device, pill, dot, panel, blank-shape. Sound: sfx-whoosh, sfx-click, sfx-tick, sfx-impact, sfx-rise. Music: bed-calm, bed-upbeat, bed-cinematic.",
+    ),
+  name: z
+    .string()
+    .min(1)
+    .max(40)
+    .optional()
+    .describe("What to call the element. Defaults to the piece's own name."),
+  note: z
+    .string()
+    .max(240)
+    .optional()
+    .describe("One sentence on what it is for. Shown to the person."),
 });
 
 export const RemoveElementInput = z.object({

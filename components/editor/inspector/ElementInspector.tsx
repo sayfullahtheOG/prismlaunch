@@ -10,6 +10,8 @@ import { timecode } from "@/lib/studio/timing";
 import type { Element, ProjectFile } from "@/types/prism";
 import {
   AnimationFields,
+  MotionFields,
+  RevealFields,
   AudioFields,
   BoxFields,
   PictureFields,
@@ -83,6 +85,7 @@ export function ElementInspector({
         </Field>
 
         {element.kind === "text" ? <TextFields value={element} set={set} words="optional" /> : null}
+        {element.kind === "text" ? <RevealFields value={element} set={set} /> : null}
         {element.kind === "shape" ? <ShapeFields value={element} set={set} /> : null}
         {element.kind === "image" || element.kind === "video" ? (
           <PictureFields value={element} set={set} />
@@ -93,6 +96,9 @@ export function ElementInspector({
         {"box" in element ? <BoxFields box={element.box} set={(box) => set({ box })} /> : null}
         {"animation" in element ? (
           <AnimationFields animation={element.animation} set={(animation) => set({ animation })} />
+        ) : null}
+        {"motion" in element ? (
+          <MotionFields motion={element.motion} set={(motion) => set({ motion })} />
         ) : null}
 
         <Button

@@ -1,4 +1,4 @@
-import { EMPTY_PROCESS, PROJECT_FILE_VERSION, STAGES } from "@/lib/studio/schema";
+import { DEFAULT_MOTION, EMPTY_PROCESS, PROJECT_FILE_VERSION, STAGES } from "@/lib/studio/schema";
 import type { Clip, FilmProject, Process, ProjectFile, StageId, Track } from "@/types/prism";
 
 /**
@@ -29,8 +29,12 @@ export function textClip(overrides: Partial<Clip> = {}): Clip {
     align: "center",
     lineHeight: 1.1,
     letterSpacing: -0.02,
+    reveal: "none",
+    revealFrames: 30,
+    caret: false,
     box: { x: 0.5, y: 0.5, width: 0.8, height: 0.2, rotation: 0, opacity: 1 },
     animation: { enter: "fade", exit: "fade", enterFrames: 10, exitFrames: 10 },
+    motion: { ...DEFAULT_MOTION },
     ...overrides,
   } as Clip;
 }

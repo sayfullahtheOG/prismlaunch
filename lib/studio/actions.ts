@@ -41,15 +41,16 @@ import {
 import {
   ClipSchema,
   DEFAULT_FPS,
-  ElementSchema,
   DEFAULT_HEIGHT,
+  DEFAULT_MOTION,
   DEFAULT_WIDTH,
+  ElementSchema,
   EMPTY_PROCESS,
   explainZodError,
   FilmProjectSchema,
   MAX_FRAMES,
-  PROJECT_FILE_VERSION,
   ProcessSchema,
+  PROJECT_FILE_VERSION,
   ProjectFileSchema,
   SlugSchema,
   STAGES,
@@ -397,7 +398,31 @@ function commit(
   store.pushHistory(project.file);
   store.setProject(updated.data, store.loadedAt);
   schedulePersist();
+  ensureAssets(parsed.data);
   return null;
+}
+
+/**
+ * Resolve any path the film now refers to that the asset map has not met.
+ *
+ * Assets were loaded when a composition opened and again on reload, which
+ * left a piece added from the Library with a file of its own, the cursor,
+ * as a hole in the frame until the next reload. This runs after every
+ * commit and costs nothing when there is nothing new; a path already known
+ * to be missing is not asked for again, so a broken reference does not
+ * become a fetch per keystroke.
+ */
+function ensureAssets(file: ProjectFile): void {
+  const store = useStudioStore.getState();
+  const workspace = requireWorkspace();
+  if (!workspace.ok || !store.project) return;
+  const unseen = referencedAssets(file).some(
+    (path) => !(path in store.assets) && !store.missingAssets.includes(path),
+  );
+  if (!unseen) return;
+  void refreshAssets(workspace.value, store.project.slug, file).catch(() => {
+    // A failed load leaves the hole it would have left anyway.
+  });
 }
 
 /**
@@ -428,6 +453,7 @@ export function undo(): ActionResult {
     store.loadedAt,
   );
   schedulePersist();
+  ensureAssets(previous);
   return ok("Undone.");
 }
 
@@ -451,6 +477,7 @@ export function redo(): ActionResult {
     store.loadedAt,
   );
   schedulePersist();
+  ensureAssets(next);
   return ok("Redone.");
 }
 
@@ -1905,6 +1932,9 @@ function boardClip(panel: StoryboardPanel, from: number): Clip {
     align: "center",
     lineHeight: 1.2,
     letterSpacing: 0,
+    reveal: "none",
+    revealFrames: 30,
+    caret: false,
     box: { x: 0.5, y: 0.47, width: 0.8, height: 0.3, rotation: 0, opacity: 1 },
     animation: {
       enter: panel.transitionIn,
@@ -1912,6 +1942,7 @@ function boardClip(panel: StoryboardPanel, from: number): Clip {
       enterFrames: 10,
       exitFrames: 6,
     },
+    motion: { ...DEFAULT_MOTION },
   };
 }
 

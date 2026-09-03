@@ -1,5 +1,5 @@
 import { LIBRARY_PREFIX } from "./files";
-import { DEFAULT_ANIMATION, DEFAULT_BOX } from "./schema";
+import { DEFAULT_ANIMATION, DEFAULT_BOX, DEFAULT_MOTION } from "./schema";
 import type { ElementDraft } from "@/types/prism";
 
 /**
@@ -12,6 +12,12 @@ import type { ElementDraft } from "@/types/prism";
  * placement of them. These are those things, ready to become elements;
  * adding one copies it into the film's own elements, where the agent or
  * the person tunes it, and every clip placed from it follows.
+ *
+ * The Motion pieces are what product films keep rebuilding by hand: a
+ * cursor that glides and clicks, the ring under a tap, a typed line, a
+ * headline arriving a word at a time, a number counting up, a highlight.
+ * Each is an ordinary element with its reveal or motion already set, so
+ * adding one and placing it is the whole job.
  *
  * The sounds are files the studio ships under `library/`, served from the
  * site itself, so they work in every workspace with nothing to copy. They
@@ -27,7 +33,7 @@ export type LibraryItem = {
   name: string;
   /** One line on what it is for. */
   blurb: string;
-  group: "Type" | "Shapes" | "Sound" | "Music";
+  group: "Type" | "Shapes" | "Motion" | "Sound" | "Music";
   draft: ElementDraft;
 };
 
@@ -74,8 +80,12 @@ function text(
     align: "center",
     lineHeight: 1.1,
     letterSpacing: -0.02,
+    reveal: "none",
+    revealFrames: 30,
+    caret: false,
     box: { ...DEFAULT_BOX },
     animation: { ...DEFAULT_ANIMATION },
+    motion: { ...DEFAULT_MOTION },
     ...overrides,
   };
 }
@@ -91,9 +101,13 @@ function shape(
     radius: 0,
     box: { ...DEFAULT_BOX },
     animation: { ...DEFAULT_ANIMATION },
+    motion: { ...DEFAULT_MOTION },
     ...overrides,
   };
 }
+
+/** The arrow the Cursor piece moves. An SVG the studio ships, so it is crisp at any size. */
+export const CURSOR_SRC = `${LIBRARY_PREFIX}cursor/arrow.svg`;
 
 export const LIBRARY: readonly LibraryItem[] = [
   {
@@ -209,6 +223,104 @@ export const LIBRARY: readonly LibraryItem[] = [
     draft: shape({ name: "Shape" }),
   },
   {
+    id: "cursor",
+    name: "Cursor",
+    blurb: "An arrow that glides to a spot and clicks. Move X and Y say where the button is.",
+    group: "Motion",
+    draft: {
+      kind: "image",
+      name: "Cursor",
+      role: "cursor",
+      src: CURSOR_SRC,
+      fit: "contain",
+      radius: 0,
+      box: { ...DEFAULT_BOX, x: 0.4, y: 0.62, width: 0.03, height: 0.0533 },
+      animation: { ...DEFAULT_ANIMATION, enter: "fade", exit: "fade", enterFrames: 6, exitFrames: 6 },
+      motion: { ...DEFAULT_MOTION, x: 0.12, y: -0.08, frames: 24, delay: 8, easing: "in-out", press: true },
+    },
+  },
+  {
+    id: "tap-ring",
+    name: "Tap ring",
+    blurb: "A ring that grows from a point and fades, 0.4s. Under a cursor's click or a finger's tap.",
+    group: "Motion",
+    draft: shape({
+      name: "Tap ring",
+      role: "cursor",
+      shape: "ellipse",
+      fill: ACCENT,
+      box: { ...DEFAULT_BOX, width: 0.03, height: 0.0533, opacity: 0.45 },
+      animation: { ...DEFAULT_ANIMATION, exit: "fade", exitFrames: 8 },
+      motion: { ...DEFAULT_MOTION, scale: 2.4, frames: 12 },
+    }),
+  },
+  {
+    id: "typewriter",
+    name: "Typewriter",
+    blurb: "Mono words typed out behind a caret, 1.2s. A prompt, a command, a line of code.",
+    group: "Motion",
+    draft: text({
+      name: "Typewriter",
+      role: "type",
+      text: "$ npx prismlaunch --film launch",
+      fontFamily: "mono",
+      fontSize: 0.045,
+      fontWeight: 500,
+      align: "left",
+      letterSpacing: 0,
+      lineHeight: 1.3,
+      reveal: "type",
+      revealFrames: 36,
+      caret: true,
+      box: { ...DEFAULT_BOX, width: 0.7, height: 0.12 },
+    }),
+  },
+  {
+    id: "word-by-word",
+    name: "Word by word",
+    blurb: "A headline whose words land one after another over a second.",
+    group: "Motion",
+    draft: text({
+      name: "Word by word",
+      role: "headline",
+      text: "Every word lands on its own",
+      fontSize: 0.09,
+      lineHeight: 1.05,
+      reveal: "words",
+      revealFrames: 30,
+    }),
+  },
+  {
+    id: "counter",
+    name: "Counter",
+    blurb: "A number that counts up from zero to itself in 1.5s, keeping its commas. Users, stars, hours saved.",
+    group: "Motion",
+    draft: text({
+      name: "Counter",
+      role: "figure",
+      text: "10,000+",
+      fontSize: 0.16,
+      fontWeight: 600,
+      reveal: "count",
+      revealFrames: 45,
+      box: { ...DEFAULT_BOX, height: 0.3 },
+    }),
+  },
+  {
+    id: "highlight",
+    name: "Highlight",
+    blurb: "A soft accent block that comes up behind a feature, to point at it without an arrow.",
+    group: "Motion",
+    draft: shape({
+      name: "Highlight",
+      role: "accent",
+      fill: ACCENT,
+      radius: 0.2,
+      box: { ...DEFAULT_BOX, width: 0.3, height: 0.1, opacity: 0.22 },
+      animation: { ...DEFAULT_ANIMATION, enter: "scale", exit: "fade", enterFrames: 10, exitFrames: 8 },
+    }),
+  },
+  {
     id: "sfx-whoosh",
     name: "Whoosh",
     blurb: "Air moving past, 0.9s. Under a slide or a wipe.",
@@ -266,4 +378,4 @@ export const LIBRARY: readonly LibraryItem[] = [
   },
 ];
 
-export const LIBRARY_GROUPS = ["Type", "Shapes", "Sound", "Music"] as const;
+export const LIBRARY_GROUPS = ["Type", "Shapes", "Motion", "Sound", "Music"] as const;

@@ -1,10 +1,5 @@
 import { Composition } from "remotion";
-import {
-  DEFAULT_ANIMATION,
-  DEFAULT_BOX,
-  EMPTY_PROCESS,
-  PROJECT_FILE_VERSION,
-} from "@/lib/studio/schema";
+import { DEFAULT_ANIMATION, DEFAULT_BOX, DEFAULT_MOTION, EMPTY_PROCESS, PROJECT_FILE_VERSION } from "@/lib/studio/schema";
 import type { ProjectFile } from "@/types/prism";
 import { Film, type FilmProps } from "./Film";
 
@@ -51,8 +46,12 @@ const FIXTURE: ProjectFile = {
           align: "center",
           lineHeight: 1.1,
           letterSpacing: -0.02,
+          reveal: "none",
+          revealFrames: 30,
+          caret: false,
           box: { ...DEFAULT_BOX },
           animation: { ...DEFAULT_ANIMATION, enter: "rise", exit: "fade" },
+          motion: { ...DEFAULT_MOTION },
         },
       ],
     },

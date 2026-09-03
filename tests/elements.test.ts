@@ -6,7 +6,7 @@ import {
   removeElement,
   updateElement,
 } from "@/lib/studio/edits";
-import { PROJECT_FILE_VERSION, ProjectFileSchema } from "@/lib/studio/schema";
+import { DEFAULT_MOTION, PROJECT_FILE_VERSION, ProjectFileSchema } from "@/lib/studio/schema";
 import { readProject, resetStudio, useStudioStore } from "@/lib/studio/store";
 import { buildTools } from "@/lib/webmcp/tools";
 import type { Clip, Element } from "@/types/prism";
@@ -32,8 +32,12 @@ const HEADLINE: Element = {
   align: "center",
   lineHeight: 1.1,
   letterSpacing: -0.02,
+  reveal: "none",
+  revealFrames: 30,
+  caret: false,
   box: { x: 0.5, y: 0.5, width: 0.8, height: 0.2, rotation: 0, opacity: 1 },
   animation: { enter: "rise", exit: "fade", enterFrames: 12, exitFrames: 8 },
+  motion: { ...DEFAULT_MOTION },
 };
 
 const BED: Element = {

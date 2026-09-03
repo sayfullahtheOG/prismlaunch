@@ -5,6 +5,7 @@ import type {
   Clip,
   ClipDraft,
   Element,
+  Motion,
   ProjectFile,
   Track,
   TrackKind,
@@ -526,6 +527,7 @@ export type Placement = {
   text?: string;
   box?: Partial<Box>;
   animation?: Partial<Animation>;
+  motion?: Partial<Motion>;
 };
 
 /**
@@ -565,6 +567,7 @@ export function clipFromElement(
       text,
       box: { ...style.box, ...placement.box },
       animation: { ...style.animation, ...placement.animation },
+      motion: { ...style.motion, ...placement.motion },
     };
     return { ok: true, clip };
   }
@@ -587,6 +590,7 @@ export function clipFromElement(
     ...place,
     box: { ...picture.box, ...placement.box },
     animation: { ...picture.animation, ...placement.animation },
+    motion: { ...picture.motion, ...placement.motion },
   } as ClipDraft;
   return { ok: true, clip };
 }

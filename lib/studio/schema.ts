@@ -167,6 +167,49 @@ export const AnimationSchema = z.object({
   exitFrames: z.number().int().min(0).max(120).default(12),
 });
 
+/**
+ * One move over a clip's life, on top of its enter and exit.
+ *
+ * Enter and exit get a thing on and off. This is the third move a product
+ * film keeps needing: a cursor gliding to a button, a screenshot pushing in
+ * slowly, a tap ring growing and going. From where the box is to the box
+ * plus `x`/`y`, scaled to `scale` on the way, over `frames` (0 is the whole
+ * clip) starting `delay` frames in, and held there after. `press` dips it
+ * once as it lands, which is what a click looks like. One move, not a
+ * keyframe list, for the same reason the transitions are eight names.
+ */
+export const MotionEasingSchema = z.enum(["out", "in-out", "linear"]);
+
+export const MotionSchema = z.object({
+  x: z.number().min(-3).max(3).default(0),
+  y: z.number().min(-3).max(3).default(0),
+  scale: z.number().min(0.1).max(6).default(1),
+  frames: z.number().int().min(0).max(MAX_FRAMES).default(0),
+  delay: z.number().int().min(0).max(MAX_FRAMES).default(0),
+  easing: MotionEasingSchema.default("out"),
+  press: z.boolean().default(false),
+});
+
+export const DEFAULT_MOTION: z.infer<typeof MotionSchema> = {
+  x: 0,
+  y: 0,
+  scale: 1,
+  frames: 0,
+  delay: 0,
+  easing: "out",
+  press: false,
+};
+
+/**
+ * How a text clip's words arrive, on top of its enter.
+ *
+ * `type` writes them a character at a time, `words` lands them one after
+ * another, `count` runs the first number in them up from zero. The three
+ * moves every film with words in it reaches for, and nothing a person has
+ * to time by hand.
+ */
+export const RevealSchema = z.enum(["none", "type", "words", "count"]);
+
 export const FontFamilySchema = z.enum(["display", "body", "mono"]);
 export const TextAlignSchema = z.enum(["left", "center", "right"]);
 export const FitSchema = z.enum(["cover", "contain", "fill"]);
@@ -223,6 +266,7 @@ const VisualBase = {
   ...ClipBase,
   box: BoxSchema.default(DEFAULT_BOX),
   animation: AnimationSchema.default(DEFAULT_ANIMATION),
+  motion: MotionSchema.default(DEFAULT_MOTION),
 };
 
 export const TextClipSchema = z.object({
@@ -240,6 +284,11 @@ export const TextClipSchema = z.object({
   align: TextAlignSchema.default("center"),
   lineHeight: z.number().min(0.6).max(3).default(1.1),
   letterSpacing: z.number().min(-0.1).max(0.5).default(-0.02),
+  reveal: RevealSchema.default("none"),
+  /** How many frames the reveal takes, from the clip's first frame. */
+  revealFrames: z.number().int().min(1).max(600).default(30),
+  /** A text caret after the words: blinking, and typing along with `type`. */
+  caret: z.boolean().default(false),
 });
 
 export const ShapeClipSchema = z.object({

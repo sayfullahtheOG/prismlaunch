@@ -1,6 +1,6 @@
 "use client";
 
-import { AudioLines, Check, Music, Play, Plus, Square } from "lucide-react";
+import { AudioLines, Check, MousePointer2, Music, Play, Plus, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createElement } from "@/lib/studio/actions";
 import { libraryUrl } from "@/lib/studio/files";
@@ -232,7 +232,11 @@ function Preview({ draft, large = false }: { draft: ElementDraft; large?: boolea
             letterSpacing: `${draft.letterSpacing}em`,
           }}
         >
-          Aa
+          {draft.reveal === "type" ? "Ab|" : draft.reveal === "count" ? "42" : "Aa"}
+        </span>
+      ) : draft.kind === "image" ? (
+        <span className="absolute inset-0 flex items-center justify-center text-[#F5F5F7]">
+          <MousePointer2 size={large ? 40 : 22} strokeWidth={1.6} />
         </span>
       ) : draft.kind === "audio" ? (
         <span className="absolute inset-0 flex items-center justify-center text-[#5B8CFF]">

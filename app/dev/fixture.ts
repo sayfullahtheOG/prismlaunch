@@ -1,6 +1,6 @@
 import { blankProjectFile } from "@/lib/studio/blank";
 import { snapshotBeats } from "@/lib/studio/process";
-import { FilmProjectSchema, STAGES } from "@/lib/studio/schema";
+import { DEFAULT_MOTION, FilmProjectSchema, STAGES } from "@/lib/studio/schema";
 import type {
   Clip,
   Element,
@@ -196,6 +196,9 @@ function board(panel: StoryboardPanel, from: number): Clip {
     align: "center",
     lineHeight: 1.2,
     letterSpacing: 0,
+    reveal: "none",
+    revealFrames: 30,
+    caret: false,
     box: { x: 0.5, y: 0.47, width: 0.8, height: 0.3, rotation: 0, opacity: 1 },
     animation: {
       enter: panel.transitionIn,
@@ -203,6 +206,7 @@ function board(panel: StoryboardPanel, from: number): Clip {
       enterFrames: 10,
       exitFrames: 6,
     },
+    motion: { ...DEFAULT_MOTION },
   };
 }
 
@@ -228,8 +232,12 @@ const ELEMENTS: Element[] = [
     align: "center",
     lineHeight: 1.1,
     letterSpacing: -0.02,
+    reveal: "none",
+    revealFrames: 30,
+    caret: false,
     box: { x: 0.5, y: 0.52, width: 0.8, height: 0.2, rotation: 0, opacity: 1 },
     animation: { enter: "rise", exit: "fade", enterFrames: 14, exitFrames: 8 },
+    motion: { ...DEFAULT_MOTION },
   },
   {
     kind: "text",
@@ -243,8 +251,12 @@ const ELEMENTS: Element[] = [
     align: "center",
     lineHeight: 1,
     letterSpacing: -0.04,
+    reveal: "none",
+    revealFrames: 30,
+    caret: false,
     box: { x: 0.5, y: 0.48, width: 0.9, height: 0.3, rotation: 0, opacity: 1 },
     animation: { enter: "scale", exit: "fade", enterFrames: 14, exitFrames: 10 },
+    motion: { ...DEFAULT_MOTION },
   },
   {
     kind: "text",
@@ -258,8 +270,12 @@ const ELEMENTS: Element[] = [
     align: "center",
     lineHeight: 1.3,
     letterSpacing: 0,
+    reveal: "none",
+    revealFrames: 30,
+    caret: false,
     box: { x: 0.5, y: 0.78, width: 0.7, height: 0.1, rotation: 0, opacity: 1 },
     animation: { enter: "fade", exit: "fade", enterFrames: 10, exitFrames: 8 },
+    motion: { ...DEFAULT_MOTION },
   },
   {
     kind: "shape",
@@ -271,6 +287,7 @@ const ELEMENTS: Element[] = [
     radius: 0.5,
     box: { x: 0.5, y: 0.62, width: 0.08, height: 0.006, rotation: 0, opacity: 1 },
     animation: { enter: "fade", exit: "fade", enterFrames: 10, exitFrames: 10 },
+    motion: { ...DEFAULT_MOTION },
   },
   {
     kind: "image",
@@ -282,6 +299,7 @@ const ELEMENTS: Element[] = [
     radius: 0.04,
     box: { x: 0.5, y: 0.5, width: 0.7, height: 0.6, rotation: 0, opacity: 1 },
     animation: { enter: "slide-left", exit: "fade", enterFrames: 14, exitFrames: 10 },
+    motion: { ...DEFAULT_MOTION },
   },
   {
     kind: "audio",
@@ -340,8 +358,12 @@ function buildFile(): ProjectFile {
             align: "center",
             lineHeight: 1.1,
             letterSpacing: -0.02,
+            reveal: "none",
+            revealFrames: 30,
+            caret: false,
             box: { x: 0.5, y: 0.52, width: 0.8, height: 0.2, rotation: 0, opacity: 1 },
             animation: { enter: "rise", exit: "fade", enterFrames: 14, exitFrames: 8 },
+            motion: { ...DEFAULT_MOTION },
           },
           {
             kind: "text",
@@ -360,8 +382,12 @@ function buildFile(): ProjectFile {
             align: "center",
             lineHeight: 1,
             letterSpacing: -0.04,
+            reveal: "none",
+            revealFrames: 30,
+            caret: false,
             box: { x: 0.5, y: 0.5, width: 0.9, height: 0.3, rotation: 0, opacity: 1 },
             animation: { enter: "scale", exit: "fade", enterFrames: 10, exitFrames: 8 },
+            motion: { ...DEFAULT_MOTION },
           },
           {
             kind: "text",
@@ -380,8 +406,12 @@ function buildFile(): ProjectFile {
             align: "center",
             lineHeight: 1,
             letterSpacing: -0.04,
+            reveal: "none",
+            revealFrames: 30,
+            caret: false,
             box: { x: 0.5, y: 0.46, width: 0.9, height: 0.3, rotation: 0, opacity: 1 },
             animation: { enter: "scale", exit: "fade", enterFrames: 16, exitFrames: 12 },
+            motion: { ...DEFAULT_MOTION },
           },
         ],
       },
@@ -406,6 +436,7 @@ function buildFile(): ProjectFile {
             radius: 0.5,
             box: { x: 0.5, y: 0.62, width: 0.08, height: 0.006, rotation: 0, opacity: 1 },
             animation: { enter: "fade", exit: "fade", enterFrames: 10, exitFrames: 10 },
+            motion: { ...DEFAULT_MOTION },
           },
         ],
       },

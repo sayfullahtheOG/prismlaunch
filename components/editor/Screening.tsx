@@ -8,7 +8,6 @@ import { useStudioStore } from "@/lib/studio/store";
 import { timecode } from "@/lib/studio/timing";
 import type { ProjectFile } from "@/types/prism";
 import { Canvas } from "./Canvas";
-import { ReviewBar } from "./ReviewBar";
 
 /**
  * The animatic, watched.
@@ -31,12 +30,6 @@ export function Screening({ file }: { file: ProjectFile }) {
 
   return (
     <section aria-label="Animatic screening" className="flex min-h-0 flex-1 flex-col bg-canvas">
-      <ReviewBar>
-        <span className="text-xs text-subtle">Process</span>
-        <span className="text-xs text-subtle" aria-hidden>/</span>
-        <span className="text-xs font-medium text-ink">Animatic</span>
-      </ReviewBar>
-
       <div ref={room} className="flex min-h-0 flex-1">
         <Canvas file={file} />
       </div>

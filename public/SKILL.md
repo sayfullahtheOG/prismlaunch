@@ -820,8 +820,8 @@ reference, not a compulsory length for every film.
 
 **Draw what the viewer will see. A section heading on a blank rectangle is
 not a storyboard.** Every new panel requires `visual: { background, layers }`.
-The contact sheet shows a middle frame and the opening/closing frames. Open
-a shot to scrub its keyframes, edit its layers or play the full rough sequence.
+Each board shows one preview with a corner play button for that shot's animation.
+Choose Edit layout to scrub its keyframes and edit its layers inline.
 No timeline clips or style-stage elements are needed to draw boards.
 
 - `background`: `light` or `dark`. Roughs use neutral ink; the final palette
@@ -867,8 +867,9 @@ that matter, the actual on-screen copy, then movement and the closing pose.
 Keep a handoff object in the same position at the next opening when the cut
 calls for continuity. A typography-only shot is valid only when the actual
 film shot is typography. Do not use twelve title cards to stand in for UI.
-Inspect the contact sheet and scrub the shots before asking for review.
-The rough sequence has no audio; the notes plan it and the animatic places it.
+Inspect and play each board before asking for review; use Edit layout to check
+exact opening and closing poses. Board previews have no audio; the notes plan
+it and the animatic places it.
 
 ## Look before you show
 

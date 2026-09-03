@@ -44,10 +44,10 @@ Each track holds clips — text, shapes, images, video, sound — with a start f
 4. It works stage by stage — brief, concept, script, storyboard, style, animatic, polish, build — and each stage opens for you to read. You approve it or send it back with a note; the decision is written to disk, where your agent reads it.
 
 The storyboard is a visual composition for each shot: screenshots, product
-frames, subjects, text, arrows and cursors, with timed keyframes. Read the
-contact sheet, open a shot to scrub its opening and closing poses, or play the
-whole rough sequence. **Edit layout** lets you add, position and reorder layers
-yourself. New agent submissions must include visual scenes; older text-only
+frames, subjects, text, arrows and cursors, with timed keyframes. Each board
+shows one frame with a corner play button to preview that shot's animation.
+**Edit layout** lets you scrub, add, position and reorder layers inline.
+New agent submissions must include visual scenes; older text-only
 boards remain readable and are marked as needing a layout. The same visuals
 and movement carry into the animatic through `prism.lay_animatic`.
 5. When every stage is approved, your agent proposes a render. You approve. The MP4 is encoded in your browser with WebCodecs and saved beside the project file.

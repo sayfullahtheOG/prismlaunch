@@ -2,7 +2,7 @@ import type { StoryboardVisual } from "@/types/prism";
 import type { ReactNode } from "react";
 import { boardPoseAt } from "@/lib/studio/storyboard";
 
-/** A frame of the rough. Shared by contact sheets, the scrubber and the renderer. */
+/** A frame of the rough. Shared by board previews, the scrubber and the renderer. */
 export function StoryboardScene({ visual, frame, width, height, assets, label = "Shot composition", renderImage }: {
   visual: StoryboardVisual;
   frame: number;

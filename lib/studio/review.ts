@@ -17,7 +17,7 @@ import type { RailTab } from "./store";
  */
 export const REVIEW_PAGES: readonly StageId[] = ["brief", "concept", "script", "sound", "polish"];
 
-export type MiddleView = "boards" | "review" | "editor";
+export type MiddleView = "boards" | "review" | "editor" | "files";
 
 /** The stage under review: the one the person opened, else the one the film is at. */
 export function reviewedStage(openStage: StageId | null, process: Process): StageId | null {
@@ -30,6 +30,9 @@ export function middleView(
   process: Process,
   reviewing = true,
 ): MiddleView {
+  // The Files section shows a file; the Editor section is the film alone;
+  // every other section sits beside the film.
+  if (tab === "files") return "files";
   if (tab !== "process" || !reviewing) return "editor";
   const stage = reviewedStage(openStage, process);
   if (stage === "storyboard") return "boards";

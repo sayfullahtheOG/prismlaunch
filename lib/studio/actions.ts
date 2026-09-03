@@ -1008,7 +1008,14 @@ export function reviewStage(stage: StageId): void {
 export function showEditor(): void {
   const store = useStudioStore.getState();
   store.setReviewing(false);
-  if (store.tab === "storyboard") store.setTab("process");
+  store.setTab("editor");
+}
+
+/** Show a file from the workspace in the middle, or none. HUMAN ONLY. */
+export function openFile(path: string | null): void {
+  const store = useStudioStore.getState();
+  store.setFilePath(path);
+  if (path !== null) store.setTab("files");
 }
 
 export function showTab(tab: RailTab): ActionResult {

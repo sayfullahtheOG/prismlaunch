@@ -63,12 +63,21 @@ export type PendingRender = {
  * Process panel opens the storyboard and the elements from a link, and an
  * action has to be able to say which.
  */
-export type RailTab = "process" | "storyboard" | "elements" | "library" | "agent";
+export type RailTab =
+  | "editor"
+  | "process"
+  | "storyboard"
+  | "elements"
+  | "library"
+  | "files"
+  | "agent";
 
 export type StudioState = {
   workspace: WorkspaceState;
-  /** Which section the rail is showing. The process is where a film starts. */
+  /** Which section the rail is showing. The editor, the film alone, is where it opens. */
   tab: RailTab;
+  /** The file the Files section has open in the middle, relative to the workspace root. */
+  filePath: string | null;
   /**
    * The stage the person has opened to review, or null for "wherever the
    * film is". Lives here rather than in the Process panel because the middle
@@ -127,6 +136,7 @@ export type StudioState = {
   notice: string | null;
 
   setTab: (tab: RailTab) => void;
+  setFilePath: (path: string | null) => void;
   setOpenStage: (stage: StageId | null) => void;
   setReviewing: (reviewing: boolean) => void;
   setWorkspace: (workspace: WorkspaceState) => void;
@@ -155,7 +165,8 @@ export type StudioState = {
 
 export const useStudioStore = create<StudioState>((set) => ({
   workspace: { kind: "checking" },
-  tab: "process",
+  tab: "editor",
+  filePath: null,
   openStage: null,
   reviewing: true,
   project: null,
@@ -176,6 +187,7 @@ export const useStudioStore = create<StudioState>((set) => ({
   notice: null,
 
   setTab: (tab) => set({ tab }),
+  setFilePath: (filePath) => set({ filePath }),
   setOpenStage: (openStage) => set({ openStage, reviewing: true }),
   setReviewing: (reviewing) => set({ reviewing }),
   setWorkspace: (workspace) => set({ workspace }),
@@ -202,6 +214,7 @@ export const useStudioStore = create<StudioState>((set) => ({
   closeProject: () =>
     set({
       project: null,
+      filePath: null,
       loadedAt: 0,
       history: { past: [], future: [] },
       loadError: null,
@@ -252,7 +265,8 @@ export function resetStudio(): void {
   useStudioStore.getState().closeProject();
   useStudioStore.setState({
     workspace: { kind: "checking" },
-    tab: "process",
+    tab: "editor",
+    filePath: null,
     openStage: null,
     reviewing: true,
     pixelsPerSecond: DEFAULT_ZOOM,

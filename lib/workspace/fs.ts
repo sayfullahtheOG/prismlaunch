@@ -651,3 +651,169 @@ export async function projectExists(
     return false;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Looking at the folder
+// ---------------------------------------------------------------------------
+
+/** Where a browser workspace shows its compositions, in the tree the Files section draws. */
+export const COMPOSITIONS_DIR = "compositions";
+
+export type DirEntry = {
+  name: string;
+  /** Relative to the workspace root, slash-separated. */
+  path: string;
+  kind: "file" | "directory";
+  /** Bytes, for a file that could be read. */
+  size?: number;
+  /** A directory the app will not list: node_modules and its kind. */
+  sealed?: boolean;
+};
+
+const SEALED = new Set([
+  "node_modules",
+  ".git",
+  ".next",
+  ".turbo",
+  ".cache",
+  ".vercel",
+  "dist",
+  "build",
+  "coverage",
+]);
+
+/** Past this a listing is cut. A folder with more is not one anyone reads by eye. */
+export const LIST_LIMIT = 300;
+
+function segments(path: string): string[] {
+  return path.split("/").filter(Boolean);
+}
+
+async function directoryAt(
+  root: FileSystemDirectoryHandle,
+  path: string,
+): Promise<FileSystemDirectoryHandle> {
+  let dir = root;
+  for (const part of segments(path)) dir = await dir.getDirectoryHandle(part);
+  return dir;
+}
+
+function byKindThenName(a: DirEntry, b: DirEntry): number {
+  if (a.kind !== b.kind) return a.kind === "directory" ? -1 : 1;
+  return a.name.localeCompare(b.name);
+}
+
+/**
+ * One level of the workspace, for the Files section.
+ *
+ * On disk this is the folder the person linked, usually a repository, one
+ * directory at a time so a large one costs nothing until it is opened;
+ * node_modules and its kind are shown but not entered. A browser workspace
+ * has no folder, so it is drawn as one: `compositions/<slug>/project.json`
+ * and the assets beside it, which is the shape the disk has.
+ */
+export async function listDirectory(
+  workspace: Workspace,
+  path: string,
+): Promise<FsResult<DirEntry[]>> {
+  if (workspace.kind === "browser") {
+    return { ok: true, value: await listBrowserDirectory(path) };
+  }
+  try {
+    const dir = await directoryAt(workspace.root, path);
+    const entries: DirEntry[] = [];
+    for await (const [name, handle] of dir.entries()) {
+      const entryPath = path ? `${path}/${name}` : name;
+      if (handle.kind === "directory") {
+        entries.push({
+          name,
+          path: entryPath,
+          kind: "directory",
+          ...(SEALED.has(name) ? { sealed: true } : {}),
+        });
+      } else {
+        let size: number | undefined;
+        try {
+          size = (await (handle as FileSystemFileHandle).getFile()).size;
+        } catch {
+          // Listed without a size rather than not at all.
+        }
+        entries.push({ name, path: entryPath, kind: "file", ...(size !== undefined ? { size } : {}) });
+      }
+      if (entries.length >= LIST_LIMIT) break;
+    }
+    return { ok: true, value: entries.sort(byKindThenName) };
+  } catch {
+    return fail("not-found", `Could not read ${path || "the folder"}.`);
+  }
+}
+
+async function listBrowserDirectory(path: string): Promise<DirEntry[]> {
+  const parts = segments(path);
+  if (parts.length === 0) {
+    return [{ name: COMPOSITIONS_DIR, path: COMPOSITIONS_DIR, kind: "directory" }];
+  }
+  if (parts[0] !== COMPOSITIONS_DIR) return [];
+  if (parts.length === 1) {
+    return browser
+      .listSlugs()
+      .map((name) => ({ name, path: `${COMPOSITIONS_DIR}/${name}`, kind: "directory" as const }));
+  }
+  const slug = parts[1]!;
+  if (!browser.hasEntry(slug)) return [];
+  const base = `${COMPOSITIONS_DIR}/${slug}`;
+  if (parts.length === 2) {
+    const raw = browser.readRaw(slug);
+    return [
+      { name: ASSETS_DIR, path: `${base}/${ASSETS_DIR}`, kind: "directory" },
+      {
+        name: PROJECT_FILE,
+        path: `${base}/${PROJECT_FILE}`,
+        kind: "file",
+        size: raw ? new Blob([raw.text]).size : 0,
+      },
+    ];
+  }
+  if (parts.length === 3 && parts[2] === ASSETS_DIR) {
+    return (await getAssets(slug))
+      .map((asset) => ({
+        name: asset.path.replace(/^assets\//, ""),
+        path: `${base}/${asset.path}`,
+        kind: "file" as const,
+        size: asset.blob.size,
+      }))
+      .sort(byKindThenName);
+  }
+  return [];
+}
+
+/** One file from the workspace, as the browser's own File, for the Files section to show. */
+export async function readFileAt(workspace: Workspace, path: string): Promise<FsResult<File>> {
+  const parts = segments(path);
+  const name = parts[parts.length - 1];
+  if (!name) return fail("not-found", "No file named.");
+
+  if (workspace.kind === "browser") {
+    const [top, slug, ...rest] = parts;
+    if (top === COMPOSITIONS_DIR && slug) {
+      if (rest.length === 1 && rest[0] === PROJECT_FILE) {
+        const raw = browser.readRaw(slug);
+        if (raw) return { ok: true, value: new File([raw.text], PROJECT_FILE, { type: "application/json" }) };
+      }
+      if (rest.length === 2 && rest[0] === ASSETS_DIR) {
+        const wanted = `${ASSETS_DIR}/${name}`;
+        const asset = (await getAssets(slug)).find((candidate) => candidate.path === wanted);
+        if (asset) return { ok: true, value: new File([asset.blob], name, { type: asset.blob.type }) };
+      }
+    }
+    return fail("not-found", `There is no ${path} in this browser.`);
+  }
+
+  try {
+    const dir = await directoryAt(workspace.root, parts.slice(0, -1).join("/"));
+    const handle = await dir.getFileHandle(name);
+    return { ok: true, value: await handle.getFile() };
+  } catch {
+    return fail("not-found", `Could not read ${path}.`);
+  }
+}

@@ -26,6 +26,7 @@ import { useStudioStore } from "@/lib/studio/store";
 import { draftCount } from "@/lib/studio/timing";
 import { Timeline } from "@/components/timeline/Timeline";
 import { Canvas } from "./Canvas";
+import { FileView } from "./FileView";
 import { IconRail } from "./IconRail";
 import { Inspector } from "./Inspector";
 import { RenderConfirm } from "./RenderConfirm";
@@ -37,6 +38,7 @@ import { useDiskSync } from "./useDiskSync";
 import { useWebMcp } from "./WebMcpProvider";
 import { AgentPanel } from "./panels/AgentPanel";
 import { ElementsPanel } from "./panels/ElementsPanel";
+import { FilesPanel } from "./panels/FilesPanel";
 import { LibraryPanel } from "./panels/LibraryPanel";
 import { ProcessPanel } from "./panels/ProcessPanel";
 import { StoryboardPanel } from "./panels/StoryboardPanel";
@@ -51,7 +53,8 @@ import { StoryboardPanel } from "./panels/StoryboardPanel";
  * moment a composition opens, and the same chrome carries on with real data.
  *
  * Three columns: the rail and its section on the left, the film in the
- * middle, properties on the right. Which section is showing lives in the
+ * middle, properties on the right. The first section, the editor, has no
+ * column, so the film gets the width. Which section is showing lives in the
  * store rather than here, because the Process panel needs to open the
  * storyboard or the elements from a link, and a `useState` here would be
  * unreachable from there.
@@ -67,6 +70,7 @@ export function EditorShell() {
   const pendingRender = useStudioStore((state) => state.pendingRender);
   const renderNote = useStudioStore((state) => state.renderNote);
   const tab = useStudioStore((state) => state.tab);
+  const filePath = useStudioStore((state) => state.filePath);
   const openStage = useStudioStore((state) => state.openStage);
   const reviewOpen = useStudioStore((state) => state.reviewing);
 
@@ -154,20 +158,24 @@ export function EditorShell() {
             counts={file.elements.length > 0 ? { elements: file.elements.length } : {}}
           />
 
-          <div className="flex w-[300px] shrink-0 flex-col border-r border-line-soft bg-surface">
-            {tab === "process" ? <ProcessPanel file={file} /> : null}
-            {tab === "storyboard" ? <StoryboardPanel file={file} /> : null}
-            {tab === "elements" ? <ElementsPanel file={file} /> : null}
-            {tab === "library" ? <LibraryPanel file={file} /> : null}
-            {tab === "agent" ? (
-              <AgentPanel
-                activity={project?.activity ?? []}
-                kind={webmcp.kind}
-                toolCount={webmcp.registered}
-                slug={project?.slug ?? null}
-              />
-            ) : null}
-          </div>
+          {/* The Editor section is the film alone: no column beside it. */}
+          {tab !== "editor" ? (
+            <div className="flex w-[300px] shrink-0 flex-col border-r border-line-soft bg-surface">
+              {tab === "process" ? <ProcessPanel file={file} /> : null}
+              {tab === "storyboard" ? <StoryboardPanel file={file} /> : null}
+              {tab === "elements" ? <ElementsPanel file={file} /> : null}
+              {tab === "library" ? <LibraryPanel file={file} /> : null}
+              {tab === "files" ? <FilesPanel /> : null}
+              {tab === "agent" ? (
+                <AgentPanel
+                  activity={project?.activity ?? []}
+                  kind={webmcp.kind}
+                  toolCount={webmcp.registered}
+                  slug={project?.slug ?? null}
+                />
+              ) : null}
+            </div>
+          ) : null}
 
           {/*
             The middle is whatever is being reviewed. A document stage opens
@@ -188,6 +196,8 @@ export function EditorShell() {
               </div>
             ) : view === "review" && reviewing ? (
               <StageReview stage={reviewing} file={file} />
+            ) : view === "files" ? (
+              <FileView path={filePath} />
             ) : (
               <>
                 <div className="flex min-h-0 flex-1">

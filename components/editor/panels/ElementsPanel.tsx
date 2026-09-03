@@ -1,42 +1,60 @@
 "use client";
 
-import {
-  AudioLines,
-  FilePlus2,
-  Image as ImageIcon,
-  Plus,
-  Video as VideoIcon,
-} from "lucide-react";
-import { useRef, useState } from "react";
+import { FilePlus2, Plus, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { IconButton } from "@/components/ui/IconButton";
-import { createElement, importFiles, select } from "@/lib/studio/actions";
+import {
+  createElement,
+  deleteElement,
+  importFiles,
+  placeElementHere,
+  select,
+} from "@/lib/studio/actions";
 import { elementUses } from "@/lib/studio/edits";
 import { elementForFile } from "@/lib/studio/files";
 import { selectedIdOf } from "@/lib/studio/selection";
 import { useStudioStore } from "@/lib/studio/store";
 import type { Element, ProjectFile } from "@/types/prism";
 import { PanelShell, PanelSection } from "./PanelShell";
+import { Chips, PieceCard, Preview, useHoverCard } from "./PiecePreview";
 
 /**
  * The film's elements.
  *
- * Everything this film is built from, grouped by what it is: the type
- * styles, the shapes, the media. The agent defines them at the style stage
- * and builds by placing them; the person reaches any of them here. New ones
- * come from the Library. The style stage's decision lives in the process,
- * not here: this column is for seeing the pieces.
+ * Everything this film is built from, as tiles like the Library's, filtered
+ * by what each is: the type styles, the shapes, the media, the sound. The
+ * agent defines them at the style stage and builds by placing them; the
+ * person reaches any of them here. Clicking a tile opens its properties;
+ * the two things you do with an element, put it on the timeline and get
+ * rid of it, sit on the tile. Deleting keeps the clips placed from it,
+ * unlinked, and can be undone.
  *
  * Files in the project's `assets/` folder that no element refers to are
  * listed too, one click from becoming one: the agent may have put a
  * screenshot there with its file tools, or the person may have dropped one
  * in Finder, and either way it should not be invisible.
  */
+
+type Group = "Type" | "Shapes" | "Media" | "Sound";
+type Filter = "All" | Group;
+const FILTERS: readonly Filter[] = ["All", "Type", "Shapes", "Media", "Sound"];
+
+const GROUP_OF: Record<Element["kind"], Group> = {
+  text: "Type",
+  shape: "Shapes",
+  image: "Media",
+  video: "Media",
+  audio: "Sound",
+};
+
 export function ElementsPanel({ file }: { file: ProjectFile }) {
   const selected = useStudioStore((state) => selectedIdOf(state.project, "element"));
   const files = useStudioStore((state) => state.assetFiles);
   const setNotice = useStudioStore((state) => state.setNotice);
   const picker = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
+  const [filter, setFilter] = useState<Filter>("All");
+  const { hover, onHover, clear } = useHoverCard<Element>();
 
   async function take(list: FileList | File[] | null) {
     const chosen = list ? [...list] : [];
@@ -45,10 +63,8 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
     if (!result.ok) setNotice(result.message);
   }
 
-  const type = file.elements.filter((element) => element.kind === "text");
-  const shapes = file.elements.filter((element) => element.kind === "shape");
-  const media = file.elements.filter(
-    (element) => element.kind === "image" || element.kind === "video" || element.kind === "audio",
+  const shown = file.elements.filter(
+    (element) => filter === "All" || GROUP_OF[element.kind] === filter,
   );
   const referenced = new Set(file.elements.flatMap((element) => ("src" in element ? [element.src] : [])));
   const loose = files.filter((path) => !referenced.has(path));
@@ -100,133 +116,188 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
           over ? "shadow-[inset_0_0_0_2px_var(--ds-color-accent)]" : ""
         }`}
       >
-      {file.elements.length === 0 && loose.length === 0 ? (
-        <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">
-          Nothing yet. Your agent defines the look as elements at the style
-          stage, add pieces from the Library, or drop an image, a video or a
-          sound here.
-        </p>
-      ) : null}
+        {file.elements.length > 0 ? (
+          <Chips
+            label="Element kinds"
+            options={FILTERS}
+            value={filter}
+            onChange={(next) => {
+              setFilter(next);
+              clear();
+            }}
+          />
+        ) : null}
 
-      <Group label="Type" elements={type} file={file} selected={selected} />
-      <Group label="Shapes" elements={shapes} file={file} selected={selected} />
-      <Group label="Media" elements={media} file={file} selected={selected} />
+        {file.elements.length === 0 && loose.length === 0 ? (
+          <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">
+            Nothing yet. Your agent defines the look as elements at the style
+            stage, add pieces from the Library, or drop an image, a video or a
+            sound here.
+          </p>
+        ) : null}
 
-      {loose.length > 0 ? (
-        <PanelSection label="Files in assets">
-          <ul className="flex flex-col gap-1">
-            {loose.map((path) => (
-              <li key={path} className="flex items-center gap-2">
-                <span className="min-w-0 flex-1 truncate font-mono text-2xs text-muted">
-                  {path.replace(/^assets\//, "")}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => createElement(elementForFile(path))}
-                  className="ds-focus flex h-6 shrink-0 items-center gap-1 rounded-xs px-1.5 text-xs font-medium text-accent hover:bg-sunken"
-                >
-                  <Plus size={11} strokeWidth={2.6} aria-hidden />
-                  Add
-                </button>
-              </li>
-            ))}
-          </ul>
-        </PanelSection>
-      ) : null}
+        {file.elements.length > 0 && shown.length === 0 ? (
+          <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">
+            Nothing of that kind yet.
+          </p>
+        ) : null}
+
+        <ul className="grid grid-cols-2 gap-2">
+          {shown.map((element) => (
+            <Tile
+              key={element.id}
+              element={element}
+              file={file}
+              selected={element.id === selected}
+              onHover={onHover}
+            />
+          ))}
+        </ul>
+
+        {loose.length > 0 ? (
+          <div className={file.elements.length > 0 ? "mt-4" : ""}>
+            <PanelSection label="Files in assets">
+              <ul className="flex flex-col gap-1">
+                {loose.map((path) => (
+                  <li key={path} className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate font-mono text-2xs text-muted">
+                      {path.replace(/^assets\//, "")}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => createElement(elementForFile(path))}
+                      className="ds-focus flex h-6 shrink-0 items-center gap-1 rounded-xs px-1.5 text-xs font-medium text-accent hover:bg-sunken"
+                    >
+                      <Plus size={11} strokeWidth={2.6} aria-hidden />
+                      Add
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </PanelSection>
+          </div>
+        ) : null}
       </div>
+
+      {hover ? (
+        <PieceCard
+          draft={hover.item}
+          title={hover.item.name}
+          detail={describe(file, hover.item)}
+          top={hover.top}
+          left={hover.left}
+        />
+      ) : null}
     </PanelShell>
   );
 }
 
-function Group({
-  label,
-  elements,
+/** "text · headline · placed 3×": what it is, what it is for, whether it is on the timeline. */
+function describe(file: ProjectFile, element: Element): string {
+  const uses = elementUses(file, element.id);
+  return [
+    element.kind,
+    element.role,
+    uses === 0 ? "not placed yet" : `placed ${uses}×`,
+    "src" in element ? element.src : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function Tile({
+  element,
   file,
   selected,
+  onHover,
 }: {
-  label: string;
-  elements: Element[];
+  element: Element;
   file: ProjectFile;
-  selected: string | null;
+  selected: boolean;
+  onHover: (element: Element, rect: DOMRect | null) => void;
 }) {
-  if (elements.length === 0) return null;
+  const setNotice = useStudioStore((state) => state.setNotice);
+  const uses = elementUses(file, element.id);
+
+  // A tile that leaves the screen takes its card with it, even without a
+  // pointerleave: filtering or deleting unmounts tiles under a still pointer.
+  useEffect(() => () => onHover(element, null), [element, onHover]);
+
+  function place() {
+    const result = placeElementHere(element.id);
+    if (!result.ok) setNotice(result.message);
+  }
+
+  function remove() {
+    onHover(element, null);
+    const result = deleteElement(element.id);
+    setNotice(result.ok ? `${result.message} Undo with ⌘Z.` : result.message);
+  }
+
   return (
-    <PanelSection label={label}>
-      <ul className="flex flex-col gap-1">
-        {elements.map((element) => {
-          const uses = elementUses(file, element.id);
-          const isSelected = element.id === selected;
-          return (
-            <li key={element.id}>
-              <button
-                type="button"
-                onClick={() => select(element.id)}
-                aria-current={isSelected ? "true" : undefined}
-                className={`ds-focus flex w-full items-center gap-2.5 rounded-sm px-2 py-1.5 text-left transition-[background-color] duration-140 ${
-                  isSelected ? "bg-sunken" : "hover:bg-sunken"
-                }`}
-              >
-                <Swatch element={element} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-medium text-ink">
-                    {element.name}
-                  </span>
-                  <span className="block truncate font-mono text-2xs text-subtle">
-                    {element.role ? `${element.role} · ` : ""}
-                    {uses === 0 ? "not placed" : `placed ${uses}×`}
-                  </span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </PanelSection>
+    <li className="group relative">
+      <button
+        type="button"
+        onClick={() => select(element.id)}
+        onPointerEnter={(event) => onHover(element, event.currentTarget.getBoundingClientRect())}
+        onPointerLeave={() => onHover(element, null)}
+        onFocus={(event) => onHover(element, event.currentTarget.getBoundingClientRect())}
+        onBlur={() => onHover(element, null)}
+        aria-current={selected ? "true" : undefined}
+        aria-label={`${element.name}: ${element.kind}, ${uses === 0 ? "not placed" : `placed ${uses} time${uses === 1 ? "" : "s"}`}`}
+        className={`ds-focus flex w-full flex-col gap-1.5 rounded-sm p-1.5 text-left transition-[background-color,box-shadow] duration-140 ${
+          selected
+            ? "bg-sunken shadow-[inset_0_0_0_1.5px_var(--ds-color-accent)]"
+            : "hover:bg-sunken"
+        }`}
+      >
+        <Preview draft={element} />
+        <span className="flex w-full flex-col px-0.5">
+          <span className="truncate text-xs font-medium text-ink">{element.name}</span>
+          <span className="truncate font-mono text-2xs text-subtle">
+            {uses === 0 ? "not placed" : `placed ${uses}×`}
+          </span>
+        </span>
+      </button>
+
+      {/*
+        The two things you do with an element, over the preview's corner
+        while the tile is hovered or holds focus. Siblings of the tile's
+        button, not children: a button cannot hold a button.
+      */}
+      <span className="absolute top-2.5 right-2.5 flex gap-1 opacity-0 transition-opacity duration-140 group-hover:opacity-100 group-focus-within:opacity-100">
+        <TileAction label={`Place ${element.name} at the playhead`} onClick={place}>
+          <Plus size={11} strokeWidth={3} />
+        </TileAction>
+        <TileAction label={`Delete ${element.name}`} onClick={remove}>
+          <Trash2 size={11} strokeWidth={2.4} />
+        </TileAction>
+      </span>
+    </li>
   );
 }
 
-const FAMILY: Record<"display" | "body" | "mono", string> = {
-  display: "var(--film-display), Georgia, serif",
-  body: "var(--ds-font-sans)",
-  mono: "var(--ds-font-mono)",
-};
-
-/**
- * A thumbnail of the element, on the film's own dark ground: type shows its
- * face and colour, a shape its fill and form, media its kind.
- */
-function Swatch({ element }: { element: Element }) {
+function TileAction({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <span
-      className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-xs bg-[#0A0A0C] shadow-[inset_0_0_0_1px_var(--ds-color-line-soft)]"
-      aria-hidden
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className="ds-focus grid size-6 place-items-center rounded-pill bg-[#F5F5F7] text-[#0A0A0C] shadow-[0_1px_2px_rgba(0,0,0,0.4)] hover:bg-white"
     >
-      {element.kind === "text" ? (
-        <span
-          className="text-base leading-none"
-          style={{
-            fontFamily: FAMILY[element.fontFamily],
-            fontWeight: element.fontWeight,
-            color: element.color,
-          }}
-        >
-          Aa
-        </span>
-      ) : element.kind === "shape" ? (
-        <span
-          className="block size-4"
-          style={{
-            background: element.fill,
-            borderRadius: element.shape === "ellipse" ? "999px" : `${element.radius * 16}px`,
-          }}
-        />
-      ) : element.kind === "image" ? (
-        <ImageIcon size={14} strokeWidth={1.8} className="text-[#F5F5F7]/70" />
-      ) : element.kind === "video" ? (
-        <VideoIcon size={14} strokeWidth={1.8} className="text-[#F5F5F7]/70" />
-      ) : (
-        <AudioLines size={14} strokeWidth={1.8} className="text-[#F5F5F7]/70" />
-      )}
-    </span>
+      {children}
+    </button>
   );
 }

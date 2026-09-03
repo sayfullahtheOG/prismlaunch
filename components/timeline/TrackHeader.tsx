@@ -64,6 +64,9 @@ export function TrackHeader({ track, canMoveForward, canMoveBack }: Props) {
           <input
             value={draft}
             autoFocus
+            // Opening the field selects the name, so typing replaces it
+            // rather than appending to it.
+            onFocus={(event) => event.currentTarget.select()}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commitRename}
             onKeyDown={(event) => {

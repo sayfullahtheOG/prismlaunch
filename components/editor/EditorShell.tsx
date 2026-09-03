@@ -267,7 +267,7 @@ function useTimelineKeys(): void {
           break;
         case "End":
           event.preventDefault();
-          seek(store.project.file.durationInFrames);
+          seek(store.project.file.durationInFrames - 1);
           break;
         case "s":
         case "S":

@@ -890,10 +890,11 @@ export function seek(frame: number): ActionResult {
   const guard = requireProject();
   if (!guard.ok) return guard.result;
 
-  const clamped = Math.min(
-    Math.max(0, Math.round(frame)),
-    guard.value.file.durationInFrames,
-  );
+  // The last frame is durationInFrames - 1: a 378-frame film has frames 0
+  // to 377, and asking the Player for 378 gets 377 back with a message that
+  // said 378.
+  const last = Math.max(0, guard.value.file.durationInFrames - 1);
+  const clamped = Math.min(Math.max(0, Math.round(frame)), last);
   useStudioStore.getState().setPlayhead(clamped);
   return ok(
     `Playhead at ${(clamped / guard.value.file.fps).toFixed(2)}s (frame ${clamped}).`,

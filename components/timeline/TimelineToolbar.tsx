@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   Copy,
+  Crop,
   Magnet,
-  Maximize2,
   Pause,
   Play,
   Scissors,
@@ -48,6 +49,20 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
   const snap = useStudioStore((state) => state.snap);
   const zoom = useStudioStore((state) => state.pixelsPerSecond);
   const selectedId = useStudioStore((state) => selectedClipId(state.project));
+  const notice = useStudioStore((state) => state.notice);
+  const setNotice = useStudioStore((state) => state.setNotice);
+
+  // A notice is a sentence, not a state: it clears itself.
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 3200);
+    return () => clearTimeout(timer);
+  }, [notice, setNotice]);
+
+  /** Run an action and say so if it could not be done. */
+  function report(result: { ok: boolean; message: string }) {
+    setNotice(result.ok ? null : result.message);
+  }
 
   // Only a *clip* can be split or duplicated; a selected track cannot.
   const selectedClip = file.tracks
@@ -62,23 +77,29 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
       <IconButton
         label="Split at playhead"
         icon={<Scissors size={15} strokeWidth={1.9} />}
-        onClick={() => splitAtPlayhead()}
+        onClick={() => report(splitAtPlayhead())}
         disabled={!selectedClip}
       />
       <IconButton
         label="Duplicate clip"
         icon={<Copy size={15} strokeWidth={1.9} />}
-        onClick={() => duplicateSelected()}
+        onClick={() => report(duplicateSelected())}
         disabled={!selectedClip}
       />
       <IconButton
         label="Delete clip"
         icon={<Trash2 size={15} strokeWidth={1.9} />}
-        onClick={() => selectedClip && deleteClip(selectedClip.id)}
+        onClick={() => selectedClip && report(deleteClip(selectedClip.id))}
         disabled={!selectedClip}
       />
 
       <span className="mx-1 h-5 w-px bg-line-soft" aria-hidden />
+
+      {notice ? (
+        <span role="status" className="truncate text-xs text-warning">
+          {notice}
+        </span>
+      ) : null}
 
       <div className="flex flex-1 items-center justify-center gap-1">
         <IconButton
@@ -141,8 +162,8 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
       />
       <IconButton
         label="Trim composition to content"
-        icon={<Maximize2 size={15} strokeWidth={1.9} />}
-        onClick={() => fitDurationToContent()}
+        icon={<Crop size={15} strokeWidth={1.9} />}
+        onClick={() => report(fitDurationToContent())}
       />
     </div>
   );

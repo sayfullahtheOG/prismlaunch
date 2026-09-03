@@ -29,6 +29,9 @@ import type { FilmProject, StageId } from "@/types/prism";
 export const MIN_ZOOM = 12;
 export const MAX_ZOOM = 320;
 export const DEFAULT_ZOOM = 60;
+export const DEFAULT_TIMELINE_HEIGHT = 300;
+export const MIN_TIMELINE_HEIGHT = 160;
+export const MAX_TIMELINE_HEIGHT = 720;
 
 /**
  * How the app stands in relation to a folder.
@@ -106,6 +109,14 @@ export type StudioState = {
   pixelsPerSecond: number;
   /** Snap clip edges to other clips and the playhead while dragging. */
   snap: boolean;
+  /** Height of the timeline in pixels; the person drags the seam to change it. */
+  timelineHeight: number;
+  /**
+   * One line of feedback for something that could not be done — a split
+   * with the playhead outside the clip, a duplicate with no room. Shown
+   * briefly where the action was taken, then cleared.
+   */
+  notice: string | null;
 
   setTab: (tab: RailTab) => void;
   setOpenStage: (stage: StageId | null) => void;
@@ -127,6 +138,8 @@ export type StudioState = {
   setPlaying: (playing: boolean) => void;
   setZoom: (pixelsPerSecond: number) => void;
   setSnap: (snap: boolean) => void;
+  setTimelineHeight: (height: number) => void;
+  setNotice: (notice: string | null) => void;
 };
 
 export const useStudioStore = create<StudioState>((set) => ({
@@ -147,6 +160,8 @@ export const useStudioStore = create<StudioState>((set) => ({
   playing: false,
   pixelsPerSecond: DEFAULT_ZOOM,
   snap: true,
+  timelineHeight: DEFAULT_TIMELINE_HEIGHT,
+  notice: null,
 
   setTab: (tab) => set({ tab }),
   setOpenStage: (openStage) => set({ openStage, reviewing: true }),
@@ -187,6 +202,11 @@ export const useStudioStore = create<StudioState>((set) => ({
       pixelsPerSecond: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pixelsPerSecond)),
     }),
   setSnap: (snap) => set({ snap }),
+  setTimelineHeight: (height) =>
+    set({
+      timelineHeight: Math.min(MAX_TIMELINE_HEIGHT, Math.max(MIN_TIMELINE_HEIGHT, Math.round(height))),
+    }),
+  setNotice: (notice) => set({ notice }),
 }));
 
 /**

@@ -255,10 +255,10 @@ describe("the composition", () => {
     expect(current().file.durationInFrames).toBe(350);
   });
 
-  it("clamps the playhead to the composition", () => {
+  it("clamps the playhead to the composition's last frame", () => {
     actions.seek(99999);
     expect(useStudioStore.getState().playhead).toBe(
-      current().file.durationInFrames,
+      current().file.durationInFrames - 1,
     );
   });
 });

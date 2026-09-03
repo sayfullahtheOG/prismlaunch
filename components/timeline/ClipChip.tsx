@@ -21,6 +21,27 @@ import {
   xToFrame,
 } from "./geometry";
 
+
+/**
+ * Pointer capture, tolerant of a pointer that is not there: a synthetic
+ * event, or a pen lifted between down and the handler, would otherwise
+ * throw and leave the drag half-wired.
+ */
+function capture(element: Element, pointerId: number): void {
+  try {
+    element.setPointerCapture(pointerId);
+  } catch {
+    // No active pointer with that id. The drag still works without capture.
+  }
+}
+function release(element: Element, pointerId: number): void {
+  try {
+    element.releasePointerCapture(pointerId);
+  } catch {
+    // Already released, or never captured.
+  }
+}
+
 /**
  * One clip in the timeline.
  *
@@ -88,7 +109,7 @@ export function ClipChip({ clip, file, trackId, locked }: Props) {
     const origin = event.clientX;
     const startFrame = clip.from;
     const element = event.currentTarget;
-    element.setPointerCapture(event.pointerId);
+    capture(element, event.pointerId);
     dragging.current = false;
 
     function move(moveEvent: PointerEvent) {
@@ -109,7 +130,7 @@ export function ClipChip({ clip, file, trackId, locked }: Props) {
     }
 
     function up() {
-      element.releasePointerCapture(event.pointerId);
+      release(element, event.pointerId);
       element.removeEventListener("pointermove", move);
       element.removeEventListener("pointerup", up);
       element.removeEventListener("pointercancel", up);
@@ -131,7 +152,7 @@ export function ClipChip({ clip, file, trackId, locked }: Props) {
       const startFrame =
         edge === "start" ? clip.from : clip.from + clip.durationInFrames;
       const element = event.currentTarget;
-      element.setPointerCapture(event.pointerId);
+      capture(element, event.pointerId);
 
       function move(moveEvent: PointerEvent) {
         dragClipEdge(
@@ -142,7 +163,7 @@ export function ClipChip({ clip, file, trackId, locked }: Props) {
       }
 
       function up() {
-        element.releasePointerCapture(event.pointerId);
+        release(element, event.pointerId);
         element.removeEventListener("pointermove", move);
         element.removeEventListener("pointerup", up);
         element.removeEventListener("pointercancel", up);

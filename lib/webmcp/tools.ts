@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import {
+  captureFrames,
   confirmRender,
   createClip,
   createElement,
@@ -46,6 +47,7 @@ import {
   AddTextInput,
   AddTrackInput,
   AddVideoInput,
+  CaptureFramesInput,
   ConfirmRenderInput,
   CreateProjectInput,
   EmptyInput,
@@ -720,6 +722,34 @@ export function buildTools(): ModelContextTool[] {
         return setPlaying(input.play);
       },
     }),
+
+    /*
+     * The one tool that does not go through `tool()`, because its result is
+     * not a sentence: it is an image. Returned as MCP content — a text block
+     * and an image block — which is what a WebMCP host passes to the model.
+     * Read-only, so no flush.
+     */
+    {
+      name: "prism.capture_frames",
+      description:
+        "See your own work. Renders exact frames of the open composition — the same pixels export produces, not a screenshot of a playing video — and returns them as one labelled contact sheet, left to right then top to bottom, each cell stamped with its time and frame number. Ask for a cadence (`every` seconds, optionally between `from` and `to`) or exact moments (`at`). Use it after you build a section to check timing, overlap, legibility and easing before asking the person to look; when something is off, name the stamped moment and fix it. Up to 24 frames per call — narrow the window for finer steps. Read-only.",
+      inputSchema: toolInputJsonSchema(CaptureFramesInput) as JsonSchema,
+      annotations: { readOnlyHint: true },
+      execute: async (raw) => {
+        const parsed = CaptureFramesInput.safeParse(raw ?? {});
+        if (!parsed.success) {
+          return `Invalid input — ${explainZodError(parsed.error)}`;
+        }
+        const result = await captureFrames(parsed.data);
+        if (!result.ok) return `Could not do that — ${result.message}`;
+        return {
+          content: [
+            { type: "text", text: result.message },
+            { type: "image", data: result.image.base64, mimeType: result.image.mimeType },
+          ],
+        };
+      },
+    },
 
     tool({
       name: "prism.request_render",

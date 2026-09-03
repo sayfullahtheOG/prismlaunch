@@ -73,6 +73,12 @@ export type StudioState = {
   pendingRender: PendingRender | null;
   /** Last render outcome, shown under the Export button. */
   renderNote: string | null;
+  /**
+   * The contact sheet the agent most recently captured, so the person can
+   * see what it saw. A film made by two parties should not have one of them
+   * looking at something the other cannot.
+   */
+  lastCapture: { dataUrl: string; label: string; at: string } | null;
 
   /** Object URLs for `assets/*` files, keyed by the path a clip refers to. */
   assets: Readonly<Record<string, string>>;
@@ -97,6 +103,7 @@ export type StudioState = {
   closeProject: () => void;
   setPendingRender: (pending: PendingRender | null) => void;
   setRenderNote: (note: string | null) => void;
+  setLastCapture: (capture: StudioState["lastCapture"]) => void;
   setAssets: (
     assets: Readonly<Record<string, string>>,
     missing: readonly string[],
@@ -116,6 +123,7 @@ export const useStudioStore = create<StudioState>((set) => ({
   loadError: null,
   pendingRender: null,
   renderNote: null,
+  lastCapture: null,
   assets: {},
   missingAssets: [],
   assetFiles: [],
@@ -142,6 +150,7 @@ export const useStudioStore = create<StudioState>((set) => ({
       loadError: null,
       pendingRender: null,
       renderNote: null,
+      lastCapture: null,
       assets: {},
       missingAssets: [],
       assetFiles: [],
@@ -150,6 +159,7 @@ export const useStudioStore = create<StudioState>((set) => ({
     }),
   setPendingRender: (pendingRender) => set({ pendingRender }),
   setRenderNote: (renderNote) => set({ renderNote }),
+  setLastCapture: (lastCapture) => set({ lastCapture }),
   setAssets: (assets, missingAssets, assetFiles) =>
     set({ assets, missingAssets, assetFiles }),
   setPlayhead: (playhead) => set({ playhead: Math.max(0, Math.round(playhead)) }),

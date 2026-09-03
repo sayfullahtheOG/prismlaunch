@@ -359,6 +359,39 @@ export const SeekInput = z.object({
     .describe("Where to put the playhead, so the person sees that moment."),
 });
 
+export const CaptureFramesInput = z.object({
+  every: z
+    .number()
+    .positive()
+    .max(60)
+    .optional()
+    .describe("Seconds between frames, e.g. 1 for one per second, 0.5 for two. Default 1."),
+  from: z
+    .number()
+    .min(0)
+    .max(300)
+    .optional()
+    .describe("Start of the window, in seconds. Default: the start of the film."),
+  to: z
+    .number()
+    .min(0)
+    .max(300)
+    .optional()
+    .describe("End of the window, in seconds, inclusive. Default: the end of the film."),
+  at: z
+    .array(z.number().min(0).max(300))
+    .max(24)
+    .optional()
+    .describe("Exact moments in seconds instead of a cadence, e.g. [6, 6.2, 6.4] to watch one transition closely."),
+  width: z
+    .number()
+    .int()
+    .min(240)
+    .max(960)
+    .optional()
+    .describe("Width of each frame on the sheet, in pixels. Default 480; go larger to read small text."),
+});
+
 export const PreviewInput = z.object({
   play: z
     .boolean()

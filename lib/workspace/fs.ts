@@ -11,6 +11,9 @@ import type { ProjectFile } from "@/types/prism";
 import * as browser from "./browser-store";
 import { rememberWorkspace, requestPermission } from "./handle-store";
 
+/** Where captured contact sheets go, beside the renders. */
+export const FRAMES_DIR = "frames";
+
 /**
  * The filesystem is the database — when there is one.
  *
@@ -357,6 +360,33 @@ export async function writeRender(
     await writable.write(blob);
     await writable.close();
     return { ok: true, value: `${WORKSPACE_DIR}/${slug}/${RENDERS_DIR}/${filename}` };
+  } catch {
+    return fail("write-failed", `Could not save ${filename}.`);
+  }
+}
+
+/**
+ * Save a captured contact sheet beside the project, so an agent with file
+ * tools can open it even if its WebMCP bridge drops image content. A browser
+ * workspace has no folder; the caller says so in its message.
+ */
+export async function writeFrameSheet(
+  workspace: Workspace,
+  slug: string,
+  filename: string,
+  blob: Blob,
+): Promise<FsResult<string>> {
+  if (workspace.kind === "browser") {
+    return fail("write-failed", "No folder to save into.");
+  }
+  try {
+    const dir = await workspace.dir.getDirectoryHandle(slug, { create: true });
+    const frames = await dir.getDirectoryHandle(FRAMES_DIR, { create: true });
+    const handle = await frames.getFileHandle(filename, { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return { ok: true, value: `${WORKSPACE_DIR}/${slug}/${FRAMES_DIR}/${filename}` };
   } catch {
     return fail("write-failed", `Could not save ${filename}.`);
   }

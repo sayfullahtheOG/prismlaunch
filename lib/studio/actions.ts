@@ -58,6 +58,7 @@ import {
 import { selectedClipId } from "./selection";
 import { slugForName } from "./slug";
 import { nowTimecode, useStudioStore, type RailTab } from "./store";
+import { MAX_CAPTURE_FRAMES, planCapture, timecode } from "@/lib/render/capture-plan";
 import {
   browserWorkspace,
   deleteProjectFolder,
@@ -71,6 +72,7 @@ import {
   readProjectFile,
   renameProjectFolder,
   resolveWorkspace,
+  writeFrameSheet,
   writeProjectFile,
   type ProjectEntry,
   type Workspace,
@@ -881,6 +883,111 @@ export function seek(frame: number): ActionResult {
   return ok(
     `Playhead at ${(clamped / guard.value.file.fps).toFixed(2)}s (frame ${clamped}).`,
   );
+}
+
+export type CaptureInput = {
+  every?: number | undefined;
+  from?: number | undefined;
+  to?: number | undefined;
+  at?: readonly number[] | undefined;
+  width?: number | undefined;
+};
+
+export type CaptureResult =
+  | {
+      ok: true;
+      message: string;
+      /** The sheet, base64 without the data-URL prefix, and its type. */
+      image: { base64: string; mimeType: string; width: number; height: number };
+    }
+  | { ok: false; message: string };
+
+/**
+ * Render chosen frames of the open composition onto one labelled sheet.
+ *
+ * This is how the agent sees its own work. A screenshot of a playing film
+ * lands wherever the clock was; this renders exact frames — the same pixels
+ * export produces — at a cadence or at named moments, and returns them as a
+ * grid the agent can read as a sequence. Read-only: nothing in the file
+ * changes, and the person sees the same sheet in the Agent panel, because
+ * the two of them should never be looking at different things.
+ *
+ * Saved beside the project too, when there is a folder, for agents whose
+ * bridge does not pass images through.
+ */
+export async function captureFrames(input: CaptureInput): Promise<CaptureResult> {
+  const guard = requireProject();
+  if (!guard.ok) return { ok: false, message: guard.result.message };
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return { ok: false, message: "Capturing frames runs in the browser." };
+  }
+
+  const project = guard.value;
+  const { fps, durationInFrames } = project.file;
+  const plan = planCapture({
+    fps,
+    durationInFrames,
+    every: input.every,
+    from: input.from,
+    to: input.to,
+    at: input.at,
+    max: MAX_CAPTURE_FRAMES,
+  });
+  if (plan.frames.length === 0) {
+    return { ok: false, message: "That window holds no frames." };
+  }
+
+  const { captureSheet, blobToDataUrl } = await import("@/lib/render/web-capture");
+  const { assets } = useStudioStore.getState();
+  const outcome = await captureSheet(project.file, assets, plan.frames, {
+    cellWidth: input.width ?? 480,
+    format: "jpeg",
+  });
+  if (!outcome.ok) return { ok: false, message: outcome.message };
+
+  const dataUrl = await blobToDataUrl(outcome.blob);
+  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  const range = `${timecode(plan.frames[0]!, fps)}–${timecode(plan.frames[plan.frames.length - 1]!, fps)}`;
+  const label = `${plan.frames.length} frame${plan.frames.length === 1 ? "" : "s"}, ${range}`;
+
+  // Save beside the project when there is one, and show the person.
+  const { workspace, loadedAt, setProject, setLastCapture } = useStudioStore.getState();
+  let saved: string | null = null;
+  if (workspace.kind === "linked") {
+    const filename = `sheet-${plan.frames[0]}-${plan.frames[plan.frames.length - 1]}.jpg`;
+    const written = await writeFrameSheet(workspace.workspace, project.slug, filename, outcome.blob);
+    if (written.ok) saved = written.value;
+  }
+  const at = nowTimecode();
+  setLastCapture({ dataUrl, label, at });
+  setProject(
+    withActivity(useStudioStore.getState().project ?? project, {
+      origin: "agent",
+      label: "prism.capture_frames",
+      detail: `Looked at ${label}`,
+    }),
+    loadedAt,
+  );
+
+  const moments = plan.frames
+    .map((frame) => `${timecode(frame, fps)} (f${frame})`)
+    .join(", ");
+  const message = [
+    `${plan.frames.length} frame${plan.frames.length === 1 ? "" : "s"} of “${project.file.name}” on one sheet, left to right then top to bottom, each stamped with its time: ${moments}.`,
+    plan.truncated
+      ? `That is the first ${MAX_CAPTURE_FRAMES}; narrow the window or widen the cadence for the rest.`
+      : null,
+    saved ? `Also saved as ${saved}, if you would rather open the file.` : null,
+    "The person can see the same sheet in the Agent panel.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    ok: true,
+    message,
+    image: { base64, mimeType: outcome.mimeType, width: outcome.width, height: outcome.height },
+  };
 }
 
 export function setPlaying(playing: boolean): ActionResult {

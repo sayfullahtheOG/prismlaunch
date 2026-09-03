@@ -57,6 +57,7 @@ export function AgentPanel({ activity, kind, toolCount, slug }: Props) {
   const inBrowser = useStudioStore(
     (state) => state.workspace.kind === "linked" && state.workspace.workspace.kind === "browser",
   );
+  const lastCapture = useStudioStore((state) => state.lastCapture);
   return (
     <PanelShell
       title="Agent"
@@ -110,6 +111,22 @@ export function AgentPanel({ activity, kind, toolCount, slug }: Props) {
           </span>
         </div>
       </PanelSection>
+
+      {lastCapture ? (
+        <PanelSection label="What your agent saw">
+          {/* A plain img: the sheet is a data URL the agent already has. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lastCapture.dataUrl}
+            alt={`Frames your agent captured: ${lastCapture.label}`}
+            className="ds-inset w-full rounded-sm"
+          />
+          <p className="mt-2 text-xs leading-[var(--ds-leading-body)] text-muted">
+            {lastCapture.label}
+            <span className="ml-2 font-mono text-2xs text-subtle tabular-nums">{lastCapture.at}</span>
+          </p>
+        </PanelSection>
+      ) : null}
 
       <PanelSection label="Activity">
         {activity.length === 0 ? (

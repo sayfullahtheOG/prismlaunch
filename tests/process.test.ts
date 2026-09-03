@@ -389,6 +389,25 @@ describe("the storyboard", () => {
    * arithmetic an agent gets wrong. The tool does it, from the artifact the
    * person already approved.
    */
+  it("lays a board whose frame description runs to the schema's limit", async () => {
+    const project = filmApprovedThrough("storyboard");
+    project.file.process.storyboard.panels = [
+      {
+        ...PANELS[0]!,
+        // 280 characters is legal for a panel's frame; a clip's revision
+        // note holds 240. This board used to refuse the whole animatic.
+        frame: "A very deliberate description. ".repeat(9).slice(0, 280),
+      },
+    ];
+    useStudioStore.getState().setProject(project, 0);
+
+    const result = await actions.layAnimatic();
+    expect(result.ok, result.message).toBe(true);
+    const laid = current().file.tracks.flatMap((track) => track.clips);
+    expect(laid).toHaveLength(1);
+    expect(laid[0]!.revisionNote!.length).toBeLessThanOrEqual(240);
+  });
+
   it("lays the approved boards on the timeline at cumulative frames", async () => {
     const project = filmApprovedThrough("storyboard");
     project.file.process.storyboard.panels = PANELS;

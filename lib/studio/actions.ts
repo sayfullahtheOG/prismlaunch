@@ -1987,7 +1987,9 @@ function boardClip(panel: StoryboardPanel, from: number, background: Background)
     durationInFrames: panel.durationInFrames,
     approval: "accepted",
     label: panel.label,
-    revisionNote: `Board: ${panel.frame}`,
+    // A frame description may run to 280 characters; a revision note holds
+    // 240. Clamped, because one long board must not refuse the whole animatic.
+    revisionNote: `Board: ${panel.frame}`.slice(0, 240),
     text: panel.words?.trim() || panel.label,
     fontSize: 0.07,
     fontFamily: "mono",

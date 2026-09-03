@@ -28,7 +28,7 @@ export const STAGE_PURPOSE: Record<StageId, string> = {
   script: "The beats and their words, timed. Read aloud with a stopwatch.",
   storyboard: "Draw every shot with subjects, UI, images and timed movement. Scrub the opening and closing frames and watch the rough sequence before approving it.",
   style: "The look, defined as elements (the type roles, the accent, the device, the product), with two or three beats built from them for real.",
-  animatic: "The boards laid on the real timeline, cut to the real music. Approving this locks the timing.",
+  animatic: "The full sequence in the approved visual style, timed to continuous music. Review the action and pacing; approving locks the timing.",
   polish: "The rough, reviewed: the sound rethought against your notes, and the checklist run. The last look before the build.",
   build: "Every beat built final inside its locked window, in the approved look, with the sound placed. Then the render.",
 };
@@ -121,7 +121,7 @@ export function nextInstruction(process: Process): {
     script: "Write the lines and runs — 1 to 4 words each, one accent word — with seconds that follow from their events, not from a budget. Submit with prism.submit_script. PRISM_METHOD.md §1 and §6.",
     storyboard: "Read SKILL.md's Visual storyboards section and PRISM_METHOD.md §2 and §10. DRAW each shot using required visual.layers: real screenshots or labelled rough subjects, positioned UI regions, text, cursors and timed keyframes. Section titles alone are not boards. Include frame, action, handoff, durationInFrames, transitions and sound. Play each board and inspect opening/closing poses using Edit layout, then prism.submit_storyboard.",
     style: "Pick a look from PRISM_METHOD.md §7. Define every piece the approved boards need as elements with prism.add_element (Headline, Support, Label, the accent, the device frame, the product shot), then build the hook, the reveal and the endcard for real by placing them with prism.place_element at the boards' times. Submit with prism.submit_style_frames, naming the elements and the clips.",
-    animatic: "Choose the music first (PRISM_METHOD.md §9). Call prism.lay_animatic to put the approved boards on the timeline as placeholders beside what you built, then prism.add_audio the music with startFrom on a downbeat, adjust boards to the beat grid, then prism.submit_animatic. Approving locks the timing.",
+    animatic: "Apply the approved style elements to every shot (PRISM_METHOD.md §10). prism.lay_animatic is optional planning scaffolding; replace its roughs and remove or hide them before review. Add continuous music, watch the full sequence with sound, fix stalls and handoffs, then prism.submit_animatic. Approval locks timing.",
     polish: "Watch the animatic through with the person's notes in hand. Rethink the sound (PRISM_METHOD.md §9): effects on the events, ducking under any voice, room tone. Run the §12 checklist against the rough — sound on, muted, half size — and submit each line with its verdict via prism.submit_polish, with the updated sound plan.",
     build: "Replace every remaining placeholder by placing the approved elements with prism.place_element: two events a second, the handoff object built as one clip across each cut, the product on screen most of the time, and place the final sound from the polish plan. Clips may cross sections; they may not run past the end. Change an element, not its clips, when the look needs adjusting. Submit with prism.submit_build; after the person approves it, prism.request_render. PRISM_METHOD.md §10.",
   };
@@ -147,7 +147,7 @@ export function timingLocked(process: Process): boolean {
  */
 export function snapshotBeats(file: ProjectFile): Process["animatic"]["beats"] {
   return file.tracks
-    .filter((track) => track.kind === "visual")
+    .filter((track) => track.kind === "visual" && !track.hidden)
     .flatMap((track) => track.clips)
     .sort((a, b) => a.from - b.from)
     .map((clip) => ({

@@ -319,7 +319,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.lay_animatic",
       description:
-        "Lay approved visual boards on the timeline, preserving layers, images and keyframe motion. Re-running replaces the Boards track. Add music, then submit_animatic. Requires approved storyboard.",
+        "Optional planning scaffold: copy approved boards to the Boards track. Re-running replaces that track. Before animatic review, replace all roughs with approved style elements and remove/hide Boards; this tool does not build finished shots. Requires approved storyboard.",
       schema: LayAnimaticInput,
       execute: () => layAnimatic(),
     }),
@@ -327,7 +327,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_animatic",
       description:
-        "Stage 6: submit the timeline rough with music. Human approval locks length and section starts; clips may cross sections but not the end. Requires approved storyboard. PRISM_METHOD.md §10.",
+        "Stage 6: submit all shots in the approved visual style with continuous music. Visible storyboard roughs are refused. Watch playback with sound first; still captures cannot verify audio or stalls. Human approval locks timing. Requires approved style frames. PRISM_METHOD.md §10.",
       schema: SubmitAnimaticInput,
       execute: (input) => submitAnimatic(input.summary),
     }),

@@ -129,7 +129,7 @@ to stop.
    timing; the build applies the approved elements inside that length.
 8. The person approves each stage; nothing moves past one without them.
    **You cannot approve your own work.** There is no tool that approves a stage or a render, by design.
-9. When polish is approved, call `prism.request_render`. That renders nothing;
+9. When build is approved, call `prism.request_render`. That renders nothing;
    it raises a confirmation the person has to approve.
 
 ## The process
@@ -148,7 +148,7 @@ itself rather than by a document.
 | 3 Script | `prism.submit_script` | beats with words and seconds; VO if any | lets you board |
 | 4 Storyboard | `prism.submit_storyboard` | one panel per section with a REQUIRED `visual` scene: positioned subjects, UI/screenshots, words and timed keyframes. Also frame, action, handoff, durationInFrames, transitions and sound. Sent back? Submit the full corrected set again | opens the elements |
 | 5 Style frames | `prism.submit_style_frames` | the look, defined as elements — every piece the boards need — and the 2 to 3 frames built from them | fixes the look |
-| 6 Animatic | `prism.lay_animatic`, then `prism.submit_animatic` | the boards on the timeline beside what you built, music underneath, cut to the grid | **locks the timing** |
+| 6 Animatic | `prism.submit_animatic` | every shot using the approved style elements, continuous music underneath, action and cuts timed together | **locks the timing** |
 | 7 Polish | `prism.submit_polish` | the rough reviewed: the sound rethought against the notes (`soundPlan`), the §12 checklist run with verdicts | clears the build |
 | 8 Build | `prism.submit_build` | every section built final, objects carrying across the cuts, the sound placed | unblocks the render |
 
@@ -159,12 +159,19 @@ properties, timeline editing tools or editing shortcuts; manual edits belong in
 Editor. Notes, Approve (or Approve as is), and Send back sit below the gallery.
 Submitting the style stage remains required; appearing in the gallery is not approval.
 
-**Laying the animatic.** Once the style frames are approved, `prism.lay_animatic`
-puts one visual board clip per panel on a "Boards" track, at cumulative frames
-from the panels' durations, carrying the scene's layers, images and keyframes,
-plus the panel's transitions. The same scene renderer powers the board and
-the animatic. Legacy text-only boards still open, but must be redrawn for a new submission. Then add the
-music, move any board onto the beat grid, and submit.
+**Building the animatic.** The storyboard plans the pictures; style approval
+sets the look for the entire sequence. Apply those elements to every shot,
+including product UI, cursor actions, typed feedback and the payoff where the
+concept calls for them. Finishing one opening and appending grey board roughs
+does not fulfil this stage. Use real assets or faithful, disclosed UI
+reconstructions. Leave fine easing and final sound refinement for build.
+
+`prism.lay_animatic` is optional scaffolding: it copies the boards and their
+keyframes onto a "Boards" track so you can establish timing. It does not turn
+them into styled shots. Replace them, then remove or hide that track before
+submission; visible storyboard clips are refused. Preserve approved sample
+clips and avoid covering them with duplicate roughs. Watch the entire sequence
+with sound before `prism.submit_animatic`; check cuts and source joins too.
 
 **The timing lock.** When the animatic is approved, every visual clip on the
 timeline becomes a locked section with a start frame, and together they fix
@@ -726,7 +733,7 @@ rather than crashing the render. It is still a hole, so check.
 | `prism.open_project` | Show one that already exists in the folder. |
 | `prism.submit_brief` … `prism.submit_build` | The eight stages, in order. See *The process* above. |
 | `prism.wait_for_decision` | **Call after every submit.** Returns the moment the person approves or sends back, with their note and what to do next. |
-| `prism.lay_animatic` | The approved boards onto the timeline, as placeholders, with the frame arithmetic done. |
+| `prism.lay_animatic` | Optional timing scaffold. Replace its board roughs with approved style elements before animatic review. |
 | `prism.add_track` | Add a visual or audio layer. |
 | `prism.update_track` | Rename, hide/mute, or set a layer's volume. |
 | `prism.move_track` | Move a layer forward or back in the stack. |
@@ -910,6 +917,12 @@ exact opening and closing poses. Board previews have no audio; the notes plan
 it and the animatic places it.
 
 ## Look before you show
+
+**Still captures do not verify playback or sound.** Use them to inspect layout,
+then play the full sequence without seeking. Check that music stays continuous,
+effects land on the action, and shots do not stall at their first frame. Do not
+claim an audio listen from a capture or an empty browser console. If you cannot
+hear the preview, say so and distinguish that from checks you actually ran.
 
 You can see the film. `prism.capture_frames` renders exact frames (the same
 pixels export produces) and returns them as storyboard sheets: six to a

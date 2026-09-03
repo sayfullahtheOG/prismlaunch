@@ -1,4 +1,5 @@
 import { Audio, Video } from "@remotion/media";
+import { useMemo } from "react";
 import {
   AbsoluteFill,
   Img,
@@ -136,24 +137,34 @@ function backgroundStyle(background: Background): React.CSSProperties {
 }
 
 function TrackLayer({ track, assets }: { track: Track; assets: AssetMap }) {
+  const { fps } = useVideoConfig();
   // A hidden visual track draws nothing; a muted audio track plays nothing.
   // One flag, because they are the same intent.
   if (track.hidden) return null;
 
   return (
     <>
-      {track.clips.map((clip) => (
-        <Sequence
-          key={clip.id}
-          from={clip.from}
-          durationInFrames={clip.durationInFrames}
-          // Named so the Remotion Studio timeline is legible while debugging.
-          name={clip.label ?? clipSummary(clip)}
-          layout="none"
-        >
-          <ClipRenderer clip={clip} assets={assets} volume={track.volume} />
-        </Sequence>
-      ))}
+      {track.clips.map((clip) => {
+        // A cold media decoder buffers the entire Player, including music
+        // already playing. Mount it one second before its cue, silently.
+        // HTML stays lazy: mounting its inline CSS early can restyle a shot
+        // that is still on screen.
+        const prepare = ["audio", "video", "image", "device", "storyboard"].includes(clip.kind);
+        return (
+          <Sequence
+            key={clip.id}
+            from={clip.from}
+            durationInFrames={clip.durationInFrames}
+            // Named so the Remotion Studio timeline is legible while debugging.
+            name={clip.label ?? clipSummary(clip)}
+            {...(prepare
+              ? { layout: "absolute-fill" as const, premountFor: fps }
+              : { layout: "none" as const })}
+          >
+            <ClipRenderer clip={clip} assets={assets} volume={track.volume} />
+          </Sequence>
+        );
+      })}
     </>
   );
 }
@@ -338,7 +349,8 @@ function HtmlBody({ clip, assets }: { clip: HtmlClip; assets: AssetMap }) {
   const frame = useCurrentFrame();
   const { width } = useVideoConfig();
   const scale = (clip.box.width * width) / clip.width;
-  const markup = liveHtml(sanitizeHtml(clip.html), frame, assets);
+  const safeHtml = useMemo(() => sanitizeHtml(clip.html), [clip.html]);
+  const markup = liveHtml(safeHtml, frame, assets);
   const style = {
     position: "absolute",
     left: 0,

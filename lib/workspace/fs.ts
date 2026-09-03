@@ -11,6 +11,7 @@ import { isLibraryPath, libraryUrl, safeAssetName } from "@/lib/studio/files";
 import type { ProjectFile } from "@/types/prism";
 import * as browser from "./browser-store";
 import {
+  deleteAsset,
   deleteAssets,
   getAssets,
   putAsset,
@@ -530,6 +531,43 @@ export async function addAssetFile(
     return { ok: true, value: path };
   } catch {
     return fail("write-failed", `Could not write ${WORKSPACE_DIR}/${slug}/${path}.`);
+  }
+}
+
+/**
+ * Take a file out of the project's `assets/`.
+ *
+ * The one deletion the app does on a person's behalf inside their folder,
+ * and only of a file under `assets/`: the path is checked before anything
+ * is touched. The caller confirms, and refuses while a clip or element
+ * still refers to the file; this just removes it.
+ */
+export async function removeAssetFile(
+  workspace: Workspace,
+  slug: string,
+  path: string,
+): Promise<FsResult<void>> {
+  const name = path.startsWith(`${ASSETS_DIR}/`) ? path.slice(ASSETS_DIR.length + 1) : "";
+  if (!name || name.includes("/")) {
+    return fail("invalid", `Only a file in ${ASSETS_DIR}/ can be removed.`);
+  }
+
+  if (workspace.kind === "browser") {
+    try {
+      await deleteAsset(slug, path);
+      return { ok: true, value: undefined };
+    } catch {
+      return fail("write-failed", `This browser would not remove ${name}.`);
+    }
+  }
+
+  try {
+    const dir = await workspace.dir.getDirectoryHandle(slug);
+    const assets = await dir.getDirectoryHandle(ASSETS_DIR);
+    await assets.removeEntry(name);
+    return { ok: true, value: undefined };
+  } catch {
+    return fail("write-failed", `Could not remove ${WORKSPACE_DIR}/${slug}/${path}.`);
   }
 }
 

@@ -8,6 +8,7 @@ import {
   deleteElement,
   importFiles,
   placeElementHere,
+  removeAsset,
   select,
 } from "@/lib/studio/actions";
 import { elementUses } from "@/lib/studio/edits";
@@ -159,19 +160,7 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
             <PanelSection label="Files in assets">
               <ul className="flex flex-col gap-1">
                 {loose.map((path) => (
-                  <li key={path} className="flex items-center gap-2">
-                    <span className="min-w-0 flex-1 truncate font-mono text-2xs text-muted">
-                      {path.replace(/^assets\//, "")}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => createElement(elementForFile(path))}
-                      className="ds-focus flex h-6 shrink-0 items-center gap-1 rounded-xs px-1.5 text-xs font-medium text-accent hover:bg-sunken"
-                    >
-                      <Plus size={11} strokeWidth={2.6} aria-hidden />
-                      Add
-                    </button>
-                  </li>
+                  <LooseFile key={path} path={path} onNotice={setNotice} />
                 ))}
               </ul>
             </PanelSection>
@@ -189,6 +178,68 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
         />
       ) : null}
     </PanelShell>
+  );
+}
+
+/**
+ * A file in `assets/` that nothing refers to: add it as an element, or
+ * delete it. Deleting a file has no undo, so the first press asks and the
+ * second does it; the question goes away on its own if left.
+ */
+function LooseFile({ path, onNotice }: { path: string; onNotice: (notice: string) => void }) {
+  const [asking, setAsking] = useState(false);
+
+  useEffect(() => {
+    if (!asking) return;
+    const timer = setTimeout(() => setAsking(false), 4000);
+    return () => clearTimeout(timer);
+  }, [asking]);
+
+  async function remove() {
+    if (!asking) {
+      setAsking(true);
+      return;
+    }
+    setAsking(false);
+    const result = await removeAsset(path);
+    onNotice(result.message);
+  }
+
+  return (
+    <li className="flex items-center gap-1">
+      <span className="min-w-0 flex-1 truncate font-mono text-2xs text-muted" title={path}>
+        {path.replace(/^assets\//, "")}
+      </span>
+      {asking ? (
+        <button
+          type="button"
+          onClick={() => void remove()}
+          className="ds-focus flex h-6 shrink-0 items-center gap-1 rounded-xs bg-danger px-1.5 text-xs font-medium text-inverse"
+        >
+          Delete file?
+        </button>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => createElement(elementForFile(path))}
+            className="ds-focus flex h-6 shrink-0 items-center gap-1 rounded-xs px-1.5 text-xs font-medium text-accent hover:bg-sunken"
+          >
+            <Plus size={11} strokeWidth={2.6} aria-hidden />
+            Add
+          </button>
+          <button
+            type="button"
+            onClick={() => void remove()}
+            aria-label={`Delete ${path}`}
+            title="Delete the file"
+            className="ds-focus grid size-6 shrink-0 place-items-center rounded-xs text-subtle hover:bg-sunken hover:text-danger"
+          >
+            <Trash2 size={12} strokeWidth={2} aria-hidden />
+          </button>
+        </>
+      )}
+    </li>
   );
 }
 

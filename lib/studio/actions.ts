@@ -81,12 +81,13 @@ import {
   modifiedAt,
   projectExists,
   readProjectFile,
+  removeAssetFile,
   renameProjectFolder,
   resolveWorkspace,
-  writeFrameSheet,
-  writeProjectFile,
   type ProjectEntry,
   type Workspace,
+  writeFrameSheet,
+  writeProjectFile,
 } from "@/lib/workspace/fs";
 import {
   browserModeRemembered,
@@ -692,6 +693,36 @@ export async function importFiles(files: readonly File[]): Promise<ActionResult>
       failed.length > 0 ? `; could not add ${failed.join(", ")}` : ""
     }.`,
   );
+}
+
+/**
+ * Delete a file from the project's `assets/`. HUMAN ONLY, and confirmed
+ * in the panel first: a file is not a clip, and there is no undo for it.
+ * Refuses while anything in the film still refers to the file, because a
+ * hole in the frame is not what "delete this file" meant.
+ */
+export async function removeAsset(path: string): Promise<ActionResult> {
+  const workspaceGuard = requireWorkspace();
+  if (!workspaceGuard.ok) return workspaceGuard.result;
+  const projectGuard = requireProject();
+  if (!projectGuard.ok) return projectGuard.result;
+  const { slug, file } = projectGuard.value;
+
+  if (referencedAssets(file).includes(path)) {
+    return fail(
+      "invalid-input",
+      `${path} is still used by a clip or an element. Remove that first.`,
+    );
+  }
+  if (!useStudioStore.getState().assetFiles.includes(path)) {
+    return fail("not-found", `There is no ${path} in this project.`);
+  }
+
+  const removed = await removeAssetFile(workspaceGuard.value, slug, path);
+  if (!removed.ok) return fail("disk-error", removed.message);
+
+  await refreshAssets(workspaceGuard.value, slug, file);
+  return ok(`Deleted ${path}.`);
 }
 
 export async function openProject(slug: string): Promise<ActionResult> {

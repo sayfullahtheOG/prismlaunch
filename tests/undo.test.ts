@@ -3,7 +3,7 @@ import * as actions from "@/lib/studio/actions";
 import { elementForFile, kindForPath, safeAssetName } from "@/lib/studio/files";
 import { readProject, resetStudio, useStudioStore } from "@/lib/studio/store";
 import { resetBrowserStore } from "@/lib/workspace/browser-store";
-import { browserWorkspace, loadAssets } from "@/lib/workspace/fs";
+import { browserWorkspace, loadAssets, removeAssetFile } from "@/lib/workspace/fs";
 
 beforeEach(async () => {
   resetBrowserStore();
@@ -69,5 +69,35 @@ describe("files", () => {
     ]);
     expect(urls["library/audio/whoosh.wav"]).toBe("/library/audio/whoosh.wav");
     expect(missing).toEqual([]);
+  });
+});
+
+describe("deleting a file from assets", () => {
+  it("refuses a file the film still uses, and one that is not there", async () => {
+    resetBrowserStore();
+    resetStudio();
+    await actions.startInBrowser();
+    const cursor = actions.createElement({
+      kind: "image",
+      name: "Shot",
+      src: "assets/shot.png",
+      fit: "cover",
+      radius: 0,
+      box: { x: 0.5, y: 0.5, width: 0.8, height: 0.45, rotation: 0, opacity: 1 },
+      animation: { enter: "none", exit: "none", enterFrames: 12, exitFrames: 12 },
+      motion: { x: 0, y: 0, scale: 1, frames: 0, delay: 0, easing: "out", press: false },
+    });
+    expect(cursor.ok).toBe(true);
+    const used = await actions.removeAsset("assets/shot.png");
+    expect(used.ok).toBe(false);
+    expect(used.message).toMatch(/still used/);
+
+    const missing = await actions.removeAsset("assets/never.png");
+    expect(missing.ok).toBe(false);
+    expect(missing.message).toMatch(/no assets\/never\.png/);
+
+    // Only a file under assets/ is ever removed, whatever the caller says.
+    const outside = await removeAssetFile(browserWorkspace(), "x", "project.json");
+    expect(outside.ok).toBe(false);
   });
 });

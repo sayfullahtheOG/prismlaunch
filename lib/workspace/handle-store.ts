@@ -81,6 +81,10 @@ export async function getAssets(slug: string): Promise<StoredAsset[]> {
   }
 }
 
+export async function deleteAsset(slug: string, path: string): Promise<void> {
+  await transact("readwrite", (store) => store.delete(assetKey(slug, path)), ASSETS);
+}
+
 export async function deleteAssets(slug: string): Promise<void> {
   try {
     const all = await transact<StoredAsset[]>("readonly", (store) => store.getAll(), ASSETS);

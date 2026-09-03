@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDot,
-  LayoutGrid,
   Lock,
   Shapes,
   Sparkles,
@@ -18,6 +17,7 @@ import {
   STAGE_PURPOSE,
   timingLocked,
 } from "@/lib/studio/process";
+import { REVIEW_PAGES } from "@/lib/studio/review";
 import { STAGES } from "@/lib/studio/schema";
 import { useStudioStore } from "@/lib/studio/store";
 import { clipCount, draftCount } from "@/lib/studio/timing";
@@ -26,20 +26,19 @@ import { PanelShell } from "./PanelShell";
 import { STAGE_STATUS, StageDecision } from "./StageDecision";
 
 /**
- * The pipeline, as a place.
+ * The pipeline, as a list.
  *
- * Nine stages down the side. The agent submits into one; the person reads
- * what arrived and either approves it or sends it back with a note. Nothing
- * here writes an artifact — that is the agent's job — and nothing the agent can
- * call approves one. The two buttons on a submitted stage are the whole
- * approval boundary, made visible.
+ * Nine stages down the side, one line each: where the film is and what is
+ * waiting on the person, at a glance. The agent submits into a stage; the
+ * person reads what arrived and either approves it or sends it back with a
+ * note. Nothing here writes an artifact, and nothing the agent can call
+ * approves one.
  *
- * Artifacts that fit a column are shown in it: the brief, the concepts, the
- * script, the sound plan, the checklist. Ones that need the screen — the
- * storyboard — are summarised here and opened in their own section.
- *
- * The current stage is open; the rest are one line each. A person should be
- * able to see at a glance where the film is and what is waiting on them.
+ * Reading and deciding happen in the middle, at reading size: a document
+ * stage opens as a page, the storyboard as the boards. This column does not
+ * repeat them. The three stages whose artifact is the film itself, the
+ * animatic, the style frames and the build, have no page, so for those the
+ * row opens here with what to look at and the two buttons.
  */
 export function ProcessPanel({ file }: { file: ProjectFile }) {
   const process = file.process;
@@ -47,9 +46,8 @@ export function ProcessPanel({ file }: { file: ProjectFile }) {
   const open = useStudioStore((state) => state.openStage);
   const setOpen = useStudioStore((state) => state.setOpenStage);
 
-  // The current stage opens by default; clicking another opens that instead.
-  // The middle of the editor follows the same choice.
-  const expanded = open ?? current;
+  // The current stage is the one under review unless the person opened another.
+  const reviewing = open ?? current;
 
   return (
     <PanelShell
@@ -65,8 +63,8 @@ export function ProcessPanel({ file }: { file: ProjectFile }) {
             state={process[stage]}
             file={file}
             isCurrent={stage === current}
-            isOpen={stage === expanded}
-            onToggle={() => setOpen(stage === expanded ? null : stage)}
+            isOpen={stage === reviewing}
+            onClose={() => setOpen(null)}
           />
         ))}
       </ol>
@@ -90,6 +88,13 @@ export function ProcessPanel({ file }: { file: ProjectFile }) {
   );
 }
 
+type FilmStage = "animatic" | "style" | "build";
+
+/** A stage whose artifact is the film itself, with nowhere else to decide it. */
+function isFilmStage(stage: StageId): stage is FilmStage {
+  return stage !== "storyboard" && !REVIEW_PAGES.includes(stage);
+}
+
 function StageRow({
   stage,
   index,
@@ -97,7 +102,7 @@ function StageRow({
   file,
   isCurrent,
   isOpen,
-  onToggle,
+  onClose,
 }: {
   stage: StageId;
   index: number;
@@ -105,9 +110,12 @@ function StageRow({
   file: ProjectFile;
   isCurrent: boolean;
   isOpen: boolean;
-  onToggle: () => void;
+  onClose: () => void;
 }) {
   const status = STAGE_STATUS[state.status];
+  const film = isFilmStage(stage);
+  // A page stage opens in the middle; a film stage opens here, under its row.
+  const expanded = isOpen && film;
 
   return (
     <li
@@ -117,8 +125,9 @@ function StageRow({
     >
       <button
         type="button"
-        onClick={onToggle}
-        aria-expanded={isOpen}
+        onClick={() => (expanded ? onClose() : reviewStage(stage))}
+        aria-current={isOpen && !film ? "true" : undefined}
+        aria-expanded={film ? expanded : undefined}
         className="ds-focus flex h-8 w-full items-center gap-2.5 rounded-sm px-2 text-left hover:bg-sunken"
       >
         <span className={`shrink-0 ${status.tone}`}>
@@ -142,7 +151,7 @@ function StageRow({
           {isCurrent && state.status === "pending" ? "Up next" : status.label}
         </span>
         <span className="shrink-0 text-subtle">
-          {isOpen ? (
+          {expanded ? (
             <ChevronDown size={13} strokeWidth={2} aria-hidden />
           ) : (
             <ChevronRight size={13} strokeWidth={2} aria-hidden />
@@ -150,7 +159,7 @@ function StageRow({
         </span>
       </button>
 
-      {isOpen ? (
+      {expanded ? (
         <div className="flex flex-col gap-3 px-2 pt-1 pb-3">
           <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">
             {STAGE_PURPOSE[stage]}
@@ -182,139 +191,17 @@ function StageRow({
   );
 }
 
-/** What the agent submitted, rendered per stage. */
+/** What to look at for a stage whose artifact is the film: counts, beats, drafts. */
 function Artifact({
   stage,
   process,
   file,
 }: {
-  stage: StageId;
+  stage: FilmStage;
   process: Process;
   file: ProjectFile;
 }) {
   switch (stage) {
-    case "brief": {
-      const b = process.brief;
-      if (!b.audience && !b.message) return <Empty />;
-      return (
-        <dl className="flex flex-col gap-1.5">
-          <Row label="Audience" value={b.audience} />
-          <Row label="Message" value={b.message} strong />
-          <Row label="Feeling" value={b.feeling} />
-          <Row label="Length" value={b.lengthSeconds ? `${b.lengthSeconds}s` : undefined} />
-          <Row label="The truth" value={b.truth} />
-          <Row label="Demo moment" value={b.demoMoment} />
-        </dl>
-      );
-    }
-
-    case "concept": {
-      const c = process.concept;
-      if (c.directions.length === 0) return <Empty />;
-      return (
-        <ol className="flex flex-col divide-y divide-line-soft">
-          {c.directions.map((direction) => {
-            const recommended = direction.id === c.recommended;
-            const chosen = direction.id === c.chosen;
-            return (
-              <li key={direction.id} className="py-2 first:pt-0 last:pb-0">
-                <p className="flex items-center gap-2 text-xs font-medium text-ink">
-                  {direction.title}
-                  {chosen ? (
-                    <span className="text-2xs font-semibold text-success">chosen</span>
-                  ) : recommended ? (
-                    <span className="text-2xs font-semibold text-accent">recommended</span>
-                  ) : null}
-                  {direction.score !== undefined ? (
-                    <span className="tabular ml-auto font-mono text-2xs text-subtle">
-                      {direction.score}/12
-                    </span>
-                  ) : null}
-                </p>
-                <p className="mt-1 text-xs leading-[var(--ds-leading-body)] text-muted">
-                  {direction.line}
-                </p>
-                {direction.angle || direction.feel ? (
-                  <p className="mt-1 font-mono text-2xs text-subtle">
-                    {[direction.angle, direction.feel].filter(Boolean).join(" · ")}
-                  </p>
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
-      );
-    }
-
-    case "script": {
-      const s = process.script;
-      if (s.beats.length === 0) return <Empty />;
-      const total = s.beats.reduce((n, beat) => n + beat.seconds, 0);
-      return (
-        <div className="flex flex-col gap-2">
-          <ol className="flex flex-col divide-y divide-line-soft">
-            {s.beats.map((beat, index) => (
-              <li key={beat.id} className="py-2 first:pt-0 last:pb-0">
-                <p className="flex items-baseline gap-2">
-                  <span className="tabular font-mono text-2xs text-subtle">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className="text-xs font-medium text-muted">{beat.label}</span>
-                  <span className="tabular ml-auto font-mono text-2xs text-subtle">
-                    {beat.seconds.toFixed(1)}s
-                  </span>
-                </p>
-                {beat.words ? (
-                  <p className="mt-1 text-xs leading-[var(--ds-leading-body)] text-ink">
-                    {beat.words}
-                  </p>
-                ) : null}
-                {beat.sound ? (
-                  <p className="mt-1 text-2xs text-subtle">♪ {beat.sound}</p>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-          <p className="tabular font-mono text-2xs text-subtle">
-            {s.beats.length} beats · {total.toFixed(1)}s
-            {process.brief.lengthSeconds
-              ? ` of ${process.brief.lengthSeconds}s`
-              : ""}
-          </p>
-          {s.voiceover ? (
-            <p className="text-xs leading-[var(--ds-leading-body)] text-muted">
-              <span className="font-semibold text-ink">VO: </span>
-              {s.voiceover}
-            </p>
-          ) : null}
-        </div>
-      );
-    }
-
-    case "storyboard": {
-      const panels = process.storyboard.panels;
-      if (panels.length === 0) return <Empty />;
-      const total = panels.reduce((n, panel) => n + panel.durationInFrames, 0);
-      return (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs leading-[var(--ds-leading-body)] text-muted">
-            <span className="text-ink">{panels.length}</span> panels ·{" "}
-            <span className="tabular font-mono text-2xs">
-              {(total / file.fps).toFixed(1)}s
-              {process.brief.lengthSeconds ? ` of ${process.brief.lengthSeconds}s` : ""}
-            </span>
-          </p>
-          <Button
-            variant="secondary"
-            onClick={() => reviewStage("storyboard")}
-            icon={<LayoutGrid size={14} strokeWidth={1.9} aria-hidden />}
-          >
-            Open the boards
-          </Button>
-        </div>
-      );
-    }
-
     case "animatic": {
       const visual = file.tracks
         .filter((track) => track.kind === "visual")
@@ -359,7 +246,9 @@ function Artifact({
     case "style": {
       const st = process.style;
       const defined = file.elements.length;
-      if (!st.look && st.clipIds.length === 0 && defined === 0) return <Empty />;
+      if (!st.look && st.clipIds.length === 0 && defined === 0) {
+        return <p className="text-xs text-subtle">Nothing submitted yet.</p>;
+      }
       return (
         <div className="flex flex-col gap-2">
           <p className="text-xs leading-[var(--ds-leading-body)] text-muted">
@@ -400,66 +289,5 @@ function Artifact({
         </p>
       );
     }
-
-    case "sound": {
-      const so = process.sound;
-      if (!so.plan) return <Empty />;
-      return (
-        <pre className="thin-scroll max-h-48 overflow-auto font-mono text-2xs leading-[var(--ds-leading-body)] whitespace-pre-wrap text-muted">
-          {so.plan}
-        </pre>
-      );
-    }
-
-    case "polish": {
-      const po = process.polish;
-      if (po.checklist.length === 0) return <Empty />;
-      return (
-        <ul className="flex flex-col gap-1">
-          {po.checklist.map((line, index) => (
-            <li
-              key={index}
-              className={`text-2xs leading-[var(--ds-leading-body)] ${
-                /^[✗x✕]/i.test(line.trim()) ? "text-warning" : "text-muted"
-              }`}
-            >
-              {line}
-            </li>
-          ))}
-        </ul>
-      );
-    }
   }
-}
-
-function Row({
-  label,
-  value,
-  strong,
-  mono,
-}: {
-  label: string;
-  value: string | undefined;
-  strong?: boolean;
-  mono?: boolean;
-}) {
-  if (!value) return null;
-  return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-2xs font-medium text-subtle">{label}</dt>
-      <dd
-        className={`text-xs leading-[var(--ds-leading-body)] ${
-          strong ? "font-medium text-ink" : "text-muted"
-        } ${mono ? "font-mono text-2xs break-all" : ""}`}
-      >
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function Empty() {
-  return (
-    <p className="text-xs text-subtle">Nothing submitted yet.</p>
-  );
 }

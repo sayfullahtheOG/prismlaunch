@@ -103,7 +103,10 @@ export function Canvas({ file }: { file: ProjectFile }) {
           <div
             // Clamped to the room as well as measured from it, so a frame
             // sized before the properties pane appeared can never push a
-            // scrollbar while the observer catches up.
+            // scrollbar while the observer catches up. `data-film-frame` is
+            // what the fullscreen control asks for; see globals.css for how
+            // it fills the screen.
+            data-film-frame
             className="max-h-full max-w-full overflow-hidden shadow-[0_0_0_1px_var(--ds-color-line-soft)]"
             style={{ width: frame.width, height: frame.height }}
           >

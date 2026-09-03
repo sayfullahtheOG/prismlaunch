@@ -122,6 +122,20 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+   The film, fullscreen. The frame is sized in pixels for the stage; as the
+   fullscreen element it takes the whole screen, and the Player letterboxes
+   the picture inside it on black, the way a film is shown.
+*/
+[data-film-frame]:fullscreen {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  background: #000;
+  box-shadow: none;
+}
+
 /* Product data reads as columns, not prose. */
 .tabular,
 [data-numeric] {

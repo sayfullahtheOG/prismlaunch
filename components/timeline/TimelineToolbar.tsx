@@ -5,6 +5,7 @@ import {
   Copy,
   Crop,
   Magnet,
+  Maximize2,
   Pause,
   Play,
   Scissors,
@@ -164,6 +165,24 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
         label="Trim composition to content"
         icon={<Crop size={15} strokeWidth={1.9} />}
         onClick={() => report(fitDurationToContent())}
+      />
+
+      <span className="mx-1 h-5 w-px bg-line-soft" aria-hidden />
+
+      {/* Fullscreen is a browser gesture, so this has to be a real click. */}
+      <IconButton
+        label="Fullscreen preview"
+        icon={<Maximize2 size={15} strokeWidth={1.9} />}
+        onClick={() => {
+          const frame = document.querySelector<HTMLElement>("[data-film-frame]");
+          if (!frame?.requestFullscreen) {
+            setNotice("This browser cannot show the preview fullscreen.");
+            return;
+          }
+          frame.requestFullscreen().catch(() => {
+            setNotice("The browser refused fullscreen. Try again from a click.");
+          });
+        }}
       />
     </div>
   );

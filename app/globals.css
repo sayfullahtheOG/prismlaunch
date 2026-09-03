@@ -136,6 +136,22 @@ body {
   box-shadow: none;
 }
 
+/* A count that just went up says so with one small pop. */
+@keyframes ds-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.ds-pop {
+  animation: ds-pop var(--ds-duration-slow) var(--ds-ease-exit);
+}
+
 /* Product data reads as columns, not prose. */
 .tabular,
 [data-numeric] {

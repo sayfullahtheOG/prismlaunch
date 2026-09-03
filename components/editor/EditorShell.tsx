@@ -149,6 +149,7 @@ export function EditorShell() {
             active={tab}
             onChange={showTab}
             agentPending={drafts > 0 || stageWaiting || Boolean(pendingRender)}
+            counts={file.elements.length > 0 ? { elements: file.elements.length } : {}}
           />
 
           <div className="flex w-[300px] shrink-0 flex-col border-r border-line-soft bg-surface">

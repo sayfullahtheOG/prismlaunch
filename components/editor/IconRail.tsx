@@ -12,6 +12,12 @@ type Props = {
   onChange: (tab: RailTab) => void;
   /** Something needs a human decision. Marked by shape AND colour. */
   agentPending?: boolean;
+  /**
+   * A count to show on a section: how many elements the film has, say. A
+   * rising count is the confirmation that an add landed, so the badge pops
+   * when its number changes.
+   */
+  counts?: Partial<Record<RailTab, number>>;
 };
 
 /**
@@ -22,7 +28,7 @@ type Props = {
  * a destination, so it stays outside the `<nav>` landmark instead of becoming
  * one more thing to skip past when looking for sections.
  */
-export function IconRail({ active, onChange, agentPending = false }: Props) {
+export function IconRail({ active, onChange, agentPending = false, counts = {} }: Props) {
   return (
     <div className="flex w-[76px] shrink-0 flex-col border-r border-line-soft bg-surface">
       <nav
@@ -32,6 +38,7 @@ export function IconRail({ active, onChange, agentPending = false }: Props) {
         {RAIL_TABS.map(({ id, label, icon }) => {
           const Icon = ICONS[icon];
           const selected = id === active;
+          const count = counts[id];
 
           return (
             <button
@@ -47,6 +54,17 @@ export function IconRail({ active, onChange, agentPending = false }: Props) {
             >
               <Icon size={18} strokeWidth={selected ? 2 : 1.7} aria-hidden />
               <span className="text-2xs leading-none font-medium whitespace-nowrap">{label}</span>
+
+              {count ? (
+                <span
+                  // Keyed on the number so a change remounts it and replays the pop.
+                  key={count}
+                  className="ds-pop tabular absolute top-1 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-accent px-1 text-[10px] font-semibold text-inverse"
+                  aria-label={`${label}: ${count}`}
+                >
+                  {count}
+                </span>
+              ) : null}
 
               {(id === "agent" || id === "process") && agentPending ? (
                 <span

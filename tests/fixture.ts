@@ -1,4 +1,4 @@
-import { DEFAULT_MOTION, EMPTY_PROCESS, PROJECT_FILE_VERSION, STAGES } from "@/lib/studio/schema";
+import { DEFAULT_MOTION, EMPTY_PROCESS, PROJECT_FILE_VERSION, STAGES, StoryboardVisualSchema } from "@/lib/studio/schema";
 import type { Clip, FilmProject, Process, ProjectFile, StageId, Track } from "@/types/prism";
 
 /**
@@ -13,6 +13,10 @@ import type { Clip, FilmProject, Process, ProjectFile, StageId, Track } from "@/
  */
 
 export const FPS = 30;
+
+export function boardVisual() {
+  return StoryboardVisualSchema.parse({ layers: [{ id: "product", kind: "browser", label: "Product UI", x: .5, y: .5, width: .8, height: .7, keyframes: [{ at: 30, x: .4, width: .6 }] }] });
+}
 
 export function textClip(overrides: Partial<Clip> = {}): Clip {
   return {

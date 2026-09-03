@@ -7,6 +7,7 @@ import {
   ProjectFileSchema,
   PROJECT_FILE_VERSION,
   WORKSPACE_DIR,
+  StoryboardVisualSchema,
 } from "@/lib/studio/schema";
 
 /**
@@ -43,11 +44,16 @@ function assembledExample() {
   const blocks = jsonBlocks(SKILL).map((block) => JSON.parse(block) as Part);
   const [main, ...parts] = blocks;
   const tracks = parts.filter((part) => Array.isArray(part.clips)).map((body) => ({ name: `${body.id}.json`, body }));
-  const elements = parts.filter((part) => !Array.isArray(part.clips)).map((body) => ({ name: `${body.id}.json`, body }));
+  const elements = parts.filter((part) => typeof part.kind === "string").map((body) => ({ name: `${body.id}.json`, body }));
   return { main: main!, tracks, elements, assembled: assembleProject(main!, tracks, elements) };
 }
 
 describe("public/SKILL.md", () => {
+  it("shows a valid visual storyboard scene separately from the film's part files", () => {
+    const scenes = jsonBlocks(SKILL).map((block) => JSON.parse(block)).filter((body) => Array.isArray(body.layers));
+    expect(scenes).toHaveLength(1);
+    expect(StoryboardVisualSchema.safeParse(scenes[0]).success).toBe(true);
+  });
   it("has front matter naming the skill", () => {
     expect(SKILL.startsWith("---\n")).toBe(true);
     expect(SKILL).toMatch(/^name: prismlaunch$/m);

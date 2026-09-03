@@ -214,7 +214,6 @@ export function EditorShell() {
             {view === "boards" ? (
               <div className="flex min-h-0 flex-1">
                 <StoryboardBoard file={file} />
-                <Inspector file={file} />
               </div>
             ) : view === "review" && reviewing ? (
               <StageReview stage={reviewing} file={file} />

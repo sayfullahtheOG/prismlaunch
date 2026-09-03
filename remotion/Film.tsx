@@ -8,6 +8,7 @@ import {
 } from "remotion";
 import { FONT_STACK, VARIABLE_WEIGHT } from "./fonts";
 import { liveHtml, sanitizeHtml } from "./html";
+import { StoryboardScene } from "@/components/storyboard/StoryboardScene";
 import { drawProgress, ICON_PATHS } from "./icons";
 import {
   boxStyle,
@@ -43,6 +44,7 @@ import type {
   Track,
   VideoClip,
   VisualClip,
+  StoryboardClip,
 } from "@/types/prism";
 
 /**
@@ -311,8 +313,15 @@ function Placed({
       {clip.kind === "particles" ? <ParticlesBody clip={clip} /> : null}
       {clip.kind === "device" ? <DeviceBody clip={clip} assets={assets} /> : null}
       {clip.kind === "html" ? <HtmlBody clip={clip} assets={assets} /> : null}
+      {clip.kind === "storyboard" ? <BoardBody clip={clip} assets={assets} /> : null}
     </div>
   );
+}
+
+function BoardBody({ clip, assets }: { clip: StoryboardClip; assets: AssetMap }) {
+  const frame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+  return <StoryboardScene visual={clip.visual} frame={frame} width={width} height={height} assets={assets} label={clip.label ?? "Visual board"} renderImage={(src, fit) => <Img src={src} style={{ width: "100%", height: "100%", objectFit: fit, display: "block" }} />} />;
 }
 
 /**
@@ -903,6 +912,8 @@ export function clipSummary(clip: Clip): string {
       return clip.src ? clip.src.split("/").pop() ?? clip.device : clip.device;
     case "html":
       return "component";
+    case "storyboard":
+      return "Visual board";
     case "image":
     case "video":
     case "audio":

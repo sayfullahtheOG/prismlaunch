@@ -9,7 +9,7 @@ import {
   timingLocked,
 } from "@/lib/studio/process";
 import { EMPTY_PROCESS, ProjectFileSchema, STAGES } from "@/lib/studio/schema";
-import { approvedThrough } from "./fixture";
+import { approvedThrough, boardVisual } from "./fixture";
 import { readProject, resetStudio, useStudioStore } from "@/lib/studio/store";
 import { buildTools } from "@/lib/webmcp/tools";
 import type { Clip, FilmProject, Process } from "@/types/prism";
@@ -387,7 +387,7 @@ describe("the storyboard", () => {
 
   it("carries one panel per beat with the board's five fields", async () => {
     useStudioStore.getState().setProject(filmApprovedThrough("script"), 0);
-    const result = await actions.submitStoryboard({ panels: PANELS }, "first, last, then between");
+    const result = await actions.submitStoryboard({ panels: PANELS.map((panel) => ({ ...panel, visual: boardVisual() })) }, "first, last, then between");
     expect(result.ok).toBe(true);
 
     const panels = current().file.process.storyboard.panels;

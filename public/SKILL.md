@@ -147,16 +147,17 @@ itself rather than by a document.
 | 1 Brief | `prism.submit_brief` | audience, message, feeling, length; the truth and the demo moment from immersion | lets you concept |
 | 2 Concept | `prism.submit_concepts` | 2 to 4 directions, one recommended | picks the idea |
 | 3 Script | `prism.submit_script` | beats with words and seconds; VO if any | lets you board |
-| 4 Storyboard | `prism.submit_storyboard` | one panel per section: frame, the events with their frames (`action`), what carries into the next panel (`handoff`), `durationInFrames` as the sum of the events, in/out, sound, words. Sent back? Submit the full corrected set again — it replaces what was there | opens the elements |
+| 4 Storyboard | `prism.submit_storyboard` | one panel per section with a REQUIRED `visual` scene: positioned subjects, UI/screenshots, words and timed keyframes. Also frame, action, handoff, durationInFrames, transitions and sound. Sent back? Submit the full corrected set again | opens the elements |
 | 5 Style frames | `prism.submit_style_frames` | the look, defined as elements — every piece the boards need — and the 2 to 3 frames built from them | fixes the look |
 | 6 Animatic | `prism.lay_animatic`, then `prism.submit_animatic` | the boards on the timeline beside what you built, music underneath, cut to the grid | **locks the timing** |
 | 7 Polish | `prism.submit_polish` | the rough reviewed: the sound rethought against the notes (`soundPlan`), the §12 checklist run with verdicts | clears the build |
 | 8 Build | `prism.submit_build` | every section built final, objects carrying across the cuts, the sound placed | unblocks the render |
 
 **Laying the animatic.** Once the style frames are approved, `prism.lay_animatic`
-puts one placeholder clip per panel on a "Boards" track, at cumulative frames
-from the panels' durations, carrying each panel's words and transitions. The
-words and durations are yours; the frame arithmetic is the tool's. Then add the
+puts one visual board clip per panel on a "Boards" track, at cumulative frames
+from the panels' durations, carrying the scene's layers, images and keyframes,
+plus the panel's transitions. The same scene renderer powers the board and
+the animatic. Legacy text-only boards still open, but must be redrawn for a new submission. Then add the
 music, move any board onto the beat grid, and submit.
 
 **The timing lock.** When the animatic is approved, every visual clip on the
@@ -815,16 +816,59 @@ Derive the runtime from the idea, the real actions and the person's brief.
 The method's reference is 33 seconds with 12 sections; it is a pacing
 reference, not a compulsory length for every film.
 
-### Boards are roughs
+### Visual storyboards
 
-A storyboard panel has words, a frame description, timing and transitions —
-no colour, no face, on purpose: the board is where the cut is argued, and
-the style stage is where colour is decided. The boards and the animatic's
-placeholder clips draw their ink automatically against the film's
-background, dark on a light ground and light on a dark one, so do not try
-to style them and do not worry about their contrast. When the person asks
-for colours at the storyboard stage, note it for the style stage and say
-so in your summary.
+**Draw what the viewer will see. A section heading on a blank rectangle is
+not a storyboard.** Every new panel requires `visual: { background, layers }`.
+The contact sheet shows a middle frame and the opening/closing frames. Open
+a shot to scrub its keyframes, edit its layers or play the full rough sequence.
+No timeline clips or style-stage elements are needed to draw boards.
+
+- `background`: `light` or `dark`. Roughs use neutral ink; the final palette
+  and typography are decisions for the style stage.
+- `layers`: 1–32 objects, **back to front**, each with a unique `id`, `kind`,
+  descriptive `label`, and `x`, `y`, `width`, `height` as canvas fractions.
+  x/y are the **centre**, just like clip boxes. Optional `rotation` and `opacity`.
+- Kinds: `rect`, `ellipse`, `text`, `image`, `browser`, `phone`, `cursor`, `arrow`.
+  `text` objects need `text`; their `fontSize` is a fraction of canvas height.
+  Shapes use `text` or their label; `text: ""` leaves a shape unlabelled.
+  `tone` is `paper`, `ink`, `muted` or `outline`.
+- Images require a real `src` in project storage (`assets/…`) or the studio
+  library (`library/…`). Browser/phone frames can take a screenshot too.
+  `fit` is `contain` or `cover`. Import an image before naming it; do not
+  invent a source path. If footage is not captured yet, draw its composition
+  with labelled rough objects and say exactly what still needs recording.
+- `from` is the local frame where the object appears (default 0). `until`
+  is its exclusive end; omit it to carry to the cut.
+- `keyframes`: up to 8 ordered target poses, each with `at` and only the pose
+  fields that change. All frames must fit the shot. `easing` is `smooth`
+  (default), `linear`, or `hold` (a cut at that frame). Omitted values inherit
+  from the preceding pose. Object motion is visible in the board player and
+  survives `prism.lay_animatic`.
+
+For example, a 75-frame product shot pulls back into a browser while a
+cursor approaches its button. These are rough subjects, not claimed footage:
+
+```json
+{
+  "background": "light",
+  "layers": [
+    { "id": "app", "kind": "browser", "label": "Product UI to capture", "x": 0.5, "y": 0.5, "width": 0.96, "height": 0.9,
+      "keyframes": [{ "at": 30, "x": 0.4, "width": 0.65, "height": 0.65 }] },
+    { "id": "button", "kind": "rect", "label": "Launch", "tone": "ink", "x": 0.55, "y": 0.65, "width": 0.12, "height": 0.07, "from": 30 },
+    { "id": "cursor", "kind": "cursor", "label": "Press Launch", "x": 0.8, "y": 0.85, "width": 0.025, "height": 0.06, "from": 30,
+      "keyframes": [{ "at": 48, "x": 0.55, "y": 0.65 }] }
+  ]
+}
+```
+
+For each shot, block the real subject's size and placement, the UI regions
+that matter, the actual on-screen copy, then movement and the closing pose.
+Keep a handoff object in the same position at the next opening when the cut
+calls for continuity. A typography-only shot is valid only when the actual
+film shot is typography. Do not use twelve title cards to stand in for UI.
+Inspect the contact sheet and scrub the shots before asking for review.
+The rough sequence has no audio; the notes plan it and the animatic places it.
 
 ## Look before you show
 

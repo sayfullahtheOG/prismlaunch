@@ -19,6 +19,7 @@ import {
   ShapeClipSchema,
   SlugSchema,
   StageIdSchema,
+  StoryboardVisualSchema,
   TextClipSchema,
   TrackKindSchema,
   TransitionSchema,
@@ -841,6 +842,7 @@ export const SubmitStoryboardInput = z.object({
           .describe("Defaults to fade."),
         sound: z.string().max(140).optional().describe("What the music or SFX does here."),
         words: z.string().max(160).optional().describe("The on-screen words, if any. Under seven."),
+        visual: StoryboardVisualSchema.describe("REQUIRED shot composition. Position real screenshots or labelled rough subjects, type, arrows and cursors. Keyframes show changes within the shot. Section titles alone are not boards."),
       }),
     )
     .min(2)

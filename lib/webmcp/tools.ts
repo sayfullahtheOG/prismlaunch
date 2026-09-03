@@ -311,7 +311,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_storyboard",
       description:
-        "Stage 4: panels with ordered events, frame durations, handoffs, transitions and sound. Duration is the sum of events. Requires approved script. PRISM_METHOD.md §2, §10.",
+        "Stage 4: DRAW every shot with required visual.layers (positioned UI, images, subjects, words, cursors and keyframes), plus action, duration, handoff and sound. Section titles alone are not boards. Read SKILL.md Visual storyboards. Requires approved script.",
       schema: SubmitStoryboardInput,
       execute: ({ summary, ...storyboard }) => submitStoryboard(storyboard, summary),
     }),
@@ -319,7 +319,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.lay_animatic",
       description:
-        "Lay approved storyboard panels as cumulative timeline placeholders. Re-running replaces placeholders. Add music, then submit_animatic. Requires approved storyboard.",
+        "Lay approved visual boards on the timeline, preserving layers, images and keyframe motion. Re-running replaces the Boards track. Add music, then submit_animatic. Requires approved storyboard.",
       schema: LayAnimaticInput,
       execute: () => layAnimatic(),
     }),

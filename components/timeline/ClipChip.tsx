@@ -69,6 +69,7 @@ const ICONS: Record<ClipKind, typeof Type> = {
   particles: Sparkle,
   device: Smartphone,
   html: LayoutTemplate,
+  storyboard: LayoutTemplate,
   audio: AudioLines,
 };
 
@@ -274,6 +275,8 @@ function label(clip: Clip): string {
       return clip.src ? clip.src.split("/").pop() ?? clip.device : clip.device;
     case "html":
       return "component";
+    case "storyboard":
+      return "Visual board";
     case "image":
     case "video":
     case "audio":

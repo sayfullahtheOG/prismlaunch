@@ -119,6 +119,7 @@ export function ClipInspector({
         {clip.kind === "particles" ? <ParticlesFields value={clip} set={set} /> : null}
         {clip.kind === "device" ? <DeviceFields value={clip} set={set} /> : null}
         {clip.kind === "html" ? <HtmlFields value={clip} set={set} /> : null}
+        {clip.kind === "storyboard" ? <p className="text-xs leading-relaxed text-muted">Visual storyboard rough. Edit its layers in Storyboard, then re-lay the boards to update this animatic. Replace this clip with the finished shot during the build.</p> : null}
         {clip.kind === "audio" ? <AudioFields value={clip} set={set} /> : null}
 
         <Row>

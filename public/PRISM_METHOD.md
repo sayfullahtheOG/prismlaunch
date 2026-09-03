@@ -339,7 +339,11 @@ bed's BPM and a chosen `startFrom` go straight into the grid above.
 
 ## 10. Storyboard, animatic, build
 
-**A panel is a section, written as its events.** Not a slide. `frame` says
+**A panel is a section, drawn as its events.** Every panel has a `visual`
+scene: positioned UI, subjects, screenshots and type, with keyframes for
+movement and cuts. Draw the opening and closing composition; use real images
+where available and clearly labelled roughs for footage still to capture.
+The section title belongs outside the picture. `frame` says
 what is on screen; `action` lists the events in order with their frames;
 `handoff` names the object that carries into the next panel; `durationInFrames`
 is the *sum* of the events, then nudged onto the beat grid. `words` are the
@@ -355,7 +359,7 @@ words:    *Done*
 sound:    ticks under the count, one impact on 100
 ```
 
-**The animatic.** `prism.lay_animatic` puts one placeholder per panel on the
+**The animatic.** `prism.lay_animatic` puts each panel's visual scene on the
 timeline at cumulative frames; add the music with the downbeat anchored, move
 any board that is off the grid, watch it, and `prism.submit_animatic`. When it
 is approved the length and the section starts are locked. The animatic is

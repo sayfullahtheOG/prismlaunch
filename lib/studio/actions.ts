@@ -26,6 +26,7 @@ import {
 } from "./edits";
 import { blankProjectFile } from "./blank";
 import { roughInk } from "./color";
+import { boardAssetPaths } from "./storyboard";
 import { pickLanding } from "./landing";
 import {
   agentMayPlaceClips,
@@ -52,6 +53,7 @@ import {
   ProjectFileSchema,
   SlugSchema,
   STAGES,
+  StoryboardClipSchema,
   WORKSPACE_DIR,
 } from "./schema";
 import { selectedClipId } from "./selection";
@@ -1846,6 +1848,30 @@ async function submitStage<S extends StageId>(
     return fail("invalid-input", explainZodError(checked.error));
   }
 
+  if (stage === "storyboard") {
+    const panels = checked.data.storyboard.panels;
+    if (panels.length < 2 || panels.some((panel) => !panel.visual)) {
+      return fail("invalid-input", "Every storyboard panel needs a visual scene with positioned layers. Text-only boards are scripts, not a visual plan. Supply visual.layers for at least two panels; read SKILL.md's Visual storyboards section.");
+    }
+    if (panels.reduce((sum, panel) => sum + panel.durationInFrames, 0) > MAX_FRAMES) {
+      return fail("invalid-input", `The storyboard cannot exceed ${MAX_FRAMES} frames.`);
+    }
+    let missing = [...new Set(panels.flatMap((panel) => boardAssetPaths(panel.visual)))].filter((src) => !useStudioStore.getState().assets[src]);
+    if (missing.length) {
+      const workspace = requireWorkspace();
+      if (workspace.ok) {
+        // New disk assets need not have been used by an element yet. Resolve
+        // them through project storage, without letting an await overwrite edits.
+        const loaded = await loadAssets(workspace.value, project.slug, missing);
+        if (useStudioStore.getState().project?.file !== project.file) return fail("invalid-input", "The project changed while storyboard images loaded. Read the project again and retry.");
+        missing = loaded.missing;
+        const store = useStudioStore.getState();
+        store.setAssets({ ...store.assets, ...loaded.urls }, store.missingAssets.filter((path) => !loaded.urls[path]), store.assetFiles);
+      }
+    }
+    if (missing.length) return fail("invalid-input", `Storyboard images are not loaded: ${[...new Set(missing)].join(", ")}. Import them first, or draw a labelled rough for footage still to capture.`);
+  }
+
   const rejected = commit(
     project,
     { ...project.file, process: checked.data },
@@ -1901,8 +1927,8 @@ const BOARDS_TRACK = "Boards";
 /**
  * Put the approved storyboard on the timeline as placeholders.
  *
- * One text clip per panel, at cumulative frames from the panels' durations,
- * carrying the panel's words and transitions, labelled by its beat. The
+ * One visual board clip per panel, at cumulative frames from its duration,
+ * carrying its layers, keyframes and transitions, labelled by its beat. The
  * agent wrote every one of those values; what this adds is the arithmetic —
  * which is exactly the part an agent hand-computing frame offsets across nine
  * panels gets wrong, and the reason the method says the animatic is free in
@@ -1984,8 +2010,16 @@ export async function layAnimatic(): Promise<ActionResult> {
   );
 }
 
-/** A placeholder clip from a panel: its words, its transitions, its slot. */
+/** Preserve visual scenes; old text-only boards retain their legacy fallback. */
 function boardClip(panel: StoryboardPanel, from: number, background: Background): Clip {
+  if (panel.visual) return StoryboardClipSchema.parse({
+    kind: "storyboard", id: mintId("board"), from,
+    durationInFrames: panel.durationInFrames, label: panel.label,
+    revisionNote: `Board: ${panel.frame}`.slice(0, 240),
+    visual: panel.visual,
+    box: { x: 0.5, y: 0.5, width: 1, height: 1 },
+    animation: { enter: panel.transitionIn, exit: panel.transitionOut, enterFrames: 10, exitFrames: 6 },
+  });
   return {
     kind: "text",
     id: mintId("board"),

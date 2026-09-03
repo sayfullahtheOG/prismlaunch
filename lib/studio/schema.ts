@@ -292,6 +292,58 @@ export const AssetPathSchema = z
     message: "must not contain //",
   });
 
+// Storyboards are small scene graphs, independent of the finished film's look.
+// Coordinates use the same centre/0–1 convention as clips. No executable markup.
+export const BoardPoseSchema = z.object({
+  x: z.number().min(-2).max(3),
+  y: z.number().min(-2).max(3),
+  width: z.number().gt(0).max(3),
+  height: z.number().gt(0).max(3),
+  rotation: z.number().min(-180).max(180).default(0),
+  opacity: z.number().min(0).max(1).default(1),
+});
+
+export const BoardLayerSchema = z.object({
+  id: z.string().min(1).max(40),
+  kind: z.enum(["rect", "ellipse", "text", "image", "browser", "phone", "cursor", "arrow"]),
+  label: z.string().min(1).max(80).describe("What this object represents; describe missing footage honestly."),
+  ...BoardPoseSchema.shape,
+  text: z.string().max(240).optional(),
+  src: AssetPathSchema.optional().describe("An imported image under assets/ or a library/ image. Never invent a screenshot path."),
+  fit: z.enum(["contain", "cover"]).default("contain"),
+  tone: z.enum(["ink", "muted", "paper", "outline"]).default("paper"),
+  fontSize: z.number().min(0.015).max(0.4).default(0.055).describe("Fraction of canvas height."),
+  from: z.number().int().min(0).max(MAX_FRAMES - 1).default(0),
+  until: z.number().int().min(1).max(MAX_FRAMES).optional().describe("Exclusive end frame; omit to remain until the cut."),
+  keyframes: z.array(BoardPoseSchema.partial().extend({
+    // Defaults belong only to the base pose; an omitted target must inherit.
+    rotation: z.number().min(-180).max(180).optional(),
+    opacity: z.number().min(0).max(1).optional(),
+    at: z.number().int().min(1).max(MAX_FRAMES - 1),
+    easing: z.enum(["linear", "smooth", "hold"]).default("smooth"),
+  })).max(8).default([]).describe("Ordered target poses at shot-local frames. Omitted pose fields keep their preceding value. hold makes a cut."),
+}).superRefine((layer, ctx) => {
+  if (layer.kind === "image" && !layer.src) ctx.addIssue({ code: "custom", path: ["src"], message: "An image needs an imported asset path. Use a labelled browser or rect for footage still to capture." });
+  if (layer.kind === "text" && !layer.text?.trim()) ctx.addIssue({ code: "custom", path: ["text"], message: "A text layer needs on-screen text." });
+  if (layer.until !== undefined && layer.until <= layer.from) ctx.addIssue({ code: "custom", path: ["until"], message: "Must be after from." });
+  let previous = layer.from;
+  layer.keyframes.forEach((keyframe, index) => {
+    if (keyframe.at <= previous || (layer.until !== undefined && keyframe.at >= layer.until)) ctx.addIssue({ code: "custom", path: ["keyframes", index, "at"], message: "Keyframes must increase after from and before until." });
+    previous = keyframe.at;
+  });
+});
+
+export const StoryboardVisualSchema = z.object({
+  background: z.enum(["light", "dark"]).default("light"),
+  layers: z.array(BoardLayerSchema).min(1).max(32).describe("Back to front. Draw the actual shot: subjects, UI regions, text and movement, not its section title."),
+}).superRefine((visual, ctx) => {
+  const ids = new Set<string>();
+  visual.layers.forEach((layer, index) => {
+    if (ids.has(layer.id)) ctx.addIssue({ code: "custom", path: ["layers", index, "id"], message: "Layer ids must be unique in a shot." });
+    ids.add(layer.id);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Clips
 // ---------------------------------------------------------------------------
@@ -519,6 +571,13 @@ export const HtmlClipSchema = z.object({
   width: z.number().int().min(64).max(4096).default(800),
 });
 
+/** A transcription of an approved visual board, rendered by the board engine. */
+export const StoryboardClipSchema = z.object({
+  ...VisualBase,
+  kind: z.literal("storyboard"),
+  visual: StoryboardVisualSchema,
+});
+
 export const VisualClipSchema = z.discriminatedUnion("kind", [
   TextClipSchema,
   ShapeClipSchema,
@@ -528,6 +587,7 @@ export const VisualClipSchema = z.discriminatedUnion("kind", [
   ParticlesClipSchema,
   DeviceClipSchema,
   HtmlClipSchema,
+  StoryboardClipSchema,
 ]);
 
 export const ClipSchema = z.discriminatedUnion("kind", [
@@ -540,9 +600,10 @@ export const ClipSchema = z.discriminatedUnion("kind", [
   DeviceClipSchema,
   HtmlClipSchema,
   AudioClipSchema,
+  StoryboardClipSchema,
 ]);
 
-export const VISUAL_CLIP_KINDS = ["text", "shape", "image", "video", "icon", "particles", "device", "html"] as const;
+export const VISUAL_CLIP_KINDS = ["text", "shape", "image", "video", "icon", "particles", "device", "html", "storyboard"] as const;
 export const AUDIO_CLIP_KINDS = ["audio"] as const;
 
 // ---------------------------------------------------------------------------
@@ -845,6 +906,14 @@ export const StoryboardPanelSchema = z.object({
   sound: z.string().max(140).optional(),
   /** The on-screen words, if any. Under seven. */
   words: z.string().max(160).optional(),
+  /** Optional only so legacy files remain readable. New submissions require it. */
+  visual: StoryboardVisualSchema.optional(),
+}).superRefine((panel, ctx) => {
+  panel.visual?.layers.forEach((layer, index) => {
+    if (layer.from >= panel.durationInFrames || (layer.until ?? 0) > panel.durationInFrames || layer.keyframes.some((keyframe) => keyframe.at >= panel.durationInFrames)) {
+      ctx.addIssue({ code: "custom", path: ["visual", "layers", index], message: "Every layer and keyframe must fit inside this panel's durationInFrames." });
+    }
+  });
 });
 
 export const StoryboardStageSchema = z.object({

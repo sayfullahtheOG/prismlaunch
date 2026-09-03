@@ -42,6 +42,10 @@ import type {
   StageIdSchema,
   StageStatusSchema,
   StoryboardPanelSchema,
+  StoryboardVisualSchema,
+  BoardLayerSchema,
+  BoardPoseSchema,
+  StoryboardClipSchema,
   ShapeClipSchema,
   TextAlignSchema,
   TextClipSchema,
@@ -128,6 +132,10 @@ export type Direction = z.infer<typeof DirectionSchema>;
 export type ScriptBeat = z.infer<typeof ScriptBeatSchema>;
 export type LockedBeat = z.infer<typeof LockedBeatSchema>;
 export type StoryboardPanel = z.infer<typeof StoryboardPanelSchema>;
+export type StoryboardVisual = z.infer<typeof StoryboardVisualSchema>;
+export type BoardLayer = z.infer<typeof BoardLayerSchema>;
+export type BoardPose = z.infer<typeof BoardPoseSchema>;
+export type StoryboardClip = z.infer<typeof StoryboardClipSchema>;
 export type Look = z.infer<typeof LookSchema>;
 
 /** What lives in `.prismlaunch/<slug>/project.json`. The agent writes this. */

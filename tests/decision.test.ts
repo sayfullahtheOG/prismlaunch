@@ -4,6 +4,7 @@ import { middleView, openingTab, reviewedStage } from "@/lib/studio/review";
 import { readProject, resetStudio, useStudioStore } from "@/lib/studio/store";
 import { buildTools } from "@/lib/webmcp/tools";
 import { resetBrowserStore } from "@/lib/workspace/browser-store";
+import { boardVisual } from "./fixture";
 
 /**
  * The decision, delivered.
@@ -167,8 +168,8 @@ describe("where a film opens", () => {
     // A real submission opens the next artifact once it exists.
     const submitted = await actions.submitStoryboard({
       panels: [
-        { id: "p1", beatId: "hook", label: "Hook", frame: "The editor preview.", durationInFrames: 60, transitionIn: "none", transitionOut: "none" },
-        { id: "p2", beatId: "proof", label: "Proof", frame: "The same editable timeline.", durationInFrames: 90, transitionIn: "none", transitionOut: "none" },
+        { id: "p1", beatId: "hook", label: "Hook", frame: "The editor preview.", durationInFrames: 60, transitionIn: "none", transitionOut: "none", visual: boardVisual() },
+        { id: "p2", beatId: "proof", label: "Proof", frame: "The same editable timeline.", durationInFrames: 90, transitionIn: "none", transitionOut: "none", visual: boardVisual() },
       ],
     });
     expect(submitted.ok, submitted.message).toBe(true);

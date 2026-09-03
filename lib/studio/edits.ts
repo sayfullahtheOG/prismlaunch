@@ -1,4 +1,5 @@
 import { MAX_FRAMES, MIN_CLIP_FRAMES } from "./schema";
+import { boardAssetPaths } from "./storyboard";
 import type {
   Animation,
   Box,
@@ -641,11 +642,13 @@ export function referencedAssets(file: ProjectFile): string[] {
     for (const clip of track.clips) {
       if ("src" in clip && typeof clip.src === "string") paths.add(clip.src);
       if (clip.kind === "html") inMarkup(clip.html);
+      if (clip.kind === "storyboard") boardAssetPaths(clip.visual).forEach((path) => paths.add(path));
     }
   }
   for (const element of file.elements) {
     if ("src" in element && typeof element.src === "string") paths.add(element.src);
     if (element.kind === "html") inMarkup(element.html);
   }
+  for (const panel of file.process.storyboard.panels) boardAssetPaths(panel.visual).forEach((path) => paths.add(path));
   return [...paths];
 }

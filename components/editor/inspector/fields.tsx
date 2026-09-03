@@ -37,6 +37,7 @@ export function NumberField({
     <Field label={label}>
       <TextInput
         type="number"
+        aria-label={label}
         value={value}
         step={step}
         {...(min !== undefined ? { min } : {})}

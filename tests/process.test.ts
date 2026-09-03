@@ -229,15 +229,44 @@ describe("the animatic and the timing lock", () => {
     if (!result.ok) expect(result.message).toMatch(/timeline is empty/);
   });
 
-  it("wants one placeholder per storyboard panel", async () => {
-    const project = filmApprovedThrough("storyboard");
-    project.file.process.storyboard.panels = PANELS;
+  it("refuses copied storyboard roughs even alongside finished sample clips", async () => {
+    const project = filmApprovedThrough("style");
+    project.file.process.storyboard.panels = PANELS.map((panel) => ({ ...panel, visual: boardVisual() }));
     useStudioStore.getState().setProject(project, 0);
+    expect((await actions.layAnimatic()).ok).toBe(true);
     actions.createClip("track-1", AGENT_TEXT, "agent", "hook");
 
-    const result = await actions.submitAnimatic("only one");
+    const result = await actions.submitAnimatic("finished opening, roughs after it");
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.message).toMatch(/3 panels.*1 visual clip/);
+    expect(result.message).toMatch(/3 storyboard roughs are still visible/);
+    expect(current().file.process.animatic.status).toBe("pending");
+  });
+
+  it("allows hidden planning boards and a styled clip spanning several shots", async () => {
+    const project = filmApprovedThrough("style");
+    project.file.process.storyboard.panels = PANELS.map((panel) => ({ ...panel, visual: boardVisual() }));
+    useStudioStore.getState().setProject(project, 0);
+    await actions.layAnimatic();
+    const boards = current().file.tracks.find((track) => track.name === "Boards");
+    if (!boards) throw new Error("Expected the planning track");
+    actions.patchTrack(boards.id, { hidden: true });
+    actions.createClip("track-1", { ...AGENT_TEXT, durationInFrames: 270 }, "agent", "complete styled sequence");
+
+    const result = await actions.submitAnimatic("ready for timing review");
+    expect(result.ok, result.message).toBe(true);
+    expect(current().file.process.animatic.status).toBe("submitted");
+    expect(actions.approveStage("animatic").ok).toBe(true);
+    expect(current().file.process.animatic.beats).toHaveLength(1);
+    expect(current().file.process.animatic.beats[0]).toMatchObject({ from: 0, durationInFrames: 270 });
+  });
+
+  it("does not treat hidden visuals as a reviewable animatic", async () => {
+    const project = filmApprovedThrough("style");
+    project.file.tracks[0] = visualTrack([textClip()], { hidden: true });
+    useStudioStore.getState().setProject(project, 0);
+    const result = await actions.submitAnimatic("hidden content");
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/timeline is empty/);
   });
 
   it("snapshots every visual clip as a beat on approval", () => {

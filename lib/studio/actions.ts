@@ -2009,7 +2009,7 @@ export async function layAnimatic(): Promise<ActionResult> {
 
   await flushWrites();
   return ok(
-    `Laid ${clips.length} boards on the “${BOARDS_TRACK}” track, ${(cursor / project.file.fps).toFixed(1)}s end to end. Now add the music with prism.add_audio — startFrom on a downbeat — adjust any board to the beat grid, and call prism.submit_animatic.`,
+    `Laid ${clips.length} planning boards on the “${BOARDS_TRACK}” track, ${(cursor / project.file.fps).toFixed(1)}s end to end. This is scaffolding, not a review-ready animatic. Build every shot with the approved elements, remove or hide the planning boards, add continuous music, then watch the whole sequence before prism.submit_animatic.`,
   );
 }
 
@@ -2067,31 +2067,33 @@ function isApprovedStage(process: Process, stage: StageId): boolean {
 
 /**
  * The animatic's artifact is the timeline itself, so this checks that there
- * is one: at least one visual clip per storyboard panel, and music underneath.
+ * is one. Planning boards are scaffolding, not the styled timeline review.
  */
 export async function submitAnimatic(summary?: string): Promise<ActionResult> {
   const guard = requireProject();
   if (!guard.ok) return guard.result;
   const { file } = guard.value;
 
-  const visual = file.tracks
-    .filter((track) => track.kind === "visual")
-    .reduce((n, track) => n + track.clips.length, 0);
+  const visible = file.tracks
+    .filter((track) => track.kind === "visual" && !track.hidden)
+    .flatMap((track) => track.clips);
+  const visual = visible.length;
   const audio = file.tracks
-    .filter((track) => track.kind === "audio")
-    .reduce((n, track) => n + track.clips.length, 0);
-  const panels = file.process.storyboard.panels.length;
+    .filter((track) => track.kind === "audio" && !track.hidden && track.volume > 0)
+    .flatMap((track) => track.clips)
+    .filter((clip) => clip.kind === "audio" && clip.volume > 0).length;
 
   if (visual === 0) {
     return fail(
       "invalid-input",
-      "The animatic is the timeline, and the timeline is empty. Call prism.lay_animatic to put the approved boards on it first.",
+      "The animatic is the timeline, and the timeline is empty. Build the approved shots using the style-frame elements, with music underneath.",
     );
   }
-  if (panels > 0 && visual < panels) {
+  const boards = visible.filter((clip) => clip.kind === "storyboard");
+  if (boards.length > 0) {
     return fail(
       "invalid-input",
-      `The storyboard has ${panels} panels but the timeline has ${visual} visual clip${visual === 1 ? "" : "s"}. prism.lay_animatic puts one placeholder per panel; then submit.`,
+      `${boards.length} storyboard rough${boards.length === 1 ? " is" : "s are"} still visible. Replace every planning board with a shot using the approved style elements, then remove or hide the Boards track. Play the complete film with sound before submitting the animatic.`,
     );
   }
 

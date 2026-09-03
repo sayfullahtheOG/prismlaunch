@@ -1,7 +1,7 @@
 "use client";
 
 import { Player, type PlayerRef } from "@remotion/player";
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { useStudioStore } from "@/lib/studio/store";
 import { Film } from "@/remotion/Film";
 import type { ProjectFile } from "@/types/prism";
@@ -19,11 +19,11 @@ import type { ProjectFile } from "@/types/prism";
  * back or the playhead would sit still through playback. The guard below is
  * what stops those two chasing each other in a loop.
  */
-export function FilmPreview({ file }: { file: ProjectFile }) {
+export const FilmPreview = memo(function FilmPreview({ file }: { file: ProjectFile }) {
   const player = useRef<PlayerRef>(null);
-  const playhead = useStudioStore((state) => state.playhead);
   const playing = useStudioStore((state) => state.playing);
   const assets = useStudioStore((state) => state.assets);
+  const inputProps = useMemo(() => ({ file, assets }), [file, assets]);
 
   /** The last frame we heard from the Player, so we do not seek it back there. */
   const fromPlayer = useRef(-1);
@@ -43,22 +43,23 @@ export function FilmPreview({ file }: { file: ProjectFile }) {
     current.addEventListener("pause", onPause);
     current.addEventListener("ended", onEnded);
 
+    current.seekTo(useStudioStore.getState().playhead);
+    // Subscribe without rendering the entire composition on every frame.
+    // Handle an external seek synchronously, so a newer Player frame cannot
+    // turn a delayed React effect into a seek backwards during playback.
+    const unsubscribe = useStudioStore.subscribe((state, previous) => {
+      if (state.playhead !== previous.playhead && state.playhead !== fromPlayer.current) {
+        current.seekTo(state.playhead);
+      }
+    });
+
     return () => {
       current.removeEventListener("frameupdate", onFrame);
       current.removeEventListener("pause", onPause);
       current.removeEventListener("ended", onEnded);
+      unsubscribe();
     };
   }, []);
-
-  // Store → Player. Skipped when the frame is the one the Player just reported,
-  // which is the whole reason `fromPlayer` exists: without it every frame of
-  // playback would trigger a seek back to itself and the video would stutter.
-  useEffect(() => {
-    const current = player.current;
-    if (!current) return;
-    if (playhead === fromPlayer.current) return;
-    current.seekTo(playhead);
-  }, [playhead]);
 
   useEffect(() => {
     const current = player.current;
@@ -71,7 +72,7 @@ export function FilmPreview({ file }: { file: ProjectFile }) {
     <Player
       ref={player}
       component={Film}
-      inputProps={{ file, assets }}
+      inputProps={inputProps}
       durationInFrames={file.durationInFrames}
       fps={file.fps}
       compositionWidth={file.width}
@@ -80,4 +81,4 @@ export function FilmPreview({ file }: { file: ProjectFile }) {
       acknowledgeRemotionLicense
     />
   );
-}
+});

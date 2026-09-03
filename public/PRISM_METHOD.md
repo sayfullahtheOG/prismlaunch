@@ -124,7 +124,7 @@ have decided.
 | **Script** | The words as lines and runs, with seconds derived from their events | Word count, order |
 | **Storyboard** | One panel per section: the events, their frames, the handoff | Section count |
 | **Style frames** | The elements, and 2–3 sections built for real | Ground, ink, accent, type, depth, register |
-| **Animatic** | The boards on the timeline, cut to the music | **Length and section grid** |
+| **Animatic** | Every shot in the approved look, timed with continuous music | **Length and section grid** |
 | **Polish** | The rough reviewed against §12, the sound rethought | The fix list |
 | **Build** | Every section built, objects carrying the cuts, sound placed | Nothing new |
 
@@ -335,6 +335,14 @@ impact, rise) and five 30-second beds (calm 80 BPM, upbeat 120, cinematic,
 bright 120 for the kinetic register, minimal 90 for a developer tool); a
 bed's BPM and a chosen `startFrom` go straight into the grid above.
 
+**Keep the bed continuous.** Prefer one music clip across the sequence. Check
+the source duration; a 30-second file cannot cover 45 seconds without an edit.
+If extending it, join matching musical phrases and listen across the join.
+Do not restart music or fade it to zero at every shot, approval or feedback
+moment. If adjacent clips continue the same recording, keep source offsets
+continuous (`nextStartFrom = startFrom + durationInFrames × playbackRate`);
+leave their internal fades at zero. Duck only for a clear listening reason.
+
 ---
 
 ## 10. Storyboard, animatic, build
@@ -359,11 +367,16 @@ words:    *Done*
 sound:    ticks under the count, one impact on 100
 ```
 
-**The animatic.** `prism.lay_animatic` puts each panel's visual scene on the
-timeline at cumulative frames; add the music with the downbeat anchored, move
-any board that is off the grid, watch it, and `prism.submit_animatic`. When it
-is approved the length and the section starts are locked. The animatic is
-crude on purpose: if the person is talking about colour, it is too finished.
+**The animatic.** Style approval has already fixed the look. Apply those
+elements across every shot, with the real subject, readable UI and the planned
+action. A finished hook followed by unchanged storyboard roughs is not ready
+for this review. Simplify fine motion and decorative detail, not the subject
+or the visual language. `prism.lay_animatic` is optional timing scaffolding;
+replace its roughs and remove or hide the Boards track before submitting.
+Anchor continuous music, then watch the whole sequence with sound, without
+seeking. Check reading time, handoffs, audio joins and stalls; still captures
+cannot establish these. Submit with `prism.submit_animatic` only after fixing
+them. Approval locks the length and section starts; build refines the execution.
 
 **The build.** Place elements — `prism.place_element` — rather than inventing
 clips; `prism.add_text` and its siblings are for the genuinely one-off. Build

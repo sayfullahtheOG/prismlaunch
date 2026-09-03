@@ -202,10 +202,10 @@ function Artifact({
   switch (stage) {
     case "animatic": {
       const visual = file.tracks
-        .filter((track) => track.kind === "visual")
+        .filter((track) => track.kind === "visual" && !track.hidden)
         .reduce((n, track) => n + track.clips.length, 0);
       const audio = file.tracks
-        .filter((track) => track.kind === "audio")
+        .filter((track) => track.kind === "audio" && !track.hidden)
         .reduce((n, track) => n + track.clips.length, 0);
       const locked = process.animatic.beats;
       return (
@@ -233,7 +233,7 @@ function Artifact({
           ) : (
             <p className="text-2xs text-subtle">
               {visual === 0
-                ? "Empty. Your agent lays the approved boards here with prism.lay_animatic."
+                ? "Empty. Your agent builds the full sequence from the approved style elements."
                 : "Approving snapshots every visual clip as a locked beat."}
             </p>
           )}

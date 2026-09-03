@@ -124,9 +124,9 @@ to stop.
    review. Then read `prism.get_project_context` or call
    `prism.wait_for_decision` once. Do not poll. You cannot approve a stage
    yourself; there is no tool for it.
-7. The timeline opens up once the storyboard is approved. Approving the
-   animatic locks the timing and opens the elements: define the look as
-   elements, then build by placing them.
+7. The timeline and elements open once the storyboard is approved. Define
+   the look and sample frames first. Approving the animatic later locks
+   timing; the build applies the approved elements inside that length.
 8. The person approves each stage; nothing moves past one without them.
    **You cannot approve your own work.** There is no tool that approves a stage or a render, by design.
 9. When polish is approved, call `prism.request_render`. That renders nothing;
@@ -151,6 +151,13 @@ itself rather than by a document.
 | 6 Animatic | `prism.lay_animatic`, then `prism.submit_animatic` | the boards on the timeline beside what you built, music underneath, cut to the grid | **locks the timing** |
 | 7 Polish | `prism.submit_polish` | the rough reviewed: the sound rethought against the notes (`soundPlan`), the §12 checklist run with verdicts | clears the build |
 | 8 Build | `prism.submit_build` | every section built final, objects carrying across the cuts, the sound placed | unblocks the render |
+
+**Reviewing style frames.** When you start adding elements or sample clips after
+storyboard approval, the studio follows from the boards into Style frames. The
+details area shows live element previews and sample frames. Review pages have no
+properties, timeline editing tools or editing shortcuts; manual edits belong in
+Editor. Notes, Approve (or Approve as is), and Send back sit below the gallery.
+Submitting the style stage remains required; appearing in the gallery is not approval.
 
 **Laying the animatic.** Once the style frames are approved, `prism.lay_animatic`
 puts one visual board clip per panel on a "Boards" track, at cumulative frames
@@ -191,7 +198,7 @@ arrive when it is placed.
 
 | Tool | What it does |
 | --- | --- |
-| `prism.add_element` | Define one. Refuses until the animatic is approved. |
+| `prism.add_element` | Define one. Requires approved storyboard. |
 | `prism.place_element` | Put one on a track as a clip. You supply the track, the frame, the length, and the words; the element supplies the look. Once the timing is locked, it lands inside a beat. |
 | `prism.add_from_library` | Add one of the studio's prebuilt pieces as an element, the ones the person sees in the Text, Shapes, Motion and Audio sections: type styles, shapes, the Motion pieces, the effects, the beds. Then place it. |
 | `prism.update_element` | Change one, and every clip placed from it. Send only what changes; your note rides on every clip it touched. |
@@ -852,7 +859,7 @@ reference, not a compulsory length for every film.
 **Draw what the viewer will see. A section heading on a blank rectangle is
 not a storyboard.** Every new panel requires `visual: { background, layers }`.
 Each board shows one preview with a corner play button for that shot's animation.
-Choose Edit layout to scrub its keyframes and edit its layers inline.
+The boards are read-only; play each shot here and leave feedback below.
 No timeline clips or style-stage elements are needed to draw boards.
 
 - `background`: `light` or `dark`. Roughs use neutral ink; the final palette
@@ -898,7 +905,7 @@ that matter, the actual on-screen copy, then movement and the closing pose.
 Keep a handoff object in the same position at the next opening when the cut
 calls for continuity. A typography-only shot is valid only when the actual
 film shot is typography. Do not use twelve title cards to stand in for UI.
-Inspect and play each board before asking for review; use Edit layout to check
+Inspect and play each board before asking for review; check its keyframes for
 exact opening and closing poses. Board previews have no audio; the notes plan
 it and the animatic places it.
 

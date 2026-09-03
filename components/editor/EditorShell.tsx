@@ -31,6 +31,7 @@ import { IconRail } from "./IconRail";
 import { Inspector } from "./Inspector";
 import { RenderConfirm } from "./RenderConfirm";
 import { SetupDialog } from "./SetupDialog";
+import { StyleFramesReview } from "./StyleFramesReview";
 import { StageReview } from "./StageReview";
 import { StoryboardBoard } from "./StoryboardBoard";
 import { TopBar } from "./TopBar";
@@ -71,7 +72,6 @@ export function EditorShell() {
   const tab = useStudioStore((state) => state.tab);
   const filePath = useStudioStore((state) => state.filePath);
   const openStage = useStudioStore((state) => state.openStage);
-  const reviewOpen = useStudioStore((state) => state.reviewing);
 
   useDiskSync();
   useTimelineKeys();
@@ -88,7 +88,7 @@ export function EditorShell() {
   const stage = currentStage(file.process);
   const stageWaiting = stage !== null && file.process[stage].status === "submitted";
 
-  const view = middleView(tab, openStage, file.process, reviewOpen);
+  const view = middleView(tab, openStage, file.process);
   const reviewing = reviewedStage(openStage, file.process);
 
   async function exportFilm() {
@@ -202,9 +202,9 @@ export function EditorShell() {
           {/*
             The middle is whatever is being reviewed. A document stage opens
             as a page at reading size; the storyboard takes the width a
-            sequence of frames needs; everything else is the film itself,
-            canvas and timeline, which is what the animatic, the style frames
-            and the build are.
+            sequence of frames needs; style frames show a gallery;
+            animatic and build show a read-only screening. Only the editor
+            gets the timeline and properties.
 
             Properties sit beside the picture, not beside the whole editor,
             and only while something is selected. The timeline runs the full
@@ -216,11 +216,13 @@ export function EditorShell() {
                 <StoryboardBoard file={file} />
               </div>
             ) : view === "review" && reviewing ? (
-              <StageReview stage={reviewing} file={file} />
+              <StageReview key={reviewing} stage={reviewing} file={file} />
+            ) : view === "style" ? (
+              <StyleFramesReview file={file} />
             ) : view === "files" ? (
               <FileView path={filePath} />
             ) : view === "screening" ? (
-              <Screening file={file} />
+              <Screening file={file} stage={reviewing === "animatic" ? "animatic" : "build"} />
             ) : (
               <>
                 <div className="flex min-h-0 flex-1">
@@ -266,7 +268,16 @@ function useTimelineKeys(): void {
       const store = useStudioStore.getState();
       if (!store.project) return;
 
-      // Undo and redo work wherever the film is on screen.
+      // No timeline on screen, no timeline shortcuts: space over the boards
+      // or a brief should not start a player nobody can see.
+      if (
+        middleView(store.tab, store.openStage, store.project.file.process) !==
+        "editor"
+      ) {
+        return;
+      }
+
+      // Editing shortcuts only belong to the editor, including undo and redo.
       const command = event.metaKey || event.ctrlKey;
       if (command && (event.key === "z" || event.key === "Z")) {
         event.preventDefault();
@@ -286,15 +297,6 @@ function useTimelineKeys(): void {
           event.preventDefault();
           select(null);
         }
-        return;
-      }
-
-      // No timeline on screen, no timeline shortcuts: space over the boards
-      // or a brief should not start a player nobody can see.
-      if (
-        middleView(store.tab, store.openStage, store.project.file.process, store.reviewing) !==
-        "editor"
-      ) {
         return;
       }
 

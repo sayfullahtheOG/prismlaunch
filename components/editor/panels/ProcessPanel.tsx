@@ -6,11 +6,9 @@ import {
   ChevronRight,
   CircleDot,
   Lock,
-  Shapes,
   Sparkles,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { reviewStage, showTab } from "@/lib/studio/actions";
+import { reviewStage } from "@/lib/studio/actions";
 import {
   currentStage,
   STAGE_LABELS,
@@ -36,8 +34,8 @@ import { STAGE_STATUS, StageDecision } from "./StageDecision";
  *
  * Reading and deciding happen in the middle, at reading size: a document
  * stage opens as a page, the storyboard as the boards. This column does not
- * repeat them. The three stages whose artifact is the film itself, the
- * animatic, the style frames and the build, have no page, so for those the
+ * repeat them. Style frames has its own gallery. The
+ * animatic and build use a screening, so for those the
  * row opens here with what to look at and the two buttons.
  */
 export function ProcessPanel({ file }: { file: ProjectFile }) {
@@ -88,7 +86,7 @@ export function ProcessPanel({ file }: { file: ProjectFile }) {
   );
 }
 
-type FilmStage = "animatic" | "style" | "build";
+type FilmStage = "animatic" | "build";
 
 /** A stage whose artifact is the film itself, with nowhere else to decide it. */
 function isFilmStage(stage: StageId): stage is FilmStage {
@@ -239,35 +237,6 @@ function Artifact({
                 : "Approving snapshots every visual clip as a locked beat."}
             </p>
           )}
-        </div>
-      );
-    }
-
-    case "style": {
-      const st = process.style;
-      const defined = file.elements.length;
-      if (!st.look && st.clipIds.length === 0 && defined === 0) {
-        return <p className="text-xs text-subtle">Nothing submitted yet.</p>;
-      }
-      return (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs leading-[var(--ds-leading-body)] text-muted">
-            {st.look ? (
-              <>
-                The <span className="font-semibold text-ink capitalize">{st.look}</span> look ·{" "}
-              </>
-            ) : null}
-            <span className="text-ink">{defined}</span> element{defined === 1 ? "" : "s"} ·{" "}
-            <span className="text-ink">{st.clipIds.length}</span> frame
-            {st.clipIds.length === 1 ? "" : "s"} built for real
-          </p>
-          <Button
-            variant="secondary"
-            onClick={() => showTab("elements")}
-            icon={<Shapes size={14} strokeWidth={1.9} aria-hidden />}
-          >
-            Open the elements
-          </Button>
         </div>
       );
     }

@@ -15,9 +15,8 @@ import type { Process, StageId, StageStatus } from "@/types/prism";
  * way wherever it is looked at. Nothing here writes an artifact; nothing the
  * agent can call approves one.
  *
- * A submitted stage gets the two that matter. A pending one gets a quiet
- * "approve anyway" — the person may not want a brief for a ten-second
- * teaser, and skipping is theirs to do. An approved one gets reopen.
+ * Pending and submitted stages both accept feedback and a clear decision.
+ * A pending stage can be approved as is; an approved one gets reopen.
  * Sent-back gets nothing but the note: the ball is with the agent.
  */
 export function StageDecision({
@@ -53,15 +52,6 @@ export function StageDecision({
     );
   }
 
-  if (state.status === "pending") {
-    return (
-      <Button variant="quiet" size="sm" className="self-start" onClick={() => approveStage(stage)}>
-        Approve as is
-      </Button>
-    );
-  }
-
-  // Submitted: the whole approval boundary, in two buttons.
   const pick =
     stage === "concept" ? (chosen ?? process.concept.recommended) : undefined;
 
@@ -115,7 +105,7 @@ export function StageDecision({
           }}
           icon={<Check size={13} strokeWidth={2.4} aria-hidden />}
         >
-          {stage === "animatic" ? "Approve and lock timing" : "Approve"}
+          {stage === "animatic" ? "Approve and lock timing" : state.status === "pending" ? "Approve as is" : "Approve"}
         </Button>
         <Button
           variant="secondary"

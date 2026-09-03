@@ -119,7 +119,7 @@ describe("waiting for a decision", () => {
     expect(state.tab).toBe("process");
     expect(state.openStage).toBe("brief");
     expect(state.reviewing).toBe(true);
-    expect(middleView(state.tab, state.openStage, readProject()!.file.process, state.reviewing)).toBe("review");
+    expect(middleView(state.tab, state.openStage, readProject()!.file.process)).toBe("review");
   });
 
   it("tells the agent to wait, in the submit result itself", async () => {
@@ -164,7 +164,7 @@ describe("where a film opens", () => {
     expect(context.process?.stage).toBe("storyboard");
     expect(context.process?.stages.script?.personSaid).toBe("Show the UI of the app.");
     expect(state.openStage).toBe("script");
-    expect(middleView(state.tab, state.openStage, readProject()!.file.process, state.reviewing)).toBe("review");
+    expect(middleView(state.tab, state.openStage, readProject()!.file.process)).toBe("review");
 
     // A real submission opens the next artifact once it exists.
     const submitted = await actions.submitStoryboard({
@@ -194,7 +194,7 @@ describe("where a film opens", () => {
     expect(useStudioStore.getState().reviewing).toBe(false);
   });
 
-  it("lands on the process while the work is documents, the editor once it is the film", async () => {
+  it("lands on the process through style frames, the editor once it is the film", async () => {
     expect(openingTab(readProject()!.file.process)).toBe("process");
     expect(useStudioStore.getState().tab).toBe("process");
 
@@ -202,7 +202,7 @@ describe("where a film opens", () => {
     for (const stage of ["brief", "concept", "script", "storyboard"] as const) {
       process[stage].status = "approved";
     }
-    expect(openingTab(process)).toBe("editor");
+    expect(openingTab(process)).toBe("process");
     for (const stage of ["animatic", "style", "build", "sound", "polish"] as const) {
       process[stage].status = "approved";
     }
@@ -218,14 +218,14 @@ describe("what the middle shows", () => {
     expect(middleView("process", "storyboard", process)).toBe("boards");
     // The animatic is judged by watching it: a screening, not the editor.
     expect(middleView("process", "animatic", process)).toBe("screening");
-    expect(middleView("process", "style", process)).toBe("editor");
-    expect(middleView("process", "build", process)).toBe("editor");
+    expect(middleView("process", "style", process)).toBe("style");
+    expect(middleView("process", "build", process)).toBe("screening");
     expect(middleView("elements", "brief", process)).toBe("editor");
     // The Storyboard section is the boards at full size, whatever stage is open.
     expect(middleView("storyboard", null, process)).toBe("boards");
     expect(middleView("storyboard", "brief", process)).toBe("boards");
-    // "Back to editor": the canvas, whatever stage the film is at.
-    expect(middleView("process", "brief", process, false)).toBe("editor");
+    // Process never exposes editor tools.
+    expect(middleView("process", "brief", process)).toBe("review");
   });
 
   it("follows the film when nothing is opened, and the person when something is", () => {

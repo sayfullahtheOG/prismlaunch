@@ -56,10 +56,10 @@ describe("the files section", () => {
   it("takes the middle while it is up, as the boards do; the editor section is always the film", () => {
     expect(middleView("files", null, EMPTY_PROCESS)).toBe("files");
     expect(middleView("storyboard", null, EMPTY_PROCESS)).toBe("boards");
-    expect(middleView("storyboard", "brief", EMPTY_PROCESS, false)).toBe("boards");
-    expect(middleView("editor", "brief", EMPTY_PROCESS, true)).toBe("editor");
-    expect(middleView("process", "brief", EMPTY_PROCESS, true)).toBe("review");
-    expect(middleView("elements", "brief", EMPTY_PROCESS, true)).toBe("editor");
+    expect(middleView("storyboard", "brief", EMPTY_PROCESS)).toBe("boards");
+    expect(middleView("editor", "brief", EMPTY_PROCESS)).toBe("editor");
+    expect(middleView("process", "brief", EMPTY_PROCESS)).toBe("review");
+    expect(middleView("elements", "brief", EMPTY_PROCESS)).toBe("editor");
   });
 
   it("opens a file, and comes back to the editor from anywhere", () => {

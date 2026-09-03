@@ -72,7 +72,7 @@ export function TrackHeader({ track, canMoveForward, canMoveBack }: Props) {
             }}
             maxLength={40}
             aria-label="Layer name"
-            className="ds-focus ds-inset min-w-0 flex-1 rounded-xs bg-sunken px-1.5 py-0.5 text-xs text-ink"
+            className="ds-focus min-w-0 flex-1 rounded-xs bg-sunken px-1.5 py-0.5 text-xs text-ink shadow-[inset_0_0_0_1px_var(--ds-color-line)]"
           />
         ) : (
           <button
@@ -80,7 +80,7 @@ export function TrackHeader({ track, canMoveForward, canMoveBack }: Props) {
             onDoubleClick={() => setDraft(track.name)}
             onClick={() => select(track.id)}
             title="Double-click to rename"
-            className={`ds-focus min-w-0 flex-1 truncate rounded-xs px-0.5 text-left text-xs font-semibold ${
+            className={`ds-focus min-w-0 flex-1 truncate rounded-xs px-0.5 text-left text-xs font-medium ${
               track.hidden ? "text-subtle line-through" : "text-ink"
             }`}
           >

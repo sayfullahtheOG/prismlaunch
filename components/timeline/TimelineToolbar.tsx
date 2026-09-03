@@ -58,7 +58,7 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
   const total = file.durationInFrames / file.fps;
 
   return (
-    <div className="flex shrink-0 items-center gap-1 border-b border-line-soft px-2 py-1.5">
+    <div className="flex h-10 shrink-0 items-center gap-0.5 border-b border-line-soft px-2">
       <IconButton
         label="Split at playhead"
         icon={<Scissors size={15} strokeWidth={1.9} />}
@@ -101,11 +101,16 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
           }
           onClick={() => setPlaying(!playing)}
         />
-        <span className="tabular ml-2 font-mono text-xs text-muted">
+        <span className="tabular ml-2 font-mono text-xs text-ink">
           {timecode(seconds)}
           <span className="text-subtle"> / {timecode(total)}</span>
         </span>
       </div>
+
+      {/* The film's size and rate: facts, kept with the other numbers. */}
+      <span className="tabular mr-2 hidden font-mono text-2xs text-subtle lg:inline">
+        {file.width}×{file.height} · {file.fps}fps
+      </span>
 
       <IconButton
         label={snap ? "Snapping on" : "Snapping off"}
@@ -126,7 +131,7 @@ export function TimelineToolbar({ file }: { file: ProjectFile }) {
         value={zoom}
         aria-label="Timeline zoom"
         onChange={(event) => setZoom(Number(event.target.value))}
-        className="ds-focus h-1 w-24 shrink-0 cursor-pointer appearance-none rounded-pill bg-strong accent-accent"
+        className="ds-focus mx-1 h-1 w-20 shrink-0 cursor-pointer appearance-none rounded-pill bg-strong accent-accent"
       />
       <IconButton
         label="Zoom in"

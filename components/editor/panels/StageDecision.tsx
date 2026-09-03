@@ -36,8 +36,10 @@ export function StageDecision({
     return (
       <Button
         variant="quiet"
+        size="sm"
+        className="self-start"
         onClick={() => reopenStage(stage)}
-        icon={<RotateCcw size={13} strokeWidth={2} aria-hidden />}
+        icon={<RotateCcw size={12} strokeWidth={2} aria-hidden />}
       >
         {stage === "animatic" ? "Reopen and unlock timing" : "Reopen"}
       </Button>
@@ -46,13 +48,13 @@ export function StageDecision({
 
   if (state.status === "changes-requested") {
     return (
-      <p className="text-2xs text-subtle">Waiting for your agent to resubmit.</p>
+      <p className="text-xs text-subtle">Waiting for your agent to resubmit.</p>
     );
   }
 
   if (state.status === "pending") {
     return (
-      <Button variant="quiet" onClick={() => approveStage(stage)}>
+      <Button variant="quiet" size="sm" className="self-start" onClick={() => approveStage(stage)}>
         Skip — approve as is
       </Button>
     );
@@ -66,9 +68,7 @@ export function StageDecision({
     <div className="flex flex-col gap-2">
       {stage === "concept" && process.concept.directions.length > 0 ? (
         <fieldset className="flex flex-col gap-1">
-          <legend className="mb-1 text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase">
-            Go with
-          </legend>
+          <legend className="mb-1 text-xs font-medium text-muted">Go with</legend>
           {process.concept.directions.map((direction) => (
             <label
               key={direction.id}
@@ -96,24 +96,22 @@ export function StageDecision({
         aria-label="Feedback for your agent"
       />
 
-      <div className="flex gap-2">
+      <div className="flex gap-1.5">
         <Button
           variant="primary"
-          className="flex-1"
           onClick={() => approveStage(stage, pick ? { chosen: pick } : {})}
-          icon={<Check size={14} strokeWidth={2.4} aria-hidden />}
+          icon={<Check size={13} strokeWidth={2.4} aria-hidden />}
         >
           {stage === "animatic" ? "Approve and lock timing" : "Approve"}
         </Button>
         <Button
           variant="secondary"
-          className="flex-1"
           disabled={note.trim().length === 0}
           onClick={() => {
             requestChanges(stage, note);
             setNote("");
           }}
-          icon={<Undo2 size={14} strokeWidth={2.2} aria-hidden />}
+          icon={<Undo2 size={13} strokeWidth={2.2} aria-hidden />}
         >
           Send back
         </Button>
@@ -153,7 +151,7 @@ export const STAGE_STATUS: Record<
 export function StageStatusChip({ status }: { status: StageStatus }) {
   const meta = STAGE_STATUS[status];
   return (
-    <span className={`inline-flex items-center gap-1.5 text-2xs font-semibold ${meta.tone}`}>
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${meta.tone}`}>
       {meta.icon}
       {meta.label}
     </span>

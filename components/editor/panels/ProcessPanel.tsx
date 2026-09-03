@@ -54,7 +54,7 @@ export function ProcessPanel({ file }: { file: ProjectFile }) {
       title="Process"
       hint="Your agent submits each stage. You approve it, or send it back with a note."
     >
-      <ol className="flex flex-col gap-1">
+      <ol className="flex flex-col gap-0.5">
         {STAGES.map((stage, index) => (
           <StageRow
             key={stage}
@@ -70,15 +70,15 @@ export function ProcessPanel({ file }: { file: ProjectFile }) {
       </ol>
 
       {current === null ? (
-        <p className="ds-level mt-4 flex items-start gap-2.5 rounded-sm bg-success-soft p-3 text-xs leading-[var(--ds-leading-body)] text-success">
-          <Check size={14} strokeWidth={2.4} className="mt-px shrink-0" aria-hidden />
+        <p className="mt-4 flex items-start gap-2 border-t border-line-soft pt-4 text-xs leading-[var(--ds-leading-body)] text-success">
+          <Check size={13} strokeWidth={2.4} className="mt-px shrink-0" aria-hidden />
           Every stage is approved. Export is the last step.
         </p>
       ) : null}
 
       {timingLocked(process) ? (
-        <p className="ds-level mt-4 flex items-start gap-2.5 rounded-sm p-3 text-xs leading-[var(--ds-leading-body)] text-muted">
-          <Lock size={13} strokeWidth={2} className="mt-px shrink-0 text-subtle" aria-hidden />
+        <p className="mt-4 flex items-start gap-2 border-t border-line-soft pt-4 text-xs leading-[var(--ds-leading-body)] text-muted">
+          <Lock size={12} strokeWidth={2} className="mt-px shrink-0 text-subtle" aria-hidden />
           Timing is locked across {process.animatic.beats.length} beats. Your
           agent can only build inside them. Reopen the animatic to change the
           cut.
@@ -109,15 +109,15 @@ function StageRow({
 
   return (
     <li
-      className={`rounded-sm transition-[background-color,box-shadow] duration-140 ${
-        isOpen ? "ds-inset bg-sunken" : ""
+      className={`rounded-sm transition-[background-color] duration-140 ${
+        isOpen ? "bg-sunken" : ""
       }`}
     >
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
-        className="ds-focus flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left"
+        className="ds-focus flex h-8 w-full items-center gap-2.5 rounded-sm px-2 text-left hover:bg-sunken"
       >
         <span className={`shrink-0 ${status.tone}`}>
           {isCurrent && state.status === "pending" ? (
@@ -130,13 +130,13 @@ function StageRow({
           {index + 1}
         </span>
         <span
-          className={`min-w-0 flex-1 truncate text-xs font-semibold ${
+          className={`min-w-0 flex-1 truncate text-sm font-medium ${
             state.status === "approved" ? "text-muted" : "text-ink"
           }`}
         >
           {STAGE_LABELS[stage]}
         </span>
-        <span className={`shrink-0 text-2xs ${status.tone}`}>
+        <span className={`shrink-0 text-xs ${status.tone}`}>
           {isCurrent && state.status === "pending" ? "Up next" : status.label}
         </span>
         <span className="shrink-0 text-subtle">
@@ -149,8 +149,8 @@ function StageRow({
       </button>
 
       {isOpen ? (
-        <div className="flex flex-col gap-3 px-2.5 pt-1 pb-3">
-          <p className="text-2xs leading-[var(--ds-leading-body)] text-subtle">
+        <div className="flex flex-col gap-3 px-2 pt-1 pb-3">
+          <p className="text-xs leading-[var(--ds-leading-body)] text-subtle">
             {STAGE_PURPOSE[stage]}
           </p>
 
@@ -167,8 +167,8 @@ function StageRow({
           <Artifact stage={stage} process={file.process} file={file} />
 
           {state.note ? (
-            <p className="ds-level rounded-sm bg-warning-soft p-2.5 text-xs leading-[var(--ds-leading-body)] text-warning">
-              <span className="font-semibold">You said: </span>
+            <p className="text-xs leading-[var(--ds-leading-body)] text-warning">
+              <span className="font-medium">You said: </span>
               {state.note}
             </p>
           ) : null}
@@ -210,20 +210,13 @@ function Artifact({
       const c = process.concept;
       if (c.directions.length === 0) return <Empty />;
       return (
-        <ol className="flex flex-col gap-2">
+        <ol className="flex flex-col divide-y divide-line-soft">
           {c.directions.map((direction) => {
             const recommended = direction.id === c.recommended;
             const chosen = direction.id === c.chosen;
             return (
-              <li
-                key={direction.id}
-                className={`rounded-sm p-2.5 ${
-                  chosen || (recommended && !c.chosen)
-                    ? "ds-raised bg-raised"
-                    : "ds-inset bg-sunken"
-                }`}
-              >
-                <p className="flex items-center gap-2 text-xs font-semibold text-ink">
+              <li key={direction.id} className="py-2 first:pt-0 last:pb-0">
+                <p className="flex items-center gap-2 text-xs font-medium text-ink">
                   {direction.title}
                   {chosen ? (
                     <span className="text-2xs font-semibold text-success">chosen</span>
@@ -257,14 +250,14 @@ function Artifact({
       const total = s.beats.reduce((n, beat) => n + beat.seconds, 0);
       return (
         <div className="flex flex-col gap-2">
-          <ol className="flex flex-col gap-1.5">
+          <ol className="flex flex-col divide-y divide-line-soft">
             {s.beats.map((beat, index) => (
-              <li key={beat.id} className="ds-inset rounded-sm bg-sunken p-2.5">
+              <li key={beat.id} className="py-2 first:pt-0 last:pb-0">
                 <p className="flex items-baseline gap-2">
                   <span className="tabular font-mono text-2xs text-subtle">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="text-2xs font-semibold text-muted">{beat.label}</span>
+                  <span className="text-xs font-medium text-muted">{beat.label}</span>
                   <span className="tabular ml-auto font-mono text-2xs text-subtle">
                     {beat.seconds.toFixed(1)}s
                   </span>
@@ -410,7 +403,7 @@ function Artifact({
       const so = process.sound;
       if (!so.plan) return <Empty />;
       return (
-        <pre className="thin-scroll ds-inset max-h-48 overflow-auto rounded-sm bg-sunken p-2.5 font-mono text-2xs leading-[var(--ds-leading-body)] whitespace-pre-wrap text-muted">
+        <pre className="thin-scroll max-h-48 overflow-auto font-mono text-2xs leading-[var(--ds-leading-body)] whitespace-pre-wrap text-muted">
           {so.plan}
         </pre>
       );
@@ -451,12 +444,10 @@ function Row({
   if (!value) return null;
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase">
-        {label}
-      </dt>
+      <dt className="text-2xs font-medium text-subtle">{label}</dt>
       <dd
         className={`text-xs leading-[var(--ds-leading-body)] ${
-          strong ? "font-semibold text-ink" : "text-muted"
+          strong ? "font-medium text-ink" : "text-muted"
         } ${mono ? "font-mono text-2xs break-all" : ""}`}
       >
         {value}
@@ -467,6 +458,6 @@ function Row({
 
 function Empty() {
   return (
-    <p className="text-2xs text-subtle">Nothing submitted yet.</p>
+    <p className="text-xs text-subtle">Nothing submitted yet.</p>
   );
 }

@@ -75,18 +75,18 @@ export function TopBar({
   const blocked = renderBlockedReason !== null;
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-line-soft bg-surface px-4">
-      <span className="flex items-center gap-2.5 text-md font-bold tracking-[var(--ds-tracking-tight)]">
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line-soft bg-surface px-3">
+      <span className="flex items-center gap-2 pl-1 text-sm font-semibold tracking-[var(--ds-tracking-tight)]">
         <Mark />
         PrismLaunch
       </span>
 
-      <span className="h-6 w-px bg-line-soft" aria-hidden />
+      <span className="h-5 w-px bg-line-soft" aria-hidden />
 
       {project ? (
         <ProjectMenu name={name} {...project} />
       ) : (
-        <span className="px-2.5 text-sm text-muted">{name}</span>
+        <span className="px-2 text-sm text-muted">{name}</span>
       )}
 
       {note ? (
@@ -114,7 +114,7 @@ export function TopBar({
         disabled={blocked}
         loading={busy}
         title={renderBlockedReason ?? "Render an MP4 from the accepted clips"}
-        icon={<Download size={15} strokeWidth={2} aria-hidden />}
+        icon={<Download size={14} strokeWidth={2} aria-hidden />}
       >
         Export
       </Button>
@@ -172,7 +172,7 @@ function ProjectMenu({
           if (event.key === "Enter") commit();
           if (event.key === "Escape") setDraft(null);
         }}
-        className="ds-focus ds-inset min-h-11 w-64 rounded-sm bg-sunken px-2.5 text-sm font-semibold text-ink"
+        className="ds-focus h-8 w-64 rounded-sm bg-sunken px-2 text-sm font-medium text-ink shadow-[inset_0_0_0_1px_var(--ds-color-line)]"
       />
     );
   }
@@ -309,9 +309,9 @@ function Mark() {
   return (
     <span
       aria-hidden
-      className="ds-raised grid size-7 place-items-center rounded-xs bg-ink"
+      className="grid size-6 place-items-center rounded-xs bg-ink"
     >
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
         <path
           d="M8 2 13.5 12.5H2.5L8 2Z"
           stroke="var(--ds-color-inverse)"

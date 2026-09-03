@@ -94,7 +94,7 @@ export function Timeline({ file }: { file: ProjectFile }) {
     <section
       aria-label="Timeline"
       className="flex min-h-0 shrink-0 flex-col border-t border-line-soft bg-surface"
-      style={{ height: 320 }}
+      style={{ height: 300 }}
     >
       <TimelineToolbar file={file} />
 
@@ -108,15 +108,13 @@ export function Timeline({ file }: { file: ProjectFile }) {
             className="flex items-center border-b border-line-soft px-2.5"
             style={{ height: 28 }}
           >
-            <span className="text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase">
-              Layers
-            </span>
+            <span className="text-xs font-medium text-muted">Layers</span>
             <button
               type="button"
               onClick={() => createTrack("visual")}
               aria-label="Add visual layer"
               title="Add visual layer"
-              className="ds-focus ml-auto grid size-5 place-items-center rounded-xs text-subtle hover:bg-sunken hover:text-ink"
+              className="ds-focus ml-auto grid size-6 place-items-center rounded-xs text-subtle hover:bg-sunken hover:text-ink"
             >
               <Plus size={12} strokeWidth={2.4} aria-hidden />
             </button>
@@ -359,9 +357,7 @@ function BackgroundHeader() {
         className={selected ? "text-accent" : "text-subtle"}
         aria-hidden
       />
-      <span
-        className={`text-2xs font-semibold ${selected ? "text-accent" : "text-subtle"}`}
-      >
+      <span className={`text-xs font-medium ${selected ? "text-accent" : "text-muted"}`}>
         Background
       </span>
     </button>
@@ -397,7 +393,7 @@ function AddTrackRow() {
       <button
         type="button"
         onClick={() => createTrack("visual")}
-        className="ds-focus flex items-center gap-1.5 rounded-xs px-1.5 py-1.5 text-2xs font-medium text-subtle hover:bg-sunken hover:text-ink"
+        className="ds-focus flex h-7 items-center gap-1.5 rounded-xs px-1.5 text-xs text-muted hover:bg-sunken hover:text-ink"
       >
         <Layers size={12} strokeWidth={1.9} aria-hidden />
         Add visual layer
@@ -405,7 +401,7 @@ function AddTrackRow() {
       <button
         type="button"
         onClick={() => createTrack("audio")}
-        className="ds-focus flex items-center gap-1.5 rounded-xs px-1.5 py-1.5 text-2xs font-medium text-subtle hover:bg-sunken hover:text-ink"
+        className="ds-focus flex h-7 items-center gap-1.5 rounded-xs px-1.5 text-xs text-muted hover:bg-sunken hover:text-ink"
       >
         <Music size={12} strokeWidth={1.9} aria-hidden />
         Add audio layer

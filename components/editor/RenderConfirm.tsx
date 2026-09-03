@@ -57,50 +57,43 @@ export function RenderConfirm() {
       style={{ background: "var(--ds-overlay)" }}
     >
       <div className="ds-floating w-full max-w-md rounded-md bg-raised p-6">
-        <p className="flex items-center gap-2 text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-warning uppercase">
+        <p className="flex items-center gap-1.5 text-xs font-medium text-warning">
           <Lock size={12} strokeWidth={2.4} aria-hidden />
           Your agent is asking
         </p>
 
         <h2
           id="render-confirm-title"
-          className="mt-2.5 text-lg font-bold tracking-[var(--ds-tracking-tight)]"
+          className="mt-2 text-lg font-semibold tracking-[var(--ds-tracking-tight)] text-ink"
         >
           {pending.summary}
         </h2>
 
         {pending.reason ? (
-          <p className="ds-inset mt-3 rounded-sm bg-sunken p-3 text-xs leading-[var(--ds-leading-body)] text-muted">
+          <p className="mt-3 text-sm leading-[var(--ds-leading-body)] text-ink italic">
             “{pending.reason}”
           </p>
         ) : null}
 
         <p className="mt-3 text-xs leading-[var(--ds-leading-body)] text-muted">
-          Nothing has been rendered yet. Your agent recorded what it would
-          export and stopped — starting it needs you.
-        </p>
-
-        <p className="ds-level mt-3 rounded-sm bg-sunken px-3 py-2.5 text-xs leading-[var(--ds-leading-body)] text-muted">
-          The film is encoded on this device — nothing is uploaded, and the file
-          downloads straight to you.
+          Nothing has been rendered yet: your agent recorded what it would
+          export and stopped, because starting it needs you. The film is encoded
+          on this device and downloads straight to you; nothing is uploaded.
         </p>
 
         {error ? (
-          <p
-            role="alert"
-            className="ds-level mt-3 rounded-sm bg-warning-soft px-3 py-2.5 text-xs text-warning"
-          >
+          <p role="alert" className="mt-3 text-xs leading-[var(--ds-leading-body)] text-warning">
             {error}
           </p>
         ) : null}
 
-        <div className="mt-5 flex gap-2">
+        <div className="mt-5 flex gap-1.5">
           <Button
             variant="primary"
+            size="lg"
             onClick={() => void approveAndStart()}
             loading={busy}
-            className="flex-1"
-            icon={<Check size={15} strokeWidth={2.4} aria-hidden />}
+            icon={<Check size={14} strokeWidth={2.4} aria-hidden />}
           >
             {busy
               ? progress > 0
@@ -110,9 +103,10 @@ export function RenderConfirm() {
           </Button>
           <Button
             variant="secondary"
+            size="lg"
             onClick={() => dismissRenderRequest()}
             disabled={busy}
-            icon={<X size={15} strokeWidth={2.4} aria-hidden />}
+            icon={<X size={14} strokeWidth={2.4} aria-hidden />}
           >
             Not yet
           </Button>

@@ -76,8 +76,8 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
             </p>
           ) : null}
           {process.style.note ? (
-            <p className="ds-level rounded-sm bg-warning-soft p-2.5 text-xs leading-[var(--ds-leading-body)] text-warning">
-              <span className="font-semibold">You said: </span>
+            <p className="text-xs leading-[var(--ds-leading-body)] text-warning">
+              <span className="font-medium">You said: </span>
               {process.style.note}
             </p>
           ) : null}
@@ -86,7 +86,7 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
       </PanelSection>
 
       {file.elements.length === 0 && loose.length === 0 ? (
-        <p className="ds-inset mb-6 rounded-sm bg-sunken p-3 text-xs leading-[var(--ds-leading-body)] text-subtle">
+        <p className="border-t border-line-soft py-4 text-xs leading-[var(--ds-leading-body)] text-subtle">
           Nothing yet. Once the animatic is approved, your agent defines the
           look as elements — the type roles, the accent, the device, the
           product — and places them to build the film.
@@ -108,7 +108,7 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
                 <button
                   type="button"
                   onClick={() => createElement(elementForFile(path))}
-                  className="ds-focus flex shrink-0 items-center gap-1 rounded-xs px-1.5 py-1 text-2xs font-semibold text-accent hover:bg-sunken"
+                  className="ds-focus flex h-6 shrink-0 items-center gap-1 rounded-xs px-1.5 text-xs font-medium text-accent hover:bg-sunken"
                 >
                   <Plus size={11} strokeWidth={2.6} aria-hidden />
                   Add
@@ -120,20 +120,20 @@ export function ElementsPanel({ file }: { file: ProjectFile }) {
       ) : null}
 
       <PanelSection label="Add">
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <Button
             variant="secondary"
-            className="flex-1"
+            size="sm"
             onClick={() => createElement(blankElement("text", nextName(file, "Style")))}
-            icon={<Type size={14} strokeWidth={2} aria-hidden />}
+            icon={<Type size={12} strokeWidth={2} aria-hidden />}
           >
             Type style
           </Button>
           <Button
             variant="secondary"
-            className="flex-1"
+            size="sm"
             onClick={() => createElement(blankElement("shape", nextName(file, "Shape")))}
-            icon={<Square size={14} strokeWidth={2} aria-hidden />}
+            icon={<Square size={12} strokeWidth={2} aria-hidden />}
           >
             Shape
           </Button>
@@ -167,13 +167,13 @@ function Group({
                 type="button"
                 onClick={() => select(element.id)}
                 aria-current={isSelected ? "true" : undefined}
-                className={`ds-focus flex w-full items-center gap-2.5 rounded-sm px-2 py-1.5 text-left transition-[background-color,box-shadow] duration-140 ${
-                  isSelected ? "ds-inset bg-sunken" : "hover:bg-sunken"
+                className={`ds-focus flex w-full items-center gap-2.5 rounded-sm px-2 py-1.5 text-left transition-[background-color] duration-140 ${
+                  isSelected ? "bg-sunken" : "hover:bg-sunken"
                 }`}
               >
                 <Swatch element={element} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-semibold text-ink">
+                  <span className="block truncate text-xs font-medium text-ink">
                     {element.name}
                   </span>
                   <span className="block truncate font-mono text-2xs text-subtle">
@@ -203,7 +203,7 @@ const FAMILY: Record<"display" | "body" | "mono", string> = {
 function Swatch({ element }: { element: Element }) {
   return (
     <span
-      className="ds-inset grid size-9 shrink-0 place-items-center overflow-hidden rounded-xs bg-[#0A0A0C]"
+      className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-xs bg-[#0A0A0C] shadow-[inset_0_0_0_1px_var(--ds-color-line-soft)]"
       aria-hidden
     >
       {element.kind === "text" ? (

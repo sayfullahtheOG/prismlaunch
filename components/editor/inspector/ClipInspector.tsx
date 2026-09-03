@@ -50,31 +50,35 @@ export function ClipInspector({
         detail={`${track.name} · ${(clip.durationInFrames / file.fps).toFixed(1)}s · ${clip.id}`}
       />
 
+      {/*
+        The review, as a strip rather than a box: what the agent said, and
+        the two answers. Amber here means one thing — waiting on you.
+      */}
       {draft ? (
-        <div className="mx-4 mb-4 shrink-0 rounded-sm bg-warning-soft p-3">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-warning">
-            <Sparkles size={13} strokeWidth={2.2} aria-hidden />
-            Your agent added this
+        <div className="mx-4 mb-3 flex shrink-0 flex-col gap-2 border-y border-warning/30 py-3">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-warning">
+            <Sparkles size={12} strokeWidth={2.2} aria-hidden />
+            Added by your agent
           </p>
           {clip.revisionNote ? (
-            <p className="mt-1.5 text-xs leading-[var(--ds-leading-body)] text-muted">
+            <p className="text-xs leading-[var(--ds-leading-body)] text-muted">
               {clip.revisionNote}
             </p>
           ) : null}
-          <div className="mt-2.5 flex gap-2">
+          <div className="flex gap-1.5">
             <Button
               variant="primary"
-              className="flex-1"
+              size="sm"
               onClick={() => acceptClip(clip.id)}
-              icon={<Check size={14} strokeWidth={2.4} aria-hidden />}
+              icon={<Check size={12} strokeWidth={2.4} aria-hidden />}
             >
               Accept
             </Button>
             <Button
               variant="secondary"
-              className="flex-1"
+              size="sm"
               onClick={() => rejectClip(clip.id)}
-              icon={<X size={14} strokeWidth={2.4} aria-hidden />}
+              icon={<X size={12} strokeWidth={2.4} aria-hidden />}
             >
               Reject
             </Button>
@@ -86,17 +90,17 @@ export function ClipInspector({
         <button
           type="button"
           onClick={() => select(element.id)}
-          className="ds-focus mx-4 mb-4 flex shrink-0 items-center gap-2 rounded-sm bg-sunken px-3 py-2 text-left text-xs transition-[background-color] duration-140 hover:bg-strong"
+          className="ds-focus mx-4 mb-3 flex h-7 shrink-0 items-center gap-2 rounded-sm px-1.5 text-left text-xs text-muted transition-[background-color] duration-140 hover:bg-sunken"
         >
-          <Shapes size={13} strokeWidth={2} className="shrink-0 text-subtle" aria-hidden />
-          <span className="min-w-0 flex-1 truncate text-muted">
-            From <span className="font-semibold text-ink">{element.name}</span>
+          <Shapes size={12} strokeWidth={2} className="shrink-0 text-subtle" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">
+            From <span className="font-medium text-ink">{element.name}</span>
           </span>
-          <span className="shrink-0 text-2xs text-subtle">Open element</span>
+          <span className="shrink-0 text-2xs text-subtle">Open</span>
         </button>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-6">
         {clip.kind === "text" ? <TextFields value={clip} set={set} words="required" /> : null}
         {clip.kind === "shape" ? <ShapeFields value={clip} set={set} /> : null}
         {clip.kind === "image" || clip.kind === "video" ? (

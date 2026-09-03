@@ -17,42 +17,46 @@ const FilmPreview = dynamic(
   () => import("./FilmPreview").then((mod) => mod.FilmPreview),
   {
     ssr: false,
-    loading: () => <div className="size-full bg-sunken" />,
+    loading: () => <div className="size-full bg-canvas" />,
   },
 );
 
+/**
+ * The stage.
+ *
+ * The film sits letterboxed on the darkest surface in the app with nothing
+ * around it — no card, no shadow, no badge floating over the picture. The
+ * frame's own edge is the only line, so the eye reads the film and not the
+ * chrome. Its size and rate are in the transport bar, where the other
+ * numbers are.
+ */
 export function Canvas({ file }: { file: ProjectFile }) {
   const missing = useStudioStore((state) => state.missingAssets);
 
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center bg-sunken p-6">
-      <div className="relative flex w-full max-w-[900px] flex-col">
-        <span className="ds-level mb-2 flex items-center gap-2 self-start rounded-xs bg-surface px-2.5 py-1 text-2xs font-medium text-muted">
-          {file.width}×{file.height}
-          <span className="tabular font-mono text-subtle">{file.fps}fps</span>
-        </span>
-
+    <div className="relative flex min-h-0 flex-1 flex-col bg-canvas">
+      <div className="flex min-h-0 flex-1 items-center justify-center p-8">
         <div
-          className="ds-floating w-full overflow-hidden rounded-md bg-sunken"
+          className="max-h-full w-full max-w-[1120px] overflow-hidden bg-black shadow-[0_0_0_1px_var(--ds-color-line-soft)]"
           style={{ aspectRatio: `${file.width} / ${file.height}` }}
         >
           <FilmPreview file={file} />
         </div>
-
-        {/*
-          A clip pointing at a file that is not there renders as a hole rather
-          than a crash, so the only way anyone finds out is if we say so.
-        */}
-        {missing.length > 0 ? (
-          <p
-            role="alert"
-            className="ds-level mt-2 rounded-sm bg-warning-soft px-3 py-2 text-2xs leading-[var(--ds-leading-body)] text-warning"
-          >
-            Missing {missing.length === 1 ? "asset" : "assets"}:{" "}
-            <span className="font-mono">{missing.join(", ")}</span>
-          </p>
-        ) : null}
       </div>
+
+      {/*
+        A clip pointing at a file that is not there renders as a hole rather
+        than a crash, so the only way anyone finds out is if we say so.
+      */}
+      {missing.length > 0 ? (
+        <p
+          role="alert"
+          className="absolute inset-x-0 bottom-0 border-t border-line-soft bg-warning-soft px-4 py-2 text-xs leading-[var(--ds-leading-body)] text-warning"
+        >
+          Missing {missing.length === 1 ? "asset" : "assets"}:{" "}
+          <span className="font-mono">{missing.join(", ")}</span>
+        </p>
+      ) : null}
     </div>
   );
 }

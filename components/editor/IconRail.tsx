@@ -24,10 +24,10 @@ type Props = {
  */
 export function IconRail({ active, onChange, agentPending = false }: Props) {
   return (
-    <div className="flex w-[76px] shrink-0 flex-col border-r border-line-soft bg-surface">
+    <div className="flex w-16 shrink-0 flex-col border-r border-line-soft bg-surface">
       <nav
         aria-label="Editor sections"
-        className="flex flex-1 flex-col items-center gap-1 py-3"
+        className="flex flex-1 flex-col items-center gap-0.5 py-2"
       >
         {RAIL_TABS.map(({ id, label, icon }) => {
           const Icon = ICONS[icon];
@@ -39,18 +39,18 @@ export function IconRail({ active, onChange, agentPending = false }: Props) {
               type="button"
               onClick={() => onChange(id)}
               aria-current={selected ? "page" : undefined}
-              className={`ds-focus relative flex min-h-14 w-16 flex-col items-center justify-center gap-1.5 rounded-sm transition-[background-color,box-shadow,color] duration-140 ease-[var(--ease-standard)] ${
+              className={`ds-focus relative flex h-13 w-14 flex-col items-center justify-center gap-1 rounded-sm transition-[background-color,color] duration-140 ease-[var(--ease-standard)] ${
                 selected
-                  ? "ds-inset bg-sunken font-semibold text-accent"
-                  : "font-medium text-muted hover:bg-sunken hover:text-ink"
+                  ? "bg-sunken text-ink"
+                  : "text-muted hover:bg-sunken hover:text-ink"
               }`}
             >
-              <Icon size={19} strokeWidth={selected ? 2 : 1.6} aria-hidden />
-              <span className="text-2xs leading-none">{label}</span>
+              <Icon size={18} strokeWidth={selected ? 2 : 1.7} aria-hidden />
+              <span className="text-2xs leading-none font-medium">{label}</span>
 
               {(id === "agent" || id === "process") && agentPending ? (
                 <span
-                  className="absolute top-2 right-3 size-2 rounded-pill bg-warning ring-2 ring-surface"
+                  className="absolute top-1.5 right-2.5 size-1.5 rounded-pill bg-warning ring-2 ring-surface"
                   aria-label="Waiting for your decision"
                 />
               ) : null}
@@ -59,7 +59,7 @@ export function IconRail({ active, onChange, agentPending = false }: Props) {
         })}
       </nav>
 
-      <div className="flex items-center justify-center border-t border-line-soft py-3">
+      <div className="flex items-center justify-center border-t border-line-soft py-2">
         <ThemeToggle />
       </div>
     </div>

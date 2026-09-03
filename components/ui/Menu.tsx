@@ -168,13 +168,13 @@ export function Menu({
             setOpen(true);
           }
         }}
-        className={`ds-focus flex min-h-11 max-w-[22rem] items-center gap-1.5 rounded-sm px-2.5 text-sm transition-colors duration-140 ${
+        className={`ds-focus flex h-8 max-w-[22rem] items-center gap-1.5 rounded-sm px-2 text-sm transition-colors duration-140 ${
           open ? "bg-sunken text-ink" : "text-ink hover:bg-sunken"
         }`}
       >
-        <span className="truncate font-semibold">{label}</span>
+        <span className="truncate font-medium">{label}</span>
         <ChevronDown
-          size={15}
+          size={14}
           strokeWidth={1.9}
           aria-hidden
           className="shrink-0 text-subtle"
@@ -189,7 +189,7 @@ export function Menu({
           aria-label={label}
           onKeyDown={onMenuKeyDown}
           style={{ width }}
-          className={`ds-floating absolute top-full z-50 mt-1 flex flex-col gap-0.5 rounded-sm bg-raised p-1.5 ${
+          className={`ds-floating absolute top-full z-[var(--ds-z-dropdown)] mt-1 flex flex-col gap-0.5 rounded-sm bg-raised p-1 ${
             align === "end" ? "right-0" : "left-0"
           }`}
         >
@@ -248,7 +248,7 @@ export function MenuItem({
         onSelect();
         if (!keepOpen) menu?.close();
       }}
-      className={`ds-focus flex min-h-9 items-center gap-2.5 rounded-xs px-2.5 text-left text-xs font-medium transition-colors duration-140 disabled:pointer-events-none disabled:opacity-45 ${
+      className={`ds-focus flex min-h-7 items-center gap-2.5 rounded-xs px-2 text-left text-xs transition-colors duration-140 disabled:pointer-events-none disabled:opacity-45 ${
         tone === "danger"
           ? "text-danger hover:bg-warning-soft"
           : "text-ink hover:bg-sunken"
@@ -282,7 +282,7 @@ export function MenuGroup({
 }) {
   return (
     <div role="group" aria-label={label} className="flex flex-col">
-      <span className="px-2.5 pt-1.5 pb-1 text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase">
+      <span className="px-2 pt-1.5 pb-1 text-2xs font-medium text-subtle">
         {label}
       </span>
       <div

@@ -181,13 +181,13 @@ export function Select({
         }
         disabled={disabled}
         onClick={() => (openRef.current ? setOpenState(false) : openList())}
-        className="ds-inset ds-focus flex min-h-11 w-full items-center gap-2 rounded-sm bg-sunken px-3 text-left text-sm text-ink transition-shadow duration-140 ease-[var(--ease-standard)] disabled:opacity-45"
+        className="ds-focus flex h-8 w-full items-center gap-2 rounded-sm bg-sunken px-2.5 text-left text-xs text-ink shadow-[inset_0_0_0_1px_var(--ds-color-line-soft)] transition-shadow duration-140 ease-[var(--ease-standard)] hover:shadow-[inset_0_0_0_1px_var(--ds-color-line)] disabled:opacity-45"
       >
         <span className={`flex-1 truncate ${selected ? "" : "text-subtle"}`}>
           {selected?.label ?? placeholder}
         </span>
         <ChevronDown
-          size={16}
+          size={14}
           strokeWidth={1.8}
           aria-hidden
           className={`shrink-0 text-subtle transition-transform duration-140 ease-[var(--ease-standard)] ${open ? "rotate-180" : ""}`}
@@ -201,7 +201,7 @@ export function Select({
           role="listbox"
           aria-label={label}
           tabIndex={-1}
-          className="ds-floating thin-scroll absolute z-[var(--ds-z-dropdown)] mt-1.5 max-h-64 w-full overflow-y-auto rounded-sm bg-raised p-1.5"
+          className="ds-floating thin-scroll absolute z-[var(--ds-z-dropdown)] mt-1 max-h-64 w-full overflow-y-auto rounded-sm bg-raised p-1"
         >
           {options.map((option, index) => {
             const isSelected = option.value === value;
@@ -216,13 +216,13 @@ export function Select({
                 data-index={index}
                 onPointerEnter={() => moveActive(index)}
                 onClick={() => commit(index)}
-                className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xs px-2.5 py-1.5 transition-colors duration-140 ease-[var(--ease-standard)] ${
+                className={`flex min-h-7 cursor-pointer items-center gap-2.5 rounded-xs px-2 py-1 transition-colors duration-140 ease-[var(--ease-standard)] ${
                   isActive ? "bg-sunken" : ""
                 }`}
               >
                 <span className="min-w-0 flex-1">
                   <span
-                    className={`block truncate text-sm ${isSelected ? "font-semibold text-ink" : "text-ink"}`}
+                    className={`block truncate text-xs ${isSelected ? "font-medium text-ink" : "text-ink"}`}
                   >
                     {option.label}
                   </span>
@@ -235,7 +235,7 @@ export function Select({
 
                 {/* Selection is shown by a mark, not by colour alone. */}
                 <Check
-                  size={15}
+                  size={13}
                   strokeWidth={2.4}
                   aria-hidden
                   className={`shrink-0 text-accent ${isSelected ? "" : "invisible"}`}

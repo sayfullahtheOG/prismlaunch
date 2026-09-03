@@ -51,12 +51,10 @@ export function StoryboardBoard({ file }: { file: ProjectFile }) {
   return (
     <section
       aria-label="Storyboard"
-      className="thin-scroll flex min-h-0 flex-1 flex-col overflow-y-auto bg-sunken"
+      className="thin-scroll flex min-h-0 flex-1 flex-col overflow-y-auto bg-canvas"
     >
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line-soft bg-sunken/90 px-6 py-3 backdrop-blur-sm">
-        <h2 className="text-sm font-bold tracking-[var(--ds-tracking-tight)]">
-          {file.name}
-        </h2>
+      <header className="sticky top-0 z-[var(--ds-z-sticky)] flex h-10 items-center gap-3 border-b border-line-soft bg-canvas px-6">
+        <h2 className="text-sm font-medium text-ink">{file.name}</h2>
         <span className="tabular font-mono text-2xs text-subtle">
           {panels.length} panels · {timecode(total / file.fps)}
           {file.process.brief.lengthSeconds ? ` of ${file.process.brief.lengthSeconds}s` : ""}
@@ -71,8 +69,8 @@ export function StoryboardBoard({ file }: { file: ProjectFile }) {
 
       <ol
         ref={grid}
-        className="grid gap-5 p-6"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
+        className="grid gap-x-6 gap-y-8 p-6"
+        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}
       >
         {panels.map((panel, index) => {
           const from = starts[index] ?? 0;
@@ -131,13 +129,15 @@ function Board({
         onClick={() => select(panel.id)}
         aria-current={selected ? "true" : undefined}
         aria-label={`Panel ${index + 1}, ${panel.label}`}
-        className={`ds-focus flex w-full flex-col rounded-md bg-raised p-3 text-left transition-[box-shadow,background-color] duration-140 ease-[var(--ease-standard)] ${
-          selected ? "ds-raised ring-2 ring-accent" : "ds-raised hover:bg-strong"
-        }`}
+        className="ds-focus group flex w-full flex-col rounded-sm text-left"
       >
-        {/* The frame. */}
+        {/* The frame: the only thing with an edge. */}
         <div
-          className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-sm px-[8%]"
+          className={`relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-xs px-[8%] transition-[box-shadow] duration-140 ease-[var(--ease-standard)] ${
+            selected
+              ? "shadow-[0_0_0_2px_var(--ds-color-accent)]"
+              : "shadow-[0_0_0_1px_var(--ds-color-line-soft)] group-hover:shadow-[0_0_0_1px_var(--ds-color-line)]"
+          }`}
           style={{ background: fill }}
         >
           {words ? (
@@ -162,10 +162,10 @@ function Board({
           </span>
         </div>
 
-        {/* The notes under it. */}
-        <div className="mt-3 flex w-full flex-col gap-1.5">
+        {/* The notes under it, the way they are written under a pinned board. */}
+        <div className="mt-2.5 flex w-full flex-col gap-1 px-0.5">
           <p className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold text-ink">{panel.label}</span>
+            <span className="text-sm font-medium text-ink">{panel.label}</span>
             <span className="tabular ml-auto font-mono text-2xs text-subtle">
               {panel.transitionIn} → {panel.transitionOut}
             </span>
@@ -174,13 +174,13 @@ function Board({
             {panel.frame}
           </p>
           {panel.action ? (
-            <p className="line-clamp-2 text-2xs leading-[var(--ds-leading-body)] text-subtle">
-              <span className="font-semibold">Moves: </span>
+            <p className="line-clamp-2 text-xs leading-[var(--ds-leading-body)] text-subtle">
+              <span className="font-medium text-muted">Moves </span>
               {panel.action}
             </p>
           ) : null}
           {panel.sound ? (
-            <p className="line-clamp-1 text-2xs text-subtle">♪ {panel.sound}</p>
+            <p className="line-clamp-1 text-xs text-subtle">♪ {panel.sound}</p>
           ) : null}
           {lockedLabel ? (
             <p className="inline-flex items-center gap-1 font-mono text-2xs text-subtle">
@@ -204,10 +204,10 @@ function EmptyBoard({ file }: { file: ProjectFile }) {
   return (
     <section
       aria-label="Storyboard"
-      className="flex min-h-0 flex-1 items-center justify-center bg-sunken p-6"
+      className="flex min-h-0 flex-1 items-center justify-center bg-canvas p-6"
     >
       <div className="max-w-[360px] text-center">
-        <p className="text-sm font-semibold text-ink">No boards yet</p>
+        <p className="text-sm font-medium text-ink">No boards yet</p>
         <p className="mt-1.5 text-xs leading-[var(--ds-leading-body)] text-muted">
           {before && stage
             ? `Your agent boards the film once the script is approved. The process is at ${STAGE_LABELS[stage]}.`

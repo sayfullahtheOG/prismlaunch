@@ -109,9 +109,7 @@ export function SetupDialog() {
 
         <div className="flex items-center gap-3">
           <span className="h-px flex-1 bg-line-soft" />
-          <span className="text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase">
-            then
-          </span>
+          <span className="text-xs font-medium text-subtle">then</span>
           <span className="h-px flex-1 bg-line-soft" />
         </div>
 
@@ -161,7 +159,7 @@ export function SetupDialog() {
         {error || loadError ? (
           <p
             role="alert"
-            className="ds-level flex items-start gap-2.5 rounded-sm bg-warning-soft px-3 py-2.5 text-xs leading-[var(--ds-leading-body)] text-warning"
+            className="flex items-start gap-2 text-xs leading-[var(--ds-leading-body)] text-warning"
           >
             <TriangleAlert size={14} strokeWidth={2} className="mt-px shrink-0" aria-hidden />
             {error ?? loadError}
@@ -193,7 +191,7 @@ function CopyCommand() {
   }
 
   return (
-    <div className="ds-raised flex items-center gap-2.5 rounded-sm bg-ink py-2.5 pr-2.5 pl-3.5">
+    <div className="flex h-11 items-center gap-2.5 rounded-sm bg-ink pr-2 pl-3.5">
       <span aria-hidden className="font-mono text-xs text-inverse opacity-50">
         $
       </span>
@@ -356,13 +354,13 @@ function Linked({
                 type="button"
                 disabled={entry.name === null}
                 onClick={() => onOpen(entry.slug)}
-                className={`ds-focus flex w-full flex-col items-start gap-1 rounded-sm p-3 text-left transition-[background-color,box-shadow] duration-140 ease-[var(--ease-standard)] ${
+                className={`ds-focus flex w-full flex-col items-start gap-0.5 rounded-sm px-3 py-2.5 text-left transition-[background-color] duration-140 ease-[var(--ease-standard)] ${
                   entry.name === null
-                    ? "ds-inset cursor-not-allowed bg-sunken"
-                    : "ds-raised bg-raised hover:bg-strong"
+                    ? "cursor-not-allowed bg-sunken"
+                    : "bg-raised shadow-[inset_0_0_0_1px_var(--ds-color-line-soft)] hover:bg-strong"
                 }`}
               >
-                <span className="text-sm font-semibold text-ink">
+                <span className="text-sm font-medium text-ink">
                   {entry.name ?? entry.slug}
                 </span>
                 <span className="font-mono text-2xs text-subtle">

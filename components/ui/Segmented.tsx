@@ -3,9 +3,8 @@
 /**
  * Segmented control.
  *
- * The track is inset, the selected segment is raised — depth carries the
- * selection, but never alone: the label also changes weight and colour, per
- * the Boundary Rule.
+ * A flat track with the chosen segment lifted to the surface colour — the
+ * selection is carried by tone and weight, not by a shadow.
  *
  * An option is either a bare value, capitalised for display, or a
  * `{ value, label }` pair when the label is not the value with a capital
@@ -29,7 +28,7 @@ export function Segmented<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className="ds-inset flex gap-1 rounded-sm bg-sunken p-1"
+      className="flex h-8 gap-0.5 rounded-sm bg-sunken p-0.5 shadow-[inset_0_0_0_1px_var(--ds-color-line-soft)]"
     >
       {options.map((option) => {
         const optionValue = typeof option === "string" ? option : option.value;
@@ -42,11 +41,11 @@ export function Segmented<T extends string>({
             type="button"
             onClick={() => onChange(optionValue)}
             aria-pressed={selected}
-            className={`ds-focus min-h-11 flex-1 rounded-xs px-2 text-xs transition-[background-color,box-shadow,color] duration-140 ease-[var(--ease-standard)] ${
+            className={`ds-focus flex-1 rounded-xs px-2 text-xs transition-[background-color,color] duration-140 ease-[var(--ease-standard)] ${
               optionLabel === null ? "capitalize" : ""
             } ${
               selected
-                ? "ds-raised bg-raised font-semibold text-ink"
+                ? "bg-strong font-medium text-ink shadow-[0_0_0_1px_var(--ds-color-line-soft)]"
                 : "font-medium text-muted hover:text-ink"
             }`}
           >

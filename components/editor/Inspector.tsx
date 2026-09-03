@@ -32,7 +32,7 @@ export function Inspector({ file }: { file: ProjectFile }) {
   return (
     <aside
       aria-label="Properties"
-      className="thin-scroll flex w-[300px] shrink-0 flex-col overflow-y-auto border-l border-line-soft bg-surface"
+      className="thin-scroll flex w-[280px] shrink-0 flex-col overflow-y-auto border-l border-line-soft bg-surface"
     >
       {clip ? (
         <ClipInspector clip={clip.clip} track={clip.track} file={file} />

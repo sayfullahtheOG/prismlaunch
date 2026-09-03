@@ -80,20 +80,26 @@
     /* Type: one clean voice, tabular numerals for product data */
     --ds-font-sans: "Manrope", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     --ds-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    /*
+     * An editor's scale: 13px base, one step either side for labels and
+     * values, and headings that are a weight change more than a size change.
+     * A tool sits at a fixed DPI in front of someone for hours; a wide ratio
+     * reads as shouting.
+     */
     --ds-text-2xs: 0.6875rem;
     --ds-text-xs: 0.75rem;
-    --ds-text-sm: 0.875rem;
-    --ds-text-md: 1rem;
-    --ds-text-lg: 1.125rem;
-    --ds-text-xl: 1.375rem;
+    --ds-text-sm: 0.8125rem;
+    --ds-text-md: 0.9375rem;
+    --ds-text-lg: 1.0625rem;
+    --ds-text-xl: 1.25rem;
     --ds-text-2xl: 1.75rem;
     --ds-text-3xl: 2.25rem;
     --ds-text-display: clamp(2.75rem, 7vw, 4.75rem);
     --ds-leading-tight: 1.08;
     --ds-leading-heading: 1.2;
     --ds-leading-body: 1.6;
-    --ds-tracking-tight: -0.03em;
-    --ds-tracking-label: 0.01em;
+    --ds-tracking-tight: -0.02em;
+    --ds-tracking-label: 0;
 
     /* Four-point spacing grid */
     --ds-space-0: 0;
@@ -110,33 +116,34 @@
     --ds-space-20: 5rem;
     --ds-space-24: 6rem;
 
-    /* Geometry */
-    --ds-radius-xs: 0.375rem;
-    --ds-radius-sm: 0.625rem;
-    --ds-radius-md: 0.875rem;
-    --ds-radius-lg: 1rem;
+    /* Geometry: tight corners and short controls, because this is a tool */
+    --ds-radius-xs: 0.25rem;
+    --ds-radius-sm: 0.375rem;
+    --ds-radius-md: 0.5rem;
+    --ds-radius-lg: 0.75rem;
     --ds-radius-pill: 999rem;
-    --ds-control-sm: 2.25rem;
-    --ds-control-md: 2.75rem;
-    --ds-control-lg: 3.25rem;
-    --ds-target-min: 2.75rem;
+    --ds-control-sm: 1.75rem;
+    --ds-control-md: 2rem;
+    --ds-control-lg: 2.5rem;
+    --ds-target-min: 2rem;
     --ds-content-max: 75rem;
     --ds-prose-max: 70ch;
 
     /* Elevation: tonal separation first, then one quiet directional shadow */
-    --ds-shadow-raised-sm:
-      0 0.125rem 0.25rem var(--ds-shadow-ambient),
-      inset 0 0.0625rem 0 var(--ds-shadow-highlight);
+    /*
+     * Flat, with hairlines. Inner highlights and inset wells are the surface
+     * treatment of a marketing site; an editor separates things with a line
+     * and a tone. Only floating surfaces cast a shadow.
+     */
+    --ds-shadow-raised-sm: 0 0 0 1px var(--ds-color-line-soft);
     --ds-shadow-raised-md:
-      0 0.375rem 0.875rem var(--ds-shadow-ambient),
-      inset 0 0.0625rem 0 var(--ds-shadow-highlight);
-    --ds-shadow-floating: 0 0.75rem 1.5rem var(--ds-shadow-deep);
-    --ds-shadow-inset:
-      inset 0 0.125rem 0.25rem var(--ds-shadow-ambient),
-      inset 0 0 0 0.0625rem var(--ds-color-line-soft);
-    --ds-shadow-pressed:
-      inset 0 0.125rem 0.375rem var(--ds-shadow-ambient),
-      inset 0 0 0 0.0625rem var(--ds-color-line);
+      0 0 0 1px var(--ds-color-line-soft),
+      0 0.25rem 0.75rem var(--ds-shadow-ambient);
+    --ds-shadow-floating:
+      0 0 0 1px var(--ds-color-line-soft),
+      0 0.75rem 1.5rem var(--ds-shadow-deep);
+    --ds-shadow-inset: inset 0 0 0 1px var(--ds-color-line-soft);
+    --ds-shadow-pressed: inset 0 0 0 1px var(--ds-color-line);
     --ds-shadow-focus: 0 0 0 0.25rem var(--ds-focus-halo);
 
     /* Motion */

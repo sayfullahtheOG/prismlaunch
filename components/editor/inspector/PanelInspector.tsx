@@ -43,7 +43,7 @@ export function PanelInspector({
       />
 
       {approved ? (
-        <p className="mx-4 mb-4 flex items-start gap-2 rounded-sm bg-sunken p-2.5 text-2xs leading-[var(--ds-leading-body)] text-muted">
+        <p className="mx-4 mb-3 flex items-start gap-2 border-y border-line-soft py-2.5 text-xs leading-[var(--ds-leading-body)] text-muted">
           <Lock size={11} strokeWidth={2.2} className="mt-px shrink-0 text-subtle" aria-hidden />
           {timingLocked(file.process)
             ? "The storyboard and the timing are approved. Editing a board here does not move its beat on the timeline; reopen the animatic for that."
@@ -51,7 +51,7 @@ export function PanelInspector({
         </p>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-6">
         <Field label="Label" htmlFor="panel-label">
           <TextInput
             id="panel-label"

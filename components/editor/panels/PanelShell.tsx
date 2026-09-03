@@ -13,22 +13,24 @@ export function PanelShell({
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 px-4 pt-4 pb-3">
-        <h2 className="text-lg font-bold tracking-[var(--ds-tracking-tight)]">
+        <h2 className="text-md font-semibold tracking-[var(--ds-tracking-tight)] text-ink">
           {title}
         </h2>
         {hint ? (
-          <p className="mt-1 text-xs leading-[var(--ds-leading-body)] text-muted">
-            {hint}
-          </p>
+          <p className="mt-1 text-xs leading-[var(--ds-leading-body)] text-muted">{hint}</p>
         ) : null}
       </div>
-      <div className="thin-scroll min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        {children}
-      </div>
+      <div className="thin-scroll min-h-0 flex-1 overflow-y-auto px-4 pb-4">{children}</div>
     </div>
   );
 }
 
+/**
+ * A titled run of a panel.
+ *
+ * Sentence case, small, with a hairline above so sections read as rows of
+ * one column rather than as a stack of labelled cards.
+ */
 export function PanelSection({
   label,
   children,
@@ -37,10 +39,8 @@ export function PanelSection({
   children: ReactNode;
 }) {
   return (
-    <section className="mb-6">
-      <h3 className="mb-2.5 text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase">
-        {label}
-      </h3>
+    <section className="border-t border-line-soft py-4 first:border-t-0 first:pt-0">
+      <h3 className="mb-2.5 text-xs font-medium text-muted">{label}</h3>
       {children}
     </section>
   );

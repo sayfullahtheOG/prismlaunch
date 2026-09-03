@@ -5,9 +5,9 @@ import type { ReactNode } from "react";
 /**
  * Label + control + optional counter and error.
  *
- * Fields are INSET: the system reserves that recipe for "text fields, tracks,
- * pressed wells". An error is announced with text and an icon-free `role`
- * rather than colour alone, since colour cannot be the only state indicator.
+ * The label is sentence case at 12px, the way Figma's inspector labels its
+ * fields — not a tracked capital eyebrow. An error is announced with text
+ * rather than colour alone.
  */
 export function Field({
   label,
@@ -25,15 +25,12 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label
-        htmlFor={htmlFor}
-        className="flex items-center text-2xs font-semibold tracking-[var(--ds-tracking-label)] text-subtle uppercase"
-      >
+    <div className="flex flex-col gap-1">
+      <label htmlFor={htmlFor} className="flex items-center text-xs font-medium text-muted">
         {label}
         {counter ? (
           <span
-            className={`tabular ml-auto font-mono text-2xs normal-case ${over ? "text-warning" : "text-subtle"}`}
+            className={`tabular ml-auto font-mono text-2xs ${over ? "text-warning" : "text-subtle"}`}
           >
             {counter}
           </span>
@@ -49,14 +46,15 @@ export function Field({
   );
 }
 
+/** Flat well with a hairline; the ring brightens on focus via ds-focus. */
 const CONTROL =
-  "ds-inset ds-focus w-full rounded-sm bg-sunken px-3 text-sm text-ink placeholder:text-subtle transition-shadow duration-140 ease-[var(--ease-standard)] disabled:opacity-45";
+  "ds-focus w-full rounded-sm bg-sunken px-2.5 text-xs text-ink shadow-[inset_0_0_0_1px_var(--ds-color-line-soft)] placeholder:text-subtle transition-shadow duration-140 ease-[var(--ease-standard)] hover:shadow-[inset_0_0_0_1px_var(--ds-color-line)] disabled:opacity-45";
 
 export function TextInput({
   className = "",
   ...rest
 }: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={`${CONTROL} min-h-11 ${className}`} {...rest} />;
+  return <input className={`${CONTROL} h-8 ${className}`} {...rest} />;
 }
 
 export function TextArea({
@@ -64,7 +62,10 @@ export function TextArea({
   ...rest
 }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
-    <textarea className={`${CONTROL} resize-none py-2.5 ${className}`} {...rest} />
+    <textarea
+      className={`${CONTROL} resize-none py-2 leading-[var(--ds-leading-body)] ${className}`}
+      {...rest}
+    />
   );
 }
 

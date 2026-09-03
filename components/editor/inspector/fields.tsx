@@ -73,7 +73,7 @@ export function ColorField({
           value={value.slice(0, 7)}
           onChange={(event) => onChange(event.target.value.toUpperCase())}
           aria-label={`${label} swatch`}
-          className="ds-focus ds-inset size-9 shrink-0 cursor-pointer rounded-sm bg-sunken p-1"
+          className="ds-focus size-8 shrink-0 cursor-pointer rounded-sm bg-sunken p-1 shadow-[inset_0_0_0_1px_var(--ds-color-line-soft)]"
         />
         <TextInput
           value={value}
@@ -101,7 +101,7 @@ export function Stat({ label, value }: { label: string; value: string }) {
 export function Heading({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="shrink-0 px-4 pt-4 pb-3">
-      <h2 className="text-lg font-bold tracking-[var(--ds-tracking-tight)] capitalize">
+      <h2 className="text-md font-semibold tracking-[var(--ds-tracking-tight)] text-ink capitalize">
         {title}
       </h2>
       <p className="tabular mt-0.5 font-mono text-2xs text-subtle">{detail}</p>

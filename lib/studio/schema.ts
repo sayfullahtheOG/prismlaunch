@@ -807,8 +807,11 @@ export const StoryboardPanelSchema = z.object({
   label: z.string().min(1).max(40),
   /** What is on screen: composition, ground, type role, the product if shown. */
   frame: z.string().min(1).max(280),
-  /** What moves, and in what order. */
+  /** The events, in order: what arrives, what it does, what leaves, with frames. */
   action: z.string().max(240).optional(),
+  /** What is still on screen when the next panel starts — the object that carries the cut. */
+  handoff: z.string().max(140).optional(),
+  /** The sum of the events' frames, not a budget chosen first. */
   durationInFrames: z.number().int().min(6).max(MAX_FRAMES),
   transitionIn: TransitionSchema.default("fade"),
   transitionOut: TransitionSchema.default("fade"),

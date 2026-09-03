@@ -92,7 +92,7 @@ export function nextInstruction(process: Process): {
       stage: null,
       status: "approved",
       instruction:
-        "Every stage is approved. Run the pre-ship checklist in PRISM_METHOD.md §14 once more, then prism.request_render.",
+        "Every stage is approved. Run the pre-ship checklist in PRISM_METHOD.md §12 once more, then prism.request_render.",
     };
   }
 
@@ -116,14 +116,14 @@ export function nextInstruction(process: Process): {
   }
 
   const how: Record<StageId, string> = {
-    brief: "Write the brief with prism.submit_brief: one audience, one message, one feeling, one length. PRISM_METHOD.md §2.",
-    concept: "Generate 8 to 12 angles, keep three, recommend one. Submit with prism.submit_concepts. PRISM_METHOD.md §3.",
-    script: "Write the beats with their words and seconds; read it aloud against the length. Submit with prism.submit_script. PRISM_METHOD.md §5.",
-    storyboard: "Board every script beat: frame, action, durationInFrames, transition in and out, sound, words. Board the first beat, then the last, then fill in between. Submit with prism.submit_storyboard. PRISM_METHOD.md §6.",
+    brief: "Read PRISM_METHOD.md first — §1 and §2 are the rules that separate a film from a slideshow. Ask the person for the product: the logo, three to six screenshots, the brand colour. Then write the brief with prism.submit_brief: one audience, one message, one feeling, one length. PRISM_METHOD.md §5.",
+    concept: "Generate 8 to 12 angles, keep three, recommend one. Submit with prism.submit_concepts. PRISM_METHOD.md §5.",
+    script: "Write the lines and runs — 1 to 4 words each, one accent word — with seconds that follow from their events, not from a budget. Submit with prism.submit_script. PRISM_METHOD.md §1 and §6.",
+    storyboard: "Board every section as its events: frame, the events in order with their frames (action), what carries into the next panel (handoff), durationInFrames as the sum of the events, transition in and out, sound, words. Board the first section, then the last, then the ones between. Submit with prism.submit_storyboard. PRISM_METHOD.md §2 and §10.",
     style: "Pick a look from PRISM_METHOD.md §7. Define every piece the approved boards need as elements with prism.add_element (Headline, Support, Label, the accent, the device frame, the product shot), then build the hook, the reveal and the endcard for real by placing them with prism.place_element at the boards' times. Submit with prism.submit_style_frames, naming the elements and the clips.",
     animatic: "Choose the music first (PRISM_METHOD.md §9). Call prism.lay_animatic to put the approved boards on the timeline as placeholders beside what you built, then prism.add_audio the music with startFrom on a downbeat, adjust boards to the beat grid, then prism.submit_animatic. Approving locks the timing.",
-    polish: "Watch the animatic through with the person's notes in hand. Rethink the sound (PRISM_METHOD.md §9): effects on the transitions, ducking under any voice, room tone. Run the §14 checklist against the rough — sound on, muted, half size — and submit each line with its verdict via prism.submit_polish, with the updated sound plan.",
-    build: "Replace every remaining placeholder by placing the approved elements with prism.place_element, inside their windows, and place the final sound from the polish plan. Change an element, not its clips, when the look needs adjusting. Submit with prism.submit_build; after the person approves it, prism.request_render. PRISM_METHOD.md §10.",
+    polish: "Watch the animatic through with the person's notes in hand. Rethink the sound (PRISM_METHOD.md §9): effects on the events, ducking under any voice, room tone. Run the §12 checklist against the rough — sound on, muted, half size — and submit each line with its verdict via prism.submit_polish, with the updated sound plan.",
+    build: "Replace every remaining placeholder by placing the approved elements with prism.place_element: two events a second, the handoff object built as one clip across each cut, the product on screen most of the time, and place the final sound from the polish plan. Clips may cross sections; they may not run past the end. Change an element, not its clips, when the look needs adjusting. Submit with prism.submit_build; after the person approves it, prism.request_render. PRISM_METHOD.md §10.",
   };
 
   return { stage, status: state.status, instruction: how[stage] };
@@ -140,9 +140,10 @@ export function timingLocked(process: Process): boolean {
 /**
  * Snapshot the timeline's visual clips as beats.
  *
- * Called on animatic approval. Each visual clip on the timeline at that moment
- * becomes a window; the agent may later fill a window with as many clips as it
- * likes, but not place one across a boundary or outside all of them.
+ * Called on animatic approval. Each visual clip on the timeline at that
+ * moment becomes a section of the story with a start frame; together they
+ * fix the film's length. They are the grid the build is cut to, not cells
+ * the build is kept inside.
  */
 export function snapshotBeats(file: ProjectFile): Process["animatic"]["beats"] {
   return file.tracks
@@ -157,20 +158,28 @@ export function snapshotBeats(file: ProjectFile): Process["animatic"]["beats"] {
     }));
 }
 
+/** Where the locked film ends: the last beat's last frame. */
+export function lockedEnd(process: Process): number {
+  return process.animatic.beats.reduce(
+    (end, beat) => Math.max(end, beat.from + beat.durationInFrames),
+    0,
+  );
+}
+
 /**
- * Does a visual clip sit inside one locked beat?
+ * Does a visual clip fit the timing lock?
  *
- * Audio is exempt: a music bed spans the whole film and a riser crosses a cut
- * on purpose. Only picture is held to the boards.
+ * The lock fixes the film's length and the grid of sections the story is
+ * cut to; it does not keep a clip inside one section. A promo is not a
+ * slideshow: the phone that flies out of one beat drags the bar into the
+ * next, and the sparkle that ends the tagline becomes the star in the
+ * logo. Clips cross the boundaries; only the end of the film is a wall.
+ * Audio is exempt as well: a music bed spans the whole film.
  */
 export function fitsLockedBeats(process: Process, clip: Clip): boolean {
   if (clip.kind === "audio") return true;
   if (!timingLocked(process)) return true;
-
-  const end = clip.from + clip.durationInFrames;
-  return process.animatic.beats.some(
-    (beat) => clip.from >= beat.from && end <= beat.from + beat.durationInFrames,
-  );
+  return clip.from + clip.durationInFrames <= lockedEnd(process);
 }
 
 /** The locked beat a clip belongs to, for messages and the timeline bands. */

@@ -129,11 +129,11 @@ itself rather than by a document.
 | 1 Brief | `prism.submit_brief` | audience, message, feeling, length; the truth and the demo moment from immersion | lets you concept |
 | 2 Concept | `prism.submit_concepts` | 2 to 4 directions, one recommended | picks the idea |
 | 3 Script | `prism.submit_script` | beats with words and seconds; VO if any | lets you board |
-| 4 Storyboard | `prism.submit_storyboard` | one panel per beat: frame, action, frames, in/out, sound, words. Sent back? Submit the full corrected set again — it replaces what was there | opens the elements |
+| 4 Storyboard | `prism.submit_storyboard` | one panel per section: frame, the events with their frames (`action`), what carries into the next panel (`handoff`), `durationInFrames` as the sum of the events, in/out, sound, words. Sent back? Submit the full corrected set again — it replaces what was there | opens the elements |
 | 5 Style frames | `prism.submit_style_frames` | the look, defined as elements — every piece the boards need — and the 2 to 3 frames built from them | fixes the look |
 | 6 Animatic | `prism.lay_animatic`, then `prism.submit_animatic` | the boards on the timeline beside what you built, music underneath, cut to the grid | **locks the timing** |
-| 7 Polish | `prism.submit_polish` | the rough reviewed: the sound rethought against the notes (`soundPlan`), the §14 checklist run with verdicts | clears the build |
-| 8 Build | `prism.submit_build` | every beat built final inside its window, the sound placed | unblocks the render |
+| 7 Polish | `prism.submit_polish` | the rough reviewed: the sound rethought against the notes (`soundPlan`), the §12 checklist run with verdicts | clears the build |
+| 8 Build | `prism.submit_build` | every section built final, objects carrying across the cuts, the sound placed | unblocks the render |
 
 **Laying the animatic.** Once the style frames are approved, `prism.lay_animatic`
 puts one placeholder clip per panel on a "Boards" track, at cumulative frames
@@ -142,11 +142,14 @@ words and durations are yours; the frame arithmetic is the tool's. Then add the
 music, move any board onto the beat grid, and submit.
 
 **The timing lock.** When the animatic is approved, every visual clip on the
-timeline becomes a locked beat. From then on a visual clip you add or move
-must sit inside one of those windows. `prism.add_text` and `prism.update_clip`
-refuse otherwise, and list the beats. Fill the slots; do not move them. If the
-cut needs to change, say so and ask the person to reopen the
-animatic in the Process panel. Audio is exempt: a music bed spans the film.
+timeline becomes a locked section with a start frame, and together they fix
+the film's length. From then on a clip you add or move may start in one
+section and end in the next — that is how a cut is carried by an object, and
+the method wants it — but it may not run past the end of the film.
+`prism.add_text`, `prism.place_element` and `prism.update_clip` refuse a clip
+past the end and say where the end is. If the film needs to be longer, say
+so and ask the person to reopen the animatic in the Process panel. Audio is
+exempt: a music bed spans the film.
 
 **Sent back.** A stage the person rejects comes with their note. It appears in
 `process.stages.<stage>.personSaid` and in the `instruction`. Address it and

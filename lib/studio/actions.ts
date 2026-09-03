@@ -33,6 +33,7 @@ import {
   beatFor,
   currentStage,
   fitsLockedBeats,
+  lockedEnd,
   nextInstruction,
   previousApproved,
   snapshotBeats,
@@ -254,9 +255,11 @@ function requireStageForElements(
 /**
  * The timing lock, for agents only.
  *
- * Once the animatic is approved, a visual clip an agent places or moves must
- * sit inside one locked beat. Filling a slot is the build; moving a slot is a
- * decision the person makes, in the Process panel, by reopening the animatic.
+ * Once the animatic is approved, the film's length is fixed: a visual clip
+ * an agent places or moves may cross the sections freely — that is what a
+ * cut carried by an object is — but may not run past the end. Lengthening
+ * the film is a decision the person makes, in the Process panel, by
+ * reopening the animatic.
  */
 function requireInsideBeats(
   project: FilmProject,
@@ -266,12 +269,13 @@ function requireInsideBeats(
   if (origin === "human") return null;
   if (fitsLockedBeats(project.file.process, clip)) return null;
 
+  const end = lockedEnd(project.file.process);
   const beats = project.file.process.animatic.beats
     .map((beat) => `${beat.label || beat.id} ${beat.from}–${beat.from + beat.durationInFrames}`)
     .join(", ");
   return fail(
     "timing-locked",
-    `Timing is locked: the animatic was approved, and a visual clip has to sit inside one of its beats. Frames ${clip.from}–${clip.from + clip.durationInFrames} do not. Beats: ${beats}. To change the timing itself, ask the person to reopen the animatic.`,
+    `Timing is locked: the animatic was approved, and the film ends at frame ${end}. A clip from ${clip.from} to ${clip.from + clip.durationInFrames} runs past it. Clips may cross the sections (${beats}); they may not run past the end. To lengthen the film, ask the person to reopen the animatic.`,
   );
 }
 

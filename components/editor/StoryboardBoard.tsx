@@ -225,6 +225,12 @@ function Board({
               {panel.action}
             </p>
           ) : null}
+          {panel.handoff ? (
+            <p className="line-clamp-2 text-xs leading-[var(--ds-leading-body)] text-subtle">
+              <span className="font-medium text-muted">Carries </span>
+              {panel.handoff}
+            </p>
+          ) : null}
           {panel.sound ? (
             <p className="line-clamp-1 text-xs text-subtle">♪ {panel.sound}</p>
           ) : null}

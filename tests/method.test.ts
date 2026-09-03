@@ -11,10 +11,12 @@ import { buildTools } from "@/lib/webmcp/tools";
  * make. An agent reads it once and then writes clips from memory of it, so a
  * transition name that does not exist, a hex the schema rejects, or a tool
  * that is not registered becomes a broken file on someone's disk with the
- * method's authority behind it.
+ * method's authority behind it. And it is read into a context window, so it
+ * has to stay short enough to be read whole.
  *
  * These tests treat the document as code. If one fails, the document is
- * lying about the tool. Fix the document.
+ * lying about the tool, or has grown past what an agent can hold. Fix the
+ * document.
  */
 
 const METHOD = readFileSync(join(process.cwd(), "public", "PRISM_METHOD.md"), "utf8");
@@ -32,20 +34,35 @@ describe("public/PRISM_METHOD.md", () => {
     expect(SKILL).toMatch(/## Before you build anything/);
   });
 
-  /** The pipeline is the spine; every stage the process research named is here. */
-  it("walks the whole pipeline in order", () => {
-    const stages = [
-      "Brief",
-      "Immersion",
-      "Concept",
-      "Script",
-      "Storyboard",
-      "Animatic",
-      "Style frames",
-      "Build",
-      "Sound",
-      "Polish",
-    ];
+  /** Short enough to be read whole: the old version burned a fifth of a context window. */
+  it("stays concise", () => {
+    expect(METHOD.split("\n").length).toBeLessThan(480);
+    expect(METHOD.length).toBeLessThan(28_000);
+  });
+
+  it("leads with the two rules that kill slop, then the rest", () => {
+    for (const heading of [
+      "## 1. Events, not slides",
+      "## 2. Objects cross the cuts",
+      "## 3. The other rules",
+      "## 4. The process",
+      "## 5. Brief, assets, concept",
+      "## 6. Words",
+      "## 7. Look",
+      "## 8. Motion",
+      "## 9. Sound",
+      "## 10. Storyboard, animatic, build",
+      "## 11. The tells",
+      "## 12. Before you propose the render",
+    ]) {
+      expect(METHOD, `missing "${heading}"`).toContain(heading);
+    }
+    expect(METHOD.indexOf("## 1. Events")).toBeLessThan(METHOD.indexOf("## 4. The process"));
+  });
+
+  /** The pipeline table names the app's eight stages, in the app's order. */
+  it("walks the app's stages in order", () => {
+    const stages = ["Brief", "Concept", "Script", "Storyboard", "Style frames", "Animatic", "Polish", "Build"];
     let cursor = 0;
     for (const stage of stages) {
       const at = METHOD.indexOf(`| **${stage}**`, cursor);
@@ -54,40 +71,27 @@ describe("public/PRISM_METHOD.md", () => {
     }
   });
 
-  it("names every section an agent would look for", () => {
-    for (const heading of [
-      "## 1. The pipeline",
-      "## 3. Concept",
-      "## 4. Structure, the hook and the pace",
-      "## 5. Script",
-      "## 6. Storyboard and animatic",
-      "## 7. Look",
-      "## 8. Motion",
-      "## 9. Sound",
-      "## 10. Build",
-      "## 11. Review",
-      "## 12. Working with the person",
-      "## 13. The tells",
-      "## 14. Before you propose the render",
-    ]) {
-      expect(METHOD, `missing "${heading}"`).toContain(heading);
-    }
+  /** The rules the method exists for have to be stated as rules, with numbers. */
+  it("states the pace and continuity rules with their numbers", () => {
+    expect(METHOD).toMatch(/Two events per second/);
+    expect(METHOD).toContain("holdFrames = 12 + characters × 2");
+    expect(METHOD).toContain("12 + chars × 2");
+    expect(METHOD).toMatch(/handoff/);
+    expect(METHOD).toMatch(/may start in one section and\s+end in the next/);
+    expect(METHOD).toMatch(/never a hold/);
   });
 
   /**
    * Every transition the method tells an agent to use has to be one the
-   * renderer knows. The table in §8 is the authority an agent copies from.
+   * renderer knows, and every one the renderer has must be in the table.
    */
-  it("only recommends transitions the renderer implements", () => {
-    const table = METHOD.slice(
-      METHOD.indexOf("### The eight transitions"),
-      METHOD.indexOf("**Grammar: pick two.**"),
-    );
+  it("only recommends transitions the renderer implements, and all of them", () => {
+    const table = METHOD.slice(METHOD.indexOf("### Transitions"), METHOD.indexOf("### Recipes"));
     const named = [...table.matchAll(/\| \*\*([a-z-]+(?: \/ [a-z-]+)?)\*\*/g)].flatMap(
       (match) => match[1]!.split(" / "),
     );
 
-    expect(named.length).toBeGreaterThanOrEqual(7);
+    expect(named.length).toBeGreaterThanOrEqual(12);
     for (const name of named) {
       expect(
         TransitionSchema.safeParse(name).success,
@@ -99,26 +103,20 @@ describe("public/PRISM_METHOD.md", () => {
     }
   });
 
-  /** Every hex in the four looks is copied verbatim into clips. */
+  /** Every hex in the looks is copied verbatim into clips. */
   it("uses only colours the schema accepts", () => {
     const hexes = [...METHOD.matchAll(/`(#[0-9A-Fa-f]{3,8})`/g)].map((m) => m[1]!);
-    expect(hexes.length).toBeGreaterThan(20);
-
+    expect(hexes.length).toBeGreaterThan(15);
     for (const hex of hexes) {
-      // "#000000" and "#FFFFFF" appear only as things NOT to use; they still
-      // have to parse, or the warning itself would be malformed.
       expect(ColorSchema.safeParse(hex).success, `${hex} is not a valid colour`).toBe(true);
     }
   });
 
   /** Font families the looks name have to be ones the renderer loads. */
   it("names only the three loaded font families", () => {
-    const looks = METHOD.slice(
-      METHOD.indexOf("### Four looks"),
-      METHOD.indexOf("### Style frames"),
-    );
+    const looks = METHOD.slice(METHOD.indexOf("**Four looks.**"), METHOD.indexOf("**End card"));
     expect(looks).toMatch(/Inter/);
-    expect(looks).toMatch(/Instrument Serif|display \(Instrument Serif\)/);
+    expect(looks).toMatch(/Instrument Serif/);
     expect(looks).toMatch(/mono/);
     expect(looks).not.toMatch(/Helvetica|SF Pro|Geist|Söhne|Berkeley/);
   });
@@ -127,32 +125,25 @@ describe("public/PRISM_METHOD.md", () => {
     const registered = new Set(buildTools().map((tool) => tool.name));
     const mentioned = [...METHOD.matchAll(/`(prism\.[a-z_]+)`/g)].map((m) => m[1]!);
 
-    expect(mentioned.length).toBeGreaterThan(0);
+    expect(mentioned.length).toBeGreaterThan(5);
     for (const name of mentioned) {
       expect(registered.has(name), `${name} is in the method but not registered`).toBe(true);
     }
   });
 
-  /**
-   * The hold-time formula is the one rule an agent applies to every text clip.
-   * It has to be stated once, consistently, in a form that can be computed.
-   */
-  it("states one hold-time formula and uses it in the checklist", () => {
-    expect(METHOD).toContain("holdFrames = 21 + (characters × 2.7)");
-    expect(METHOD).toContain("21 + chars × 2.7");
-  });
-
   /** The frame-locked tempo table has to agree with arithmetic. */
   it("has a tempo table that is actually frame-locked at 30fps", () => {
     const rows = [...METHOD.matchAll(/^\| (\d+) \| (\d+) \| (\d+) \| (\d+) \|/gm)];
-    expect(rows.length).toBeGreaterThanOrEqual(6);
+    expect(rows.length).toBeGreaterThanOrEqual(5);
 
     for (const row of rows) {
       const bpm = Number(row[1]);
       const perBeat = Number(row[2]);
       const perBar = Number(row[3]);
+      const eightBars = Number(row[4]);
       expect(1800 / bpm, `${bpm} BPM is not frame-locked`).toBe(perBeat);
       expect(perBar).toBe(perBeat * 4);
+      expect(eightBars).toBe(perBar * 8);
     }
   });
 
@@ -164,12 +155,12 @@ describe("public/PRISM_METHOD.md", () => {
     expect(METHOD).toMatch(/only they can approve the render/);
     expect(METHOD).not.toMatch(/prism\.(accept|approve|reject)/);
 
-    const looks = METHOD.slice(METHOD.indexOf("### Four looks"), METHOD.indexOf("### Style frames"));
+    const looks = METHOD.slice(METHOD.indexOf("**Four looks.**"), METHOD.indexOf("**End card"));
     expect(looks).not.toMatch(/#7C3AED|#2563EB|#8B5CF6|#6366F1/i);
   });
 
   it("carries its sources", () => {
     const urls = [...METHOD.matchAll(/https?:\/\/[^\s)]+/g)];
-    expect(urls.length).toBeGreaterThan(30);
+    expect(urls.length).toBeGreaterThan(15);
   });
 });

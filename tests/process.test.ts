@@ -257,7 +257,7 @@ describe("the animatic and the timing lock", () => {
     expect(timingLocked(current().file.process)).toBe(true);
   });
 
-  it("lets an agent fill a locked beat but not cross its edge", () => {
+  it("lets an agent fill a section, cross into the next, but not run past the end", () => {
     const project = filmApprovedThrough("storyboard");
     project.file.tracks[0]!.clips = [
       textClip({ id: "hook", from: 0, durationInFrames: 60, label: "Hook" }),
@@ -279,18 +279,29 @@ describe("the animatic and the timing lock", () => {
     );
     expect(inside.ok).toBe(true);
 
-    // Straddling the gap between beats: refused, with the beats listed.
+    // Straddling the cut between the sections: fine — that is an object
+    // carrying the cut, which is what the method wants.
     const across = actions.createClip(
       "track-2",
       { ...AGENT_TEXT, from: 50, durationInFrames: 60 },
       "agent",
+      "the phone dragging the bar",
+    );
+    expect(across.ok, across.ok ? "" : across.message).toBe(true);
+
+    // Past the end of the locked film: refused, with the end named.
+    const past = actions.createClip(
+      "track-2",
+      { ...AGENT_TEXT, from: 150, durationInFrames: 60 },
+      "agent",
       "sloppy",
     );
-    expect(across.ok).toBe(false);
-    if (!across.ok) {
-      expect(across.code).toBe("timing-locked");
-      expect(across.message).toMatch(/Hook 0–60/);
-      expect(across.message).toMatch(/reopen the animatic/);
+    expect(past.ok).toBe(false);
+    if (!past.ok) {
+      expect(past.code).toBe("timing-locked");
+      expect(past.message).toMatch(/ends at frame 180/);
+      expect(past.message).toMatch(/Hook 0–60/);
+      expect(past.message).toMatch(/reopen the animatic/);
     }
   });
 

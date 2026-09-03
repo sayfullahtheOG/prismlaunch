@@ -258,7 +258,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_brief",
       description:
-        "Stage 1 of 8. Submit the brief: one audience, one message, one feeling, one length. The person approves it in the Process panel before you go further. PRISM_METHOD.md §2.",
+        "Stage 1 of 8. Submit the brief: one audience, one message, one feeling, one length — after asking the person for the product (logo, screenshots, brand colour). The person approves it in the Process panel before you go further. PRISM_METHOD.md §5.",
       schema: SubmitBriefInput,
       execute: ({ summary, ...brief }) => submitBrief(brief, summary),
     }),
@@ -266,7 +266,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_concepts",
       description:
-        "Stage 2 of 8. Submit two to four directions with one recommended — generated from 8–12 angles, scored on the six tests, not the first idea. Refuses until the brief is approved. PRISM_METHOD.md §3.",
+        "Stage 2 of 8. Submit two to four directions with one recommended — generated from 8–12 angles, scored on the six tests, not the first idea. Refuses until the brief is approved. PRISM_METHOD.md §5.",
       schema: SubmitConceptsInput,
       execute: ({ summary, ...concept }) => submitConcepts(concept, summary),
     }),
@@ -274,7 +274,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_script",
       description:
-        "Stage 3 of 8. Submit the beats with their words and seconds, and the voiceover if there is one. Read it aloud against the length first. Refuses until the concept is approved. PRISM_METHOD.md §5.",
+        "Stage 3 of 8. Submit the lines and runs with their seconds — seconds that follow from what happens, never a budget filled with a headline — and the voiceover if there is one. Refuses until the concept is approved. PRISM_METHOD.md §1 and §6.",
       schema: SubmitScriptInput,
       execute: ({ summary, ...script }) => submitScript(script, summary),
     }),
@@ -282,7 +282,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_storyboard",
       description:
-        "Stage 4 of 8. One panel per script beat: what is in the frame, what moves, durationInFrames, transition in and out, what the sound does, the words. This is the film before it exists — the person reads it as boards. Refuses until the script is approved. PRISM_METHOD.md §6.",
+        "Stage 4 of 8. One panel per section, written as its events: what is in the frame, the events in order with their frames (action), what carries into the next panel (handoff), durationInFrames as the SUM of the events, transition in and out, what the sound does, the words. This is the film before it exists — the person reads it as boards. Refuses until the script is approved. PRISM_METHOD.md §2 and §10.",
       schema: SubmitStoryboardInput,
       execute: ({ summary, ...storyboard }) => submitStoryboard(storyboard, summary),
     }),
@@ -298,7 +298,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_animatic",
       description:
-        "Stage 6 of 8. The animatic IS the timeline: the boards laid by prism.lay_animatic, adjusted to the beat grid, with the music underneath. Call this when it is laid out. Approving it LOCKS the timing — after that, visual clips must sit inside the approved beats. Refuses until the storyboard is approved. PRISM_METHOD.md §6.",
+        "Stage 6 of 8. The animatic IS the timeline: the boards laid by prism.lay_animatic, adjusted to the beat grid, with the music underneath. Call this when it is laid out. Approving it LOCKS the length and the section starts — after that, clips may cross sections but not run past the end. Refuses until the storyboard is approved. PRISM_METHOD.md §10.",
       schema: SubmitAnimaticInput,
       execute: (input) => submitAnimatic(input.summary),
     }),
@@ -314,7 +314,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_build",
       description:
-        "Stage 8 of 8, the last. Every remaining placeholder replaced with real clips, inside their locked windows, in the approved look, with the sound placed from the polish plan. Refuses until the polish is approved. After the person approves this, prism.request_render. PRISM_METHOD.md §10.",
+        "Stage 8 of 8, the last. Every remaining placeholder replaced with real clips in the approved look — two events a second, the handoff object built as one clip across each cut, the product on screen most of the time — with the sound placed from the polish plan. Refuses until the polish is approved. After the person approves this, prism.request_render. PRISM_METHOD.md §10.",
       schema: SubmitBuildInput,
       execute: (input) => submitBuild(input.summary),
     }),
@@ -322,7 +322,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_polish",
       description:
-        "Stage 7 of 8. The rough, reviewed before the build: rethink the sound against the person's notes (include the updated soundPlan), then run the §14 checklist against the animatic — sound on, muted, half size — and report it line by line with a verdict on each. Refuses until the animatic is approved. PRISM_METHOD.md §9, §11 and §14.",
+        "Stage 7 of 8. The rough, reviewed before the build: rethink the sound against the person's notes (include the updated soundPlan), then run the §12 checklist against the animatic — sound on, muted, half size — and report it line by line with a verdict on each. Refuses until the animatic is approved. PRISM_METHOD.md §9 and §12.",
       schema: SubmitPolishInput,
       execute: ({ summary, ...polish }) => submitPolish(polish, summary),
     }),

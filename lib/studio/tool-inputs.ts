@@ -737,7 +737,7 @@ export const SubmitConceptsInput = z.object({
           .min(0)
           .max(12)
           .optional()
-          .describe("Out of 12, from the six tests in PRISM_METHOD.md §3."),
+          .describe("Out of 12, from the six tests in PRISM_METHOD.md §5."),
       }),
     )
     .min(2)
@@ -784,13 +784,22 @@ export const SubmitStoryboardInput = z.object({
           .min(1)
           .max(280)
           .describe("What is on screen: ground, composition, type role, the product if shown. A sentence a designer could draw from."),
-        action: z.string().max(240).optional().describe("What moves, in what order."),
+        action: z
+          .string()
+          .max(240)
+          .optional()
+          .describe("The events, in order, with frames: what arrives, what it does, what leaves. 'Line pops in 6f, holds 18f, out 5f; phone flies in 20f, drifts.'"),
+        handoff: z
+          .string()
+          .max(140)
+          .optional()
+          .describe("What is still on screen when the next panel starts — the object that carries the cut. 'The phone, flying left, dragging the bar.'"),
         durationInFrames: z
           .number()
           .int()
           .min(6)
           .max(9000)
-          .describe("At 30fps. From the script's seconds, adjusted to the beat grid once you have chosen music."),
+          .describe("At 30fps: the SUM of the events' frames in `action`, never a budget chosen first. Then nudged onto the beat grid once you have chosen music."),
         // Defaulted here rather than mapped in the executor, so the parsed
         // panel is already the shape the stage artifact wants.
         transitionIn: z
@@ -839,7 +848,7 @@ export const SubmitPolishInput = z.object({
     .array(z.string().min(1).max(200))
     .min(1)
     .max(80)
-    .describe("Each line of the §14 checklist you ran against the rough, with its verdict: '✓ first frame has content', '✗ two clips exit at 12f — fixed'."),
+    .describe("Each line of the §12 checklist you ran against the rough, with its verdict: '✓ two events per second', '✗ the cut at f240 has no handoff — the phone now carries it'."),
   soundPlan: z
     .string()
     .max(1600)

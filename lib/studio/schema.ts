@@ -519,9 +519,8 @@ export const STAGES = [
   "storyboard",
   "style",
   "animatic",
-  "build",
-  "sound",
   "polish",
+  "build",
 ] as const;
 
 export const StageIdSchema = z.enum(STAGES);
@@ -648,9 +647,9 @@ export const StyleStageSchema = z.object({
 
 export const BuildStageSchema = z.object({ ...StageBase });
 
+/** A retired stage, kept so films written before sound merged into polish still read. */
 export const SoundStageSchema = z.object({
   ...StageBase,
-  /** The filled-in sound plan from the method, as text. */
   plan: z.string().max(1600).optional(),
 });
 
@@ -658,6 +657,12 @@ export const PolishStageSchema = z.object({
   ...StageBase,
   /** The pre-ship checklist as the agent ran it — one line per item, with a verdict. */
   checklist: z.array(z.string().max(200)).max(80).default([]),
+  /**
+   * The sound, rethought against the person's notes: the filled-in plan from
+   * the method. Sound stopped being its own stage — it starts at the
+   * animatic and is revisited here, before the build executes it.
+   */
+  soundPlan: z.string().max(1600).optional(),
 });
 
 /**

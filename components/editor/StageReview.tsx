@@ -81,10 +81,8 @@ function Body({ stage, process }: { stage: StageId; process: Process }) {
       return <Concepts concept={process.concept} />;
     case "script":
       return <Script script={process.script} lengthSeconds={process.brief.lengthSeconds} />;
-    case "sound":
-      return <Sound plan={process.sound.plan} />;
     case "polish":
-      return <Polish checklist={process.polish.checklist} />;
+      return <Polish checklist={process.polish.checklist} soundPlan={process.polish.soundPlan} />;
     default:
       return null;
   }
@@ -215,18 +213,26 @@ function Script({
   );
 }
 
-function Sound({ plan }: { plan: string | undefined }) {
-  if (!plan) return <Empty stage="sound" />;
+/** The sound plan rethought against the notes, then the checklist with its verdicts. */
+function Polish({ checklist, soundPlan }: { checklist: readonly string[]; soundPlan: string | undefined }) {
+  if (checklist.length === 0 && !soundPlan) return <Empty stage="polish" />;
   return (
-    <pre className="font-sans text-sm leading-[var(--ds-leading-body)] whitespace-pre-wrap text-ink">
-      {plan}
-    </pre>
+    <div className="flex flex-col gap-8">
+      {soundPlan ? (
+        <div>
+          <h2 className="mb-3 text-xs font-medium text-muted">The sound, rethought</h2>
+          <pre className="font-sans text-sm leading-[var(--ds-leading-body)] whitespace-pre-wrap text-ink">
+            {soundPlan}
+          </pre>
+        </div>
+      ) : null}
+      <Checklist checklist={checklist} />
+    </div>
   );
 }
 
-/** The checklist, each line with its verdict. */
-function Polish({ checklist }: { checklist: readonly string[] }) {
-  if (checklist.length === 0) return <Empty stage="polish" />;
+function Checklist({ checklist }: { checklist: readonly string[] }) {
+  if (checklist.length === 0) return null;
   return (
     <ul className="flex flex-col divide-y divide-line-soft">
       {checklist.map((line, index) => {
@@ -259,7 +265,6 @@ function Empty({ stage }: { stage: StageId }) {
     animatic: "prism.submit_animatic",
     style: "prism.submit_style_frames",
     build: "prism.submit_build",
-    sound: "prism.submit_sound",
     polish: "prism.submit_polish",
   };
   return (

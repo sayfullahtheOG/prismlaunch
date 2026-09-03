@@ -175,7 +175,7 @@ describe("the stage order, for agents", () => {
     expect(result.ok).toBe(true);
     expect(current().file.process.brief.status).toBe("submitted");
     expect(current().file.process.brief.summary).toBe("One audience, one line.");
-    expect(nextInstruction(current().file.process).instruction).toMatch(/waiting for the person/i);
+    expect(nextInstruction(current().file.process).instruction).toMatch(/END YOUR TURN/);
   });
 
   it("refuses to resubmit a stage the person already approved", async () => {

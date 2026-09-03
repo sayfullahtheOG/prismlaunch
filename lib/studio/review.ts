@@ -16,7 +16,7 @@ import type { RailTab } from "./store";
  * and a board read in a 300px column is a list, not a board. The same
  * boards open from the process when that stage is under review.
  */
-export const REVIEW_PAGES: readonly StageId[] = ["brief", "concept", "script", "sound", "polish"];
+export const REVIEW_PAGES: readonly StageId[] = ["brief", "concept", "script", "polish"];
 
 export type MiddleView = "boards" | "review" | "editor" | "files" | "screening";
 

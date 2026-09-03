@@ -75,7 +75,9 @@ describe("waiting for a decision", () => {
     const result = await actions.waitForDecision({ timeoutSeconds: 1 });
     expect(result.ok).toBe(true);
     expect(result.message).toMatch(/Still waiting/);
-    expect(result.message).toMatch(/call prism\.wait_for_decision again/);
+    // The agent is told to hand the turn back, not to poll.
+    expect(result.message).toMatch(/end your turn/i);
+    expect(result.message).toMatch(/message you/);
   }, 5000);
 
   it("refuses to wait on a stage that was never submitted", async () => {
@@ -153,7 +155,7 @@ describe("what the middle shows", () => {
   it("follows the film when nothing is opened, and the person when something is", () => {
     const process = readProject()!.file.process;
     expect(reviewedStage(null, process)).toBe("brief");
-    expect(reviewedStage("sound", process)).toBe("sound");
+    expect(reviewedStage("polish", process)).toBe("polish");
     useStudioStore.getState().setOpenStage("script");
     expect(useStudioStore.getState().openStage).toBe("script");
     actions.showEditor();

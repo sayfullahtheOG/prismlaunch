@@ -109,8 +109,10 @@ to stop.
 
 ## The process
 
-The nine stages of PRISM_METHOD.md are nine fields in `project.json` and
-nine tools. The tool for a stage refuses until the person has approved every
+The stages of PRISM_METHOD.md are eight fields in `project.json` and
+eight tools. Sound is not one of them: the music arrives with the animatic,
+and the polish rethinks it against the person's notes before the build
+places it. The tool for a stage refuses until the person has approved every
 stage before it, so you cannot skip ahead. The order is enforced by the tool
 itself rather than by a document.
 
@@ -122,9 +124,8 @@ itself rather than by a document.
 | 4 Storyboard | `prism.submit_storyboard` | one panel per beat: frame, action, frames, in/out, sound, words. Sent back? Submit the full corrected set again — it replaces what was there | opens the elements |
 | 5 Style frames | `prism.submit_style_frames` | the look, defined as elements — every piece the boards need — and the 2 to 3 frames built from them | fixes the look |
 | 6 Animatic | `prism.lay_animatic`, then `prism.submit_animatic` | the boards on the timeline beside what you built, music underneath, cut to the grid | **locks the timing** |
-| 7 Build | `prism.submit_build` | every beat built, inside its window | lets you do sound |
-| 8 Sound | `prism.submit_sound` | the sound plan; effects, ducking, tone placed | lets you polish |
-| 9 Polish | `prism.submit_polish` | the §14 checklist, run, with verdicts | unblocks the render |
+| 7 Polish | `prism.submit_polish` | the rough reviewed: the sound rethought against the notes (`soundPlan`), the §14 checklist run with verdicts | clears the build |
+| 8 Build | `prism.submit_build` | every beat built final inside its window, the sound placed | unblocks the render |
 
 **Laying the animatic.** Once the style frames are approved, `prism.lay_animatic`
 puts one placeholder clip per panel on a "Boards" track, at cumulative frames
@@ -430,7 +431,7 @@ rather than crashing the render. It is still a hole, so check.
 | `prism.get_project_context` | Where things stand: the folder, the canvas, every track and clip with its id, the playhead, and which clips are unreviewed. **Call this first.** |
 | `prism.create_project` | Create an empty composition and open it. It starts with no runtime and grows as you place clips. |
 | `prism.open_project` | Show one that already exists in the folder. |
-| `prism.submit_brief` … `prism.submit_polish` | The nine stages, in order. See *The process* above. |
+| `prism.submit_brief` … `prism.submit_build` | The eight stages, in order. See *The process* above. |
 | `prism.wait_for_decision` | **Call after every submit.** Returns the moment the person approves or sends back, with their note and what to do next. |
 | `prism.lay_animatic` | The approved boards onto the timeline, as placeholders, with the frame arithmetic done. |
 | `prism.add_track` | Add a visual or audio layer. |
@@ -517,17 +518,15 @@ you capture in the Activity panel.
 ## After you submit
 
 Every stage you submit opens for the person at reading size in PrismLaunch,
-with Approve and Send back at the end of it. You are not told about the
-decision unless you ask, so ask the way that waits: call `prism.wait_for_decision` right
-after `prism.submit_*`. It holds until they click, then returns the decision,
-their note if they wrote one, and the instruction for the next stage. Its
-default timeout is 25 seconds, short on purpose so the call fits any
-harness; pass `timeoutSeconds` up to 600 if yours allows long tool calls.
-If it returns "still waiting", call it again immediately and keep calling
-until it answers — ending your turn here means the person has to wake you
-by hand, because no page can reopen a closed turn. Do not move on without
-it, do not resubmit while it is waiting, and do not ask the person to tell
-you in chat what the tool will tell you itself.
+with Approve and Send back at the end of it. Then hand the turn back:
+tell them the stage is waiting for their review, END YOUR TURN, and ask
+them to message you once they have approved it or sent it back. Do not
+poll and do not hold long waits — that burns your context for nothing.
+When they ping you, read the decision with `prism.get_project_context`
+(their note is in `process.stages.<stage>.personSaid`), or call
+`prism.wait_for_decision` once — it returns the decision, their note and
+the next instruction, and waits briefly if they are mid-click. Never
+build past an undecided stage, and never resubmit while one is waiting.
 
 ## Working with the person
 

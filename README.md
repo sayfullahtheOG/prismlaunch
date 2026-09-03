@@ -41,7 +41,7 @@ Each track holds clips — text, shapes, images, video, sound — with a start f
 1. You give your agent one line: `set up https://tryprismlaunch.vercel.app/SKILL.md`
 2. You open the studio and click **Link project folder**. (Your agent cannot — browsers only open that picker for a real click.)
 3. Your agent writes the film's files, either with its own file tools or through the WebMCP tools registered on the page. The studio picks up a change to any of them within a second.
-4. It works stage by stage — brief, concept, script, storyboard, style, animatic, build, sound, polish — and each stage opens for you to read. You approve it or send it back with a note; the decision is written to disk, where your agent reads it.
+4. It works stage by stage — brief, concept, script, storyboard, style, animatic, polish, build — and each stage opens for you to read. You approve it or send it back with a note; the decision is written to disk, where your agent reads it.
 5. When every stage is approved, your agent proposes a render. You approve. The MP4 is encoded in your browser with WebCodecs and saved beside the project file.
 
 **Nothing is uploaded.** Not the video, not the project file, not your code. The film is encoded on your machine and written to your folder.
@@ -51,7 +51,7 @@ Each track holds clips — text, shapes, images, video, sound — with a start f
 Most "AI video" tools are a chat box that emits a finished file. PrismLaunch puts the agent and the human on one artifact:
 
 - The agent adds a clip or saves the film's files; it appears on your timeline immediately.
-- The approval boundary is the process: nine stages, each submitted by the agent and approved or sent back by you. There is no tool that approves a stage or a render — `approveStage` and `approveRender` exist in the code and are deliberately never registered. A test walks the live tool surface to prove it.
+- The approval boundary is the process: eight stages, each submitted by the agent and approved or sent back by you. There is no tool that approves a stage or a render — `approveStage` and `approveRender` exist in the code and are deliberately never registered. A test walks the live tool surface to prove it.
 - Rendering is gated by a **two-phase confirmation token**, not a boolean the agent fills in itself. The first call proposes and writes nothing; the second takes only the token and replays what the first recorded.
 - **Tools, not rules.** There is no `make_the_video` that takes a brief and returns a finished film. There is a canvas, layers, clips and a playhead. What gets built is the agent's call, and yours.
 
@@ -87,7 +87,7 @@ The tool without the method produces the video everyone has seen. The method is 
 
 ## The tools
 
-Thirty-seven WebMCP tools are registered on the studio page: the process (`submit_brief` through `submit_polish`, `lay_animatic`, `wait_for_decision`), the canvas (`create_project`, `open_project`, `set_background`, `set_duration`), the stack (`add_track`, `update_track`, `move_track`, `remove_track`), the elements (`add_element`, `update_element`, `remove_element`, `add_from_library`, `place_element`), the clips (`add_text`, `add_shape`, `add_image`, `add_video`, `add_audio`, `update_clip`, `remove_clip`), the view (`seek`, `preview`, `capture_frames`, `get_project_context`) and the gate (`request_render`, `confirm_render`).
+Thirty-six WebMCP tools are registered on the studio page: the process (`submit_brief` through `submit_build`, `lay_animatic`, `wait_for_decision`), the canvas (`create_project`, `open_project`, `set_background`, `set_duration`), the stack (`add_track`, `update_track`, `move_track`, `remove_track`), the elements (`add_element`, `update_element`, `remove_element`, `add_from_library`, `place_element`), the clips (`add_text`, `add_shape`, `add_image`, `add_video`, `add_audio`, `update_clip`, `remove_clip`), the view (`seek`, `preview`, `capture_frames`, `get_project_context`) and the gate (`request_render`, `confirm_render`).
 
 The clip tools exist so an agent *without* file access is not locked out. An agent with file tools should edit the film's files directly, one element or layer at a time — it is the same composition either way, and far fewer round trips.
 

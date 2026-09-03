@@ -1857,7 +1857,7 @@ async function submitStage<S extends StageId>(
 
   await flushWrites();
   return ok(
-    `${STAGE_LABELS[stage]} submitted. It is open for the person to read in PrismLaunch. Do not move on: call prism.wait_for_decision, which returns the moment they approve it or send it back.`,
+    `${STAGE_LABELS[stage]} submitted and open for the person in PrismLaunch. End your turn now: tell them it is waiting for their review, and ask them to message you once they have approved it or sent it back. When they ping you, read the decision with prism.get_project_context (or one prism.wait_for_decision). Do not poll while you wait.`,
   );
 }
 
@@ -2091,13 +2091,6 @@ export function submitBuild(summary?: string): Promise<ActionResult> {
   return submitStage("build", {}, summary);
 }
 
-export function submitSound(
-  artifact: StagePatch<"sound">,
-  summary?: string,
-): Promise<ActionResult> {
-  return submitStage("sound", artifact, summary);
-}
-
 export function submitPolish(
   artifact: StagePatch<"polish">,
   summary?: string,
@@ -2299,7 +2292,7 @@ export function waitForDecision(input: {
       () =>
         finish(
           ok(
-            `Still waiting: the person has not decided on ${STAGE_LABELS[stage]} yet. Do not move on and do not end your turn — call prism.wait_for_decision again immediately, with timeoutSeconds up to 600 if your harness allows long tool calls, and keep calling until it answers.`,
+            `Still waiting: the person has not decided on ${STAGE_LABELS[stage]} yet. Do not keep calling — tell them it is waiting for their review in PrismLaunch, end your turn, and ask them to message you once they have decided.`,
           ),
         ),
       timeoutMs,
@@ -2707,7 +2700,6 @@ export function getProjectContext() {
         storyboard: strip(file.process.storyboard),
         animatic: { beats: file.process.animatic.beats },
         style: strip(file.process.style),
-        sound: strip(file.process.sound),
         polish: strip(file.process.polish),
       },
     },

@@ -6,7 +6,7 @@ import { acquirePrismTools, releasePrismTools } from "@/lib/webmcp/register";
  *
  * Two mounts of useWebMcp used to run two full registrations over the same
  * names. A real registry throws on duplicates, so the runs alternated
- * failures and the survivor held 18 of 37 tools — in Chrome and in ChatGPT.
+ * failures and the survivor held half the tools — in Chrome and in ChatGPT.
  * These pin the fix: acquires share one run, and the teardown waits for the
  * last release.
  */
@@ -46,10 +46,10 @@ describe("the shared registration", () => {
 
     const [first, second] = await Promise.all([acquirePrismTools(), acquirePrismTools()]);
     expect(first).toBe(second);
-    expect(first?.registered).toBe(37);
+    expect(first?.registered).toBe(36);
     expect(first?.failed).toEqual([]);
     expect(registry.duplicates).toEqual([]);
-    expect(registry.calls.length).toBe(37);
+    expect(registry.calls.length).toBe(36);
 
     // The first release keeps the tools; the last tears them down, and a
     // fresh acquire after that is a new registration.
@@ -60,7 +60,7 @@ describe("the shared registration", () => {
 
     const third = await acquirePrismTools();
     expect(third).not.toBe(first);
-    expect(third?.registered).toBe(37);
+    expect(third?.registered).toBe(36);
     expect(registry.duplicates).toEqual([]);
     releasePrismTools();
     await Promise.resolve();

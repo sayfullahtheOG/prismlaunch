@@ -17,9 +17,8 @@ export const STAGE_LABELS: Record<StageId, string> = {
   storyboard: "Storyboard",
   animatic: "Animatic",
   style: "Style frames",
-  build: "Build",
-  sound: "Sound",
   polish: "Polish",
+  build: "Build",
 };
 
 /** One line per stage on what it is for, for the panel and the agent. */
@@ -30,9 +29,8 @@ export const STAGE_PURPOSE: Record<StageId, string> = {
   storyboard: "One panel per beat: what is in the frame, what moves, how long it holds, how it enters and leaves, and what the sound does. The film before it exists.",
   style: "The look, defined as elements (the type roles, the accent, the device, the product), with two or three beats built from them for real.",
   animatic: "The boards laid on the real timeline, cut to the real music. Approving this locks the timing.",
-  build: "Every remaining beat, built inside its locked window from the approved elements.",
-  sound: "Music, effects and any voice, placed to the beat grid.",
-  polish: "The checklist before shipping, run and reported. Then the render.",
+  polish: "The rough, reviewed: the sound rethought against your notes, and the checklist run. The last look before the build.",
+  build: "Every beat built final inside its locked window, in the approved look, with the sound placed. Then the render.",
 };
 
 export function stageIndex(stage: StageId): number {
@@ -113,7 +111,7 @@ export function nextInstruction(process: Process): {
     return {
       stage,
       status: state.status,
-      instruction: `${label} is submitted and waiting for the person to review it. Do not move on; ask them to look at it in the Process panel.`,
+      instruction: `${label} is submitted and open for the person in PrismLaunch. Do not build past it and do not poll: tell them it is waiting for their review, END YOUR TURN, and ask them to message you once they have approved it or sent it back. When they do, read the decision here.`,
     };
   }
 
@@ -124,9 +122,8 @@ export function nextInstruction(process: Process): {
     storyboard: "Board every script beat: frame, action, durationInFrames, transition in and out, sound, words. Board the first beat, then the last, then fill in between. Submit with prism.submit_storyboard. PRISM_METHOD.md §6.",
     style: "Pick a look from PRISM_METHOD.md §7. Define every piece the approved boards need as elements with prism.add_element (Headline, Support, Label, the accent, the device frame, the product shot), then build the hook, the reveal and the endcard for real by placing them with prism.place_element at the boards' times. Submit with prism.submit_style_frames, naming the elements and the clips.",
     animatic: "Choose the music first (PRISM_METHOD.md §9). Call prism.lay_animatic to put the approved boards on the timeline as placeholders beside what you built, then prism.add_audio the music with startFrom on a downbeat, adjust boards to the beat grid, then prism.submit_animatic. Approving locks the timing.",
-    build: "Replace every remaining placeholder by placing the approved elements with prism.place_element, inside their windows. Change an element, not its clips, when the look needs adjusting. Submit with prism.submit_build. PRISM_METHOD.md §10.",
-    sound: "Place effects on the transitions, duck under any voice, add room tone. Submit with prism.submit_sound and the filled-in plan. PRISM_METHOD.md §9.",
-    polish: "Run the checklist in PRISM_METHOD.md §14 with sound on, muted, and at half size. Submit each line with its verdict via prism.submit_polish.",
+    polish: "Watch the animatic through with the person's notes in hand. Rethink the sound (PRISM_METHOD.md §9): effects on the transitions, ducking under any voice, room tone. Run the §14 checklist against the rough — sound on, muted, half size — and submit each line with its verdict via prism.submit_polish, with the updated sound plan.",
+    build: "Replace every remaining placeholder by placing the approved elements with prism.place_element, inside their windows, and place the final sound from the polish plan. Change an element, not its clips, when the look needs adjusting. Submit with prism.submit_build; after the person approves it, prism.request_render. PRISM_METHOD.md §10.",
   };
 
   return { stage, status: state.status, instruction: how[stage] };

@@ -691,20 +691,16 @@ export const SubmitStyleFramesInput = z.object({
 
 export const SubmitBuildInput = z.object({ summary });
 
-export const SubmitSoundInput = z.object({
-  plan: z
-    .string()
-    .max(1600)
-    .optional()
-    .describe("The filled-in sound plan from PRISM_METHOD.md §9, as text."),
-  summary,
-});
-
 export const SubmitPolishInput = z.object({
   checklist: z
     .array(z.string().min(1).max(200))
     .min(1)
     .max(80)
-    .describe("Each line of the §14 checklist you ran, with its verdict: '✓ first frame has content', '✗ two clips exit at 12f — fixed'."),
+    .describe("Each line of the §14 checklist you ran against the rough, with its verdict: '✓ first frame has content', '✗ two clips exit at 12f — fixed'."),
+  soundPlan: z
+    .string()
+    .max(1600)
+    .optional()
+    .describe("The sound, rethought against the person's notes: the filled-in plan from PRISM_METHOD.md §9. The build places it."),
   summary,
 });

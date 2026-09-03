@@ -87,7 +87,7 @@ describe("the library", () => {
 
   it("has music beds that fade out, and effects that do not", () => {
     const beds = LIBRARY.filter((item) => item.group === "Music");
-    expect(beds.length).toBe(3);
+    expect(beds.length).toBe(5);
     for (const item of beds) {
       expect(item.draft.kind === "audio" && item.draft.role).toBe("music");
       expect(item.draft.kind === "audio" && item.draft.fadeOutFrames).toBeGreaterThan(0);

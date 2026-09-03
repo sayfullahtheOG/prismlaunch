@@ -330,9 +330,10 @@ one impact on the payoff. 12–25 effects per 60s, none in the 20–40f before
 the reveal. Trim each file's silent head with `startFrom` so the transient
 sits on the frame. The first three seconds must work muted.
 
-The library ships `library/audio/` effects (whoosh, click, tick, impact, rise)
-and three 30-second beds (calm 80 BPM, upbeat 120, cinematic); the beds' BPM
-and a chosen `startFrom` go straight into the grid above.
+The library ships `library/audio/` effects (whoosh, click, tick, typing,
+impact, rise) and five 30-second beds (calm 80 BPM, upbeat 120, cinematic,
+bright 120 for the kinetic register, minimal 90 for a developer tool); a
+bed's BPM and a chosen `startFrom` go straight into the grid above.
 
 ---
 

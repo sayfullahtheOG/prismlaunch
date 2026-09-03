@@ -2756,6 +2756,17 @@ export function getProjectContext() {
         workspace.kind === "linked"
           ? locationOf(workspace.workspace, project.slug)
           : `${WORKSPACE_DIR}/${project.slug}/project.json`,
+      /**
+       * The film is a folder, and an agent with file tools must write it as
+       * one: this spells the layout out beside the path, because an agent
+       * that only sees `project.json` writes the whole film into it.
+       */
+      layout: {
+        main: "project.json — the canvas, background, process, camera, and `tracks` and `elements` as lists of ids in order. Never inline a track or an element here.",
+        tracks: "tracks/<id>.json — one file per layer, the track object with its clips.",
+        elements: "elements/<id>.json — one file per element.",
+        rule: "Write and edit the part, never the whole: a new layer is a new file plus its id in project.json; a colour change is one element file.",
+      },
       name: file.name,
       width: file.width,
       height: file.height,

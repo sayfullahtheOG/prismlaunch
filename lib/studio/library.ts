@@ -654,16 +654,23 @@ export const LIBRARY: readonly LibraryItem[] = [
   {
     id: "sfx-click",
     name: "Click",
-    blurb: "A short mechanical click, 0.4s. A button, a cut.",
+    blurb: "A single mouse click, 0.12s, dry. The frame the cursor presses.",
     group: "Sound",
     draft: sound("Click", "click.wav", "effect"),
   },
   {
     id: "sfx-tick",
     name: "Tick",
-    blurb: "A small wooden tick, 0.3s. Keystrokes, list items landing.",
+    blurb: "A single keystroke, 0.14s, dry. One per word in a run, a row landing.",
     group: "Sound",
     draft: sound("Tick", "tick.wav", "effect"),
+  },
+  {
+    id: "sfx-typing",
+    name: "Typing",
+    blurb: "A burst of keystrokes, 1.9s. Under a typed line; trim it to the words.",
+    group: "Sound",
+    draft: sound("Typing", "typing.wav", "effect"),
   },
   {
     id: "sfx-impact",
@@ -699,6 +706,20 @@ export const LIBRARY: readonly LibraryItem[] = [
     blurb: "Strings and sub swells that build for 30s. For a film with one big reveal.",
     group: "Music",
     draft: bed("Cinematic bed", "bed-cinematic.mp3"),
+  },
+  {
+    id: "bed-bright",
+    name: "Bright bed",
+    blurb: "Clean plucks and claps on a punchy kick at 120 BPM, 30s. The kinetic register's bed.",
+    group: "Music",
+    draft: bed("Bright bed", "bed-bright.mp3"),
+  },
+  {
+    id: "bed-minimal",
+    name: "Minimal bed",
+    blurb: "A warm pad and a slow arpeggio over dry rim clicks at 90 BPM, 30s. Quiet confidence for a developer tool.",
+    group: "Music",
+    draft: bed("Minimal bed", "bed-minimal.mp3"),
   },
 ];
 

@@ -560,7 +560,7 @@ export const AddFromLibraryInput = z.object({
   itemId: z
     .enum(LIBRARY.map((item) => item.id) as [string, ...string[]])
     .describe(
-      "Which prebuilt piece. Motion: cursor, hand-cursor, tap-ring, typewriter, word-by-word, kinetic-line, counter, progress-bar, check, sparkle-trail, confetti, sparkles, live-card, highlight. Type: headline, support, label, blank-type. Shapes: accent-rule, device, phone, browser, window, card, pill, button, gradient-bar, dot, panel, blank-shape. Sound: sfx-whoosh, sfx-click, sfx-tick, sfx-impact, sfx-rise. Music: bed-calm, bed-upbeat, bed-cinematic.",
+      "Which prebuilt piece. Motion: cursor, hand-cursor, tap-ring, typewriter, word-by-word, kinetic-line, counter, progress-bar, check, sparkle-trail, confetti, sparkles, live-card, highlight. Type: headline, support, label, blank-type. Shapes: accent-rule, device, phone, browser, window, card, pill, button, gradient-bar, dot, panel, blank-shape. Sound: sfx-whoosh, sfx-click, sfx-tick, sfx-typing, sfx-impact, sfx-rise. Music: bed-calm, bed-upbeat, bed-cinematic, bed-bright (120 BPM), bed-minimal (90 BPM).",
     ),
   name: z
     .string()

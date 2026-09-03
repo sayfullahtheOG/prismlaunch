@@ -216,9 +216,34 @@ lists without a file is ignored, and a file it does not list is not part of
 the film, so removing a layer is removing its id. The studio deletes the
 file on its next save.
 
-An entry in those lists may also be the object itself. The example below is
-the whole film written in one file, which still opens; the studio splits it
-into parts the first time it saves.
+**The rules, for an agent with file tools:**
+
+- **Never write the whole film into `project.json`.** It holds the canvas,
+  the background, the process, the camera, and `tracks` and `elements` as
+  lists of ids, in order — nothing else. A track or an element written
+  inline there is wrong, even though the studio still opens it (that
+  tolerance exists for films made before the split, and the studio rewrites
+  them as parts on its next save). One long file is a rewrite of the whole
+  film for every change and a context window of JSON every time you read
+  it, and a film written that way is the one that ends up with forty clips
+  nobody can find.
+- **One file per layer: `tracks/<id>.json`.** The track object, with its
+  clips. **One file per element: `elements/<id>.json`.** A new layer is a
+  new file plus its id in `project.json`, in the position it should stack.
+- **Edit the part, never the whole.** To recolour every headline, edit
+  `elements/el-headline.json`. To add a clip, edit its layer's file. To
+  change the length or the background, edit `project.json`. Read a part
+  before you rewrite it; do not regenerate files you did not change.
+- **Keep parts small.** A layer with more than about forty clips is two
+  layers by role (`Titles`, `Product`, `Cursor`, `Accent`, `Music`, `SFX`).
+- The tools (`prism.add_text`, `prism.place_element`, …) already write the
+  parts this way; `prism.get_project_context` reports the folder and this
+  layout beside it.
+
+The example below is one film, written as the studio writes it: first
+`project.json`, then each part it names.
+
+`project.json`:
 
 ```json
 {
@@ -230,12 +255,51 @@ into parts the first time it saves.
   "durationInFrames": 300,
   "background": { "kind": "gradient", "from": "#0A0A0C", "to": "#1B1B22", "angle": 160 },
   "camera": [],
-  "elements": [
+  "elements": ["el-headline"],
+  "tracks": ["track-titles", "track-rule", "audio-music"]
+}
+```
+
+`elements/el-headline.json`:
+
+```json
+{
+  "kind": "text",
+  "id": "el-headline",
+  "name": "Headline",
+  "role": "type",
+  "fontSize": 0.1,
+  "fontFamily": "display",
+  "fontWeight": 400,
+  "color": "#F5F5F7",
+  "align": "center",
+  "lineHeight": 1.1,
+  "letterSpacing": -0.02,
+  "box": { "x": 0.5, "y": 0.5, "width": 0.8, "height": 0.2, "rotation": 0, "opacity": 1, "tiltX": 0, "tiltY": 0 },
+  "animation": { "enter": "rise", "exit": "fade", "enterFrames": 14, "exitFrames": 10, "travel": 0.03, "spring": 0 }
+}
+```
+
+`tracks/track-titles.json`:
+
+```json
+{
+  "id": "track-titles",
+  "kind": "visual",
+  "name": "Titles",
+  "hidden": false,
+  "locked": false,
+  "volume": 1,
+  "clips": [
     {
       "kind": "text",
-      "id": "el-headline",
-      "name": "Headline",
-      "role": "type",
+      "id": "clip-hook",
+      "from": 0,
+      "durationInFrames": 70,
+      "approval": "accepted",
+      "elementId": "el-headline",
+      "revisionNote": "Opening on the cost, not the product.",
+      "text": "Six clicks to assign an issue.",
       "fontSize": 0.1,
       "fontFamily": "display",
       "fontWeight": 400,
@@ -245,124 +309,78 @@ into parts the first time it saves.
       "letterSpacing": -0.02,
       "box": { "x": 0.5, "y": 0.5, "width": 0.8, "height": 0.2, "rotation": 0, "opacity": 1, "tiltX": 0, "tiltY": 0 },
       "animation": { "enter": "rise", "exit": "fade", "enterFrames": 14, "exitFrames": 10, "travel": 0.03, "spring": 0 }
+    },
+    {
+      "kind": "text",
+      "id": "clip-name",
+      "from": 80,
+      "durationInFrames": 90,
+      "approval": "accepted",
+      "text": "Vector",
+      "fontSize": 0.22,
+      "fontFamily": "display",
+      "fontWeight": 400,
+      "color": "#FFFFFF",
+      "align": "center",
+      "lineHeight": 1,
+      "letterSpacing": -0.04,
+      "box": { "x": 0.5, "y": 0.46, "width": 0.9, "height": 0.3, "rotation": 0, "opacity": 1, "tiltX": 0, "tiltY": 0 },
+      "animation": { "enter": "scale", "exit": "fade", "enterFrames": 16, "exitFrames": 12, "travel": 0.03, "spring": 0 }
     }
-  ],
-  "tracks": [
+  ]
+}
+```
+
+`tracks/track-rule.json`:
+
+```json
+{
+  "id": "track-rule",
+  "kind": "visual",
+  "name": "Accent",
+  "hidden": false,
+  "locked": false,
+  "volume": 1,
+  "clips": [
     {
-      "id": "track-titles",
-      "kind": "visual",
-      "name": "Titles",
-      "hidden": false,
-      "locked": false,
-      "volume": 1,
-      "clips": [
-        {
-          "kind": "text",
-          "id": "clip-hook",
-          "from": 0,
-          "durationInFrames": 70,
-          "approval": "accepted",
-          "elementId": "el-headline",
-          "revisionNote": "Opening on the cost, not the product.",
-          "text": "Six clicks to assign an issue.",
-          "fontSize": 0.1,
-          "fontFamily": "display",
-          "fontWeight": 400,
-          "color": "#F5F5F7",
-          "align": "center",
-          "lineHeight": 1.1,
-          "letterSpacing": -0.02,
-          "box": { "x": 0.5, "y": 0.5, "width": 0.8, "height": 0.2, "rotation": 0, "opacity": 1, "tiltX": 0, "tiltY": 0 },
-          "animation": { "enter": "rise", "exit": "fade", "enterFrames": 14, "exitFrames": 10, "travel": 0.03, "spring": 0 }
-        },
-        {
-          "kind": "text",
-          "id": "clip-name",
-          "from": 80,
-          "durationInFrames": 90,
-          "approval": "accepted",
-          "text": "Vector",
-          "fontSize": 0.22,
-          "fontFamily": "display",
-          "fontWeight": 400,
-          "color": "#FFFFFF",
-          "align": "center",
-          "lineHeight": 1,
-          "letterSpacing": -0.04,
-          "box": { "x": 0.5, "y": 0.46, "width": 0.9, "height": 0.3, "rotation": 0, "opacity": 1, "tiltX": 0, "tiltY": 0 },
-          "animation": { "enter": "scale", "exit": "fade", "enterFrames": 16, "exitFrames": 12, "travel": 0.03, "spring": 0 }
-        }
-      ]
-    },
+      "kind": "shape",
+      "id": "clip-rule",
+      "from": 96,
+      "durationInFrames": 74,
+      "approval": "accepted",
+      "shape": "rect",
+      "fill": "#7C6CFF",
+      "radius": 0.5,
+      "box": { "x": 0.5, "y": 0.62, "width": 0.08, "height": 0.006, "rotation": 0, "opacity": 1, "tiltX": 0, "tiltY": 0 },
+      "animation": { "enter": "fade", "exit": "fade", "enterFrames": 10, "exitFrames": 10, "travel": 0.03, "spring": 0 }
+    }
+  ]
+}
+```
+
+`tracks/audio-music.json`:
+
+```json
+{
+  "id": "audio-music",
+  "kind": "audio",
+  "name": "Music",
+  "hidden": false,
+  "locked": false,
+  "volume": 1,
+  "clips": [
     {
-      "id": "track-rule",
-      "kind": "visual",
-      "name": "Accent",
-      "hidden": false,
-      "locked": false,
-      "volume": 1,
-      "clips": [
-        {
-          "kind": "shape",
-          "id": "clip-rule",
-          "from": 96,
-          "durationInFrames": 74,
-          "approval": "accepted",
-          "shape": "rect",
-          "fill": "#7C6CFF",
-          "radius": 0.5,
-          "box": { "x": 0.5, "y": 0.62, "width": 0.08, "height": 0.006, "rotation": 0, "opacity": 1, "tiltX": 0, "tiltY": 0 },
-          "animation": { "enter": "fade", "exit": "fade", "enterFrames": 10, "exitFrames": 10, "travel": 0.03, "spring": 0 }
-        }
-      ]
-    },
-    {
-      "id": "track-check",
-      "kind": "visual",
-      "name": "Check",
-      "hidden": false,
-      "locked": false,
-      "volume": 1,
-      "clips": [
-        {
-          "kind": "icon",
-          "id": "clip-check",
-          "from": 180,
-          "durationInFrames": 90,
-          "approval": "accepted",
-          "label": "check",
-          "revisionNote": "The proof beat: a check draws itself on.",
-          "icon": "check",
-          "color": "#7C6CFF",
-          "stroke": 2,
-          "draw": true,
-          "box": { "x": 0.5, "y": 0.5, "width": 0.05, "height": 0.09, "rotation": 0, "opacity": 1, "tiltX": 0, "tiltY": 0 },
-          "animation": { "enter": "scale", "exit": "fade", "enterFrames": 12, "exitFrames": 8, "travel": 0.03, "spring": 0 }
-        }
-      ]
-    },
-    {
-      "id": "audio-music",
       "kind": "audio",
-      "name": "Music",
-      "hidden": false,
-      "locked": false,
-      "volume": 1,
-      "clips": [
-        {
-          "kind": "audio",
-          "id": "clip-music",
-          "from": 0,
-          "durationInFrames": 300,
-          "approval": "accepted",
-          "src": "assets/bed.mp3",
-          "startFrom": 0,
-          "volume": 0.7,
-          "fadeInFrames": 20,
-          "fadeOutFrames": 45,
-          "playbackRate": 1
-        }
-      ]
+      "id": "clip-music",
+      "from": 0,
+      "durationInFrames": 300,
+      "approval": "accepted",
+      "src": "library/audio/bed-bright.mp3",
+      "startFrom": 0,
+      "volume": 0.7,
+      "fadeInFrames": 4,
+      "fadeOutFrames": 45,
+      "playbackRate": 1
     }
   ]
 }
@@ -619,15 +637,21 @@ sounds included. The ids, by section: Type `headline`, `support`, `label`,
 `button` (a text pill with a fill) and `gradient-bar` (a rounded gradient
 bar). Motion `cursor`, `hand-cursor`, `tap-ring`, `typewriter`,
 `word-by-word`, `kinetic-line`, `counter`, `highlight`, `progress-bar`,
-`check`, `sparkle-trail`, `confetti`, `sparkles`. Sound `sfx-whoosh`,
-`sfx-click`, `sfx-tick`, `sfx-impact`, `sfx-rise`. Music `bed-calm`,
-`bed-upbeat`, `bed-cinematic`. The effects: `library/audio/whoosh.wav`
-(0.9s), `click.wav` (0.4s), `tick.wav` (0.3s), `impact.wav` (1s), `rise.wav`
-(1s). The music beds, thirty seconds each and instrumental:
+`check`, `sparkle-trail`, `confetti`, `sparkles`, `live-card`. Sound
+`sfx-whoosh`, `sfx-click`, `sfx-tick`, `sfx-typing`, `sfx-impact`,
+`sfx-rise`. Music `bed-calm`, `bed-upbeat`, `bed-cinematic`, `bed-bright`,
+`bed-minimal`. The effects, all dry: `library/audio/whoosh.wav` (0.9s),
+`click.wav` (a single mouse click, 0.12s — the frame the cursor presses),
+`tick.wav` (a single keystroke, 0.14s — one per word in a run), `typing.wav`
+(a burst of keystrokes, 1.9s — under a typed line), `impact.wav` (1s),
+`rise.wav` (1s). The music beds, thirty seconds each and instrumental:
 `library/audio/bed-calm.mp3` (warm pads, 80 BPM), `bed-upbeat.mp3` (driving,
-120 BPM), `bed-cinematic.mp3` (strings that build to a peak). A bed longer
-than the film is cut by the clip's duration, so give it `fadeOutFrames` and
-it will not stop dead.
+120 BPM), `bed-cinematic.mp3` (strings that build to a peak),
+`bed-bright.mp3` (clean plucks and claps on a punchy kick, 120 BPM — the
+kinetic register's bed), `bed-minimal.mp3` (a warm pad and a slow arpeggio
+over dry rim clicks, 90 BPM — quiet confidence for a developer tool). A bed
+longer than the film is cut by the clip's duration, so give it
+`fadeOutFrames` and it will not stop dead.
 The person can also drop an image, a video or a sound onto the Elements
 section, which puts it in `assets/` and makes it an element. Otherwise the
 file has to be there already; put it in with your file tools first. A path that

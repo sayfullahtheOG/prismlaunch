@@ -11,14 +11,25 @@ import type {
   VideoElementSchema,
   BackgroundSchema,
   BoxSchema,
+  CameraMoveSchema,
   ClipSchema,
   ColorSchema,
+  DeviceClipSchema,
+  DeviceElementSchema,
+  DeviceKindSchema,
   FilmProjectSchema,
   FitSchema,
   FontFamilySchema,
+  IconClipSchema,
+  IconElementSchema,
+  IconNameSchema,
   ImageClipSchema,
+  ParticlesClipSchema,
+  ParticlesElementSchema,
+  ParticleStyleSchema,
   ProcessSchema,
   ProjectFileSchema,
+  RevealStyleSchema,
   ScriptBeatSchema,
   SelectionSchema,
   DirectionSchema,
@@ -53,15 +64,23 @@ export type Transition = z.infer<typeof TransitionSchema>;
 export type Animation = z.infer<typeof AnimationSchema>;
 export type Motion = z.infer<typeof MotionSchema>;
 export type Reveal = z.infer<typeof RevealSchema>;
+export type RevealStyle = z.infer<typeof RevealStyleSchema>;
 export type FontFamily = z.infer<typeof FontFamilySchema>;
 export type TextAlign = z.infer<typeof TextAlignSchema>;
 export type Fit = z.infer<typeof FitSchema>;
 export type AssetPath = z.infer<typeof AssetPathSchema>;
+export type IconName = z.infer<typeof IconNameSchema>;
+export type ParticleStyle = z.infer<typeof ParticleStyleSchema>;
+export type DeviceKind = z.infer<typeof DeviceKindSchema>;
+export type CameraMove = z.infer<typeof CameraMoveSchema>;
 
 export type TextClip = z.infer<typeof TextClipSchema>;
 export type ShapeClip = z.infer<typeof ShapeClipSchema>;
 export type ImageClip = z.infer<typeof ImageClipSchema>;
 export type VideoClip = z.infer<typeof VideoClipSchema>;
+export type IconClip = z.infer<typeof IconClipSchema>;
+export type ParticlesClip = z.infer<typeof ParticlesClipSchema>;
+export type DeviceClip = z.infer<typeof DeviceClipSchema>;
 export type AudioClip = z.infer<typeof AudioClipSchema>;
 export type VisualClip = z.infer<typeof VisualClipSchema>;
 export type Clip = z.infer<typeof ClipSchema>;
@@ -82,6 +101,9 @@ export type TextElement = z.infer<typeof TextElementSchema>;
 export type ShapeElement = z.infer<typeof ShapeElementSchema>;
 export type ImageElement = z.infer<typeof ImageElementSchema>;
 export type VideoElement = z.infer<typeof VideoElementSchema>;
+export type IconElement = z.infer<typeof IconElementSchema>;
+export type ParticlesElement = z.infer<typeof ParticlesElementSchema>;
+export type DeviceElement = z.infer<typeof DeviceElementSchema>;
 export type AudioElement = z.infer<typeof AudioElementSchema>;
 export type Element = z.infer<typeof ElementSchema>;
 export type ElementKind = Element["kind"];

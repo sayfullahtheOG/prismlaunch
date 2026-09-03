@@ -117,6 +117,8 @@ export const DEFAULT_BOX = {
   height: 0.2,
   rotation: 0,
   opacity: 1,
+  tiltX: 0,
+  tiltY: 0,
 };
 
 export const BoxSchema = z.object({
@@ -126,15 +128,27 @@ export const BoxSchema = z.object({
   height: z.number().gt(0).max(3).default(0.2),
   rotation: z.number().min(-180).max(180).default(0),
   opacity: z.number().min(0).max(1).default(1),
+  /**
+   * Perspective, in degrees. `tiltX` leans the box back like a card on a
+   * desk; `tiltY` turns it like a door. ±12 reads as a floating product
+   * shot, ±30 as a phone flying past. Zero is flat, which is most things.
+   */
+  tiltX: z.number().min(-85).max(85).default(0),
+  tiltY: z.number().min(-85).max(85).default(0),
 });
 
 /**
  * Enter and exit animations.
  *
  * A closed set rather than freeform keyframes, because these are the moves that
- * read on a short film and an agent choosing between eight named things gets it
+ * read on a short film and an agent choosing between named things gets it
  * right far more often than one authoring easing curves. `none` is first so it
  * is the honest default: a clip that should just be there does not animate.
+ *
+ * The first eight are the classic grammar. The last four are the kinetic
+ * ones every product film made this decade uses: `pop` (a word arriving out
+ * of focus and a touch too large, settling), `zoom` (through the camera),
+ * `flip` (a card turning up) and `wipe` (a true mask reveal, left to right).
  */
 export const TransitionSchema = z.enum([
   "none",
@@ -145,6 +159,10 @@ export const TransitionSchema = z.enum([
   "slide-right",
   "scale",
   "blur",
+  "pop",
+  "zoom",
+  "flip",
+  "wipe",
 ]);
 
 export const DEFAULT_ANIMATION: {
@@ -152,11 +170,15 @@ export const DEFAULT_ANIMATION: {
   exit: z.infer<typeof TransitionSchema>;
   enterFrames: number;
   exitFrames: number;
+  travel: number;
+  spring: number;
 } = {
   enter: "none",
   exit: "none",
   enterFrames: 12,
   exitFrames: 12,
+  travel: 0.03,
+  spring: 0,
 };
 
 export const AnimationSchema = z.object({
@@ -165,6 +187,18 @@ export const AnimationSchema = z.object({
   /** How long each transition runs. Clamped against the clip at render time. */
   enterFrames: z.number().int().min(0).max(120).default(12),
   exitFrames: z.number().int().min(0).max(120).default(12),
+  /**
+   * How far `rise`, `fall` and the slides travel, as a fraction of the
+   * canvas. 0.03 settles into place; 0.25 arrives from off-stage, which is
+   * what a phone flying into frame wants.
+   */
+  travel: z.number().min(0).max(1).default(0.03),
+  /**
+   * Overshoot on the enter. 0 is critically damped: it slows into place.
+   * 0.3 lands a hair past and settles back, the way a card dealt onto a
+   * table does; 0.6 bounces. Letters are not rubber — keep it off text.
+   */
+  spring: z.number().min(0).max(1).default(0),
 });
 
 /**
@@ -188,6 +222,18 @@ export const MotionSchema = z.object({
   delay: z.number().int().min(0).max(MAX_FRAMES).default(0),
   easing: MotionEasingSchema.default("out"),
   press: z.boolean().default(false),
+  /** Degrees turned by the end of the move. A card settling, a star spinning. */
+  rotate: z.number().min(-1080).max(1080).default(0),
+  /** Opacity at the end of the move, as a multiplier of the box's own. 1 leaves it alone. */
+  opacity: z.number().min(0).max(1).default(1),
+  /** Defocus at the end of the move, 0–1. A background falling out of focus behind the subject. */
+  blur: z.number().min(0).max(1).default(0),
+  /** Curve of the path: 0 is a straight line, ±0.5 a visible arc, ±1 a swoop. */
+  arc: z.number().min(-1).max(1).default(0),
+  /** Overshoot at the end of the move, like the enter's. 0 slows in; 0.4 settles past and back. */
+  spring: z.number().min(0).max(1).default(0),
+  /** Ghosts along the path behind a moving thing — a streak, the way a sparkle leaves one. */
+  trail: z.boolean().default(false),
 });
 
 export const DEFAULT_MOTION: z.infer<typeof MotionSchema> = {
@@ -198,6 +244,12 @@ export const DEFAULT_MOTION: z.infer<typeof MotionSchema> = {
   delay: 0,
   easing: "out",
   press: false,
+  rotate: 0,
+  opacity: 1,
+  blur: 0,
+  arc: 0,
+  spring: 0,
+  trail: false,
 };
 
 /**
@@ -209,6 +261,9 @@ export const DEFAULT_MOTION: z.infer<typeof MotionSchema> = {
  * to time by hand.
  */
 export const RevealSchema = z.enum(["none", "type", "words", "count"]);
+
+/** How each word lands when the reveal is `words`. `pop` is the kinetic one: out of focus, a touch large, settling. */
+export const RevealStyleSchema = z.enum(["rise", "fade", "pop", "blur"]);
 
 export const FontFamilySchema = z.enum(["display", "body", "mono"]);
 export const TextAlignSchema = z.enum(["left", "center", "right"]);
@@ -269,11 +324,25 @@ const VisualBase = {
   box: BoxSchema.default(DEFAULT_BOX),
   animation: AnimationSchema.default(DEFAULT_ANIMATION),
   motion: MotionSchema.default(DEFAULT_MOTION),
+  /**
+   * Depth, 0–1. A soft shadow under the thing, tinted by the ground, the
+   * way a card floats above a desk. 0.3 is a card; 0.6 a phone in the air.
+   */
+  shadow: z.number().min(0).max(1).default(0),
+  /** A halo in the thing's own colour, 0–1. The one premium light in a frame; ration it. */
+  glow: z.number().min(0).max(1).default(0),
+  /** Defocus, 0–1, held for the whole clip. A wall of text behind the subject, a screenshot falling back. */
+  blur: z.number().min(0).max(1).default(0),
 };
 
 export const TextClipSchema = z.object({
   ...VisualBase,
   kind: z.literal("text"),
+  /**
+   * The words. Wrap a run in asterisks to set it in the accent colour:
+   * "Turn *books* into audio" lights one word. That is the two-tone line
+   * every kinetic product film is set in.
+   */
   text: z.string().min(1).max(MAX_TEXT_LENGTH),
   /**
    * Font size as a fraction of canvas HEIGHT, not pixels — the same reason the
@@ -283,14 +352,26 @@ export const TextClipSchema = z.object({
   fontFamily: FontFamilySchema.default("display"),
   fontWeight: z.number().int().min(100).max(900).default(600),
   color: ColorSchema.default("#F7F8F8"),
+  /** The colour of the *starred* words. Unset, the stars are just printed. */
+  accent: ColorSchema.optional(),
   align: TextAlignSchema.default("center"),
   lineHeight: z.number().min(0.6).max(3).default(1.1),
   letterSpacing: z.number().min(-0.1).max(0.5).default(-0.02),
   reveal: RevealSchema.default("none"),
-  /** How many frames the reveal takes, from the clip's first frame. */
+  /**
+   * How many frames the reveal takes, from the clip's first frame. With
+   * `revealStagger` set, this is how long each word takes instead.
+   */
   revealFrames: z.number().int().min(1).max(600).default(30),
+  /** Frames between one word starting and the next, for `words`. 0 spreads them across `revealFrames`. */
+  revealStagger: z.number().int().min(0).max(120).default(0),
+  revealStyle: RevealStyleSchema.default("rise"),
   /** A text caret after the words: blinking, and typing along with `type`. */
   caret: z.boolean().default(false),
+  /** A colour behind the words, filling the box: a button, a chip, a label. */
+  fill: ColorSchema.optional(),
+  /** Corner radius of that fill, as a fraction of the box's smaller side. 0.5 is a pill. */
+  radius: z.number().min(0).max(0.5).default(0),
 });
 
 export const ShapeClipSchema = z.object({
@@ -298,8 +379,91 @@ export const ShapeClipSchema = z.object({
   kind: z.literal("shape"),
   shape: z.enum(["rect", "ellipse"]),
   fill: ColorSchema.default("#FFFFFF"),
+  /** A second colour makes the fill a gradient, from `fill` to this, along `fillAngle`. */
+  fillTo: ColorSchema.optional(),
+  fillAngle: z.number().min(0).max(360).default(180),
   /** Corner radius as a fraction of the shape's smaller side. */
   radius: z.number().min(0).max(0.5).default(0),
+});
+
+/**
+ * The icons the studio draws itself: crisp at any size, in any colour, and
+ * able to draw on stroke by stroke. A check that draws itself under "Done"
+ * is the single most reused moment in product film.
+ */
+export const ICONS = [
+  "check",
+  "x",
+  "plus",
+  "minus",
+  "arrow-right",
+  "arrow-up-right",
+  "chevron-right",
+  "chevron-down",
+  "sparkle",
+  "star",
+  "heart",
+  "bolt",
+  "play",
+  "search",
+  "circle",
+  "cursor",
+  "hand",
+] as const;
+
+export const IconNameSchema = z.enum(ICONS);
+
+export const IconClipSchema = z.object({
+  ...VisualBase,
+  kind: z.literal("icon"),
+  icon: IconNameSchema,
+  color: ColorSchema.default("#F7F8F8"),
+  /** Stroke width, 0.5–4, for the outlined icons. 2 is the default weight. */
+  stroke: z.number().min(0.5).max(4).default(2),
+  /** Draw the stroke on over the enter, like a pen. */
+  draw: z.boolean().default(false),
+});
+
+/**
+ * Particles: a burst of confetti under a "Done", sparkles around a
+ * feature, dust rising through a dark frame. Deterministic from `seed`,
+ * so the export matches the preview to the pixel.
+ */
+export const ParticleStyleSchema = z.enum(["confetti", "burst", "sparkles", "rise"]);
+
+export const ParticlesClipSchema = z.object({
+  ...VisualBase,
+  kind: z.literal("particles"),
+  style: ParticleStyleSchema.default("confetti"),
+  count: z.number().int().min(1).max(400).default(80),
+  colors: z.array(ColorSchema).min(1).max(6).default(["#5B8CFF", "#7CC7FF", "#F5A9E1"]),
+  /** How far they fly, 0–1, as a share of the canvas. */
+  spread: z.number().min(0).max(1).default(0.6),
+  /** How hard they fall. 0 floats; 1 is confetti; 2 is hail. */
+  gravity: z.number().min(0).max(2).default(1),
+  /** Size of a piece, as a fraction of canvas height. */
+  size: z.number().min(0.003).max(0.1).default(0.016),
+  seed: z.number().int().min(0).max(9999).default(1),
+});
+
+/**
+ * A device: a frame around a screenshot. `phone` has a bezel and an island,
+ * `browser` a title bar with three dots, `window` a hairline and a shadow,
+ * `card` a plain white panel. Without `src`, the screen is `screen`.
+ */
+export const DeviceKindSchema = z.enum(["phone", "browser", "window", "card"]);
+
+export const DeviceClipSchema = z.object({
+  ...VisualBase,
+  kind: z.literal("device"),
+  device: DeviceKindSchema.default("browser"),
+  src: AssetPathSchema.optional(),
+  fit: FitSchema.default("cover"),
+  /** The screen, when there is no screenshot; the ground the screenshot sits on otherwise. */
+  screen: ColorSchema.default("#FFFFFF"),
+  /** The bezel, the title bar, the hairline. */
+  frame: ColorSchema.default("#111114"),
+  radius: z.number().min(0).max(0.5).default(0.06),
 });
 
 export const ImageClipSchema = z.object({
@@ -338,6 +502,9 @@ export const VisualClipSchema = z.discriminatedUnion("kind", [
   ShapeClipSchema,
   ImageClipSchema,
   VideoClipSchema,
+  IconClipSchema,
+  ParticlesClipSchema,
+  DeviceClipSchema,
 ]);
 
 export const ClipSchema = z.discriminatedUnion("kind", [
@@ -345,11 +512,41 @@ export const ClipSchema = z.discriminatedUnion("kind", [
   ShapeClipSchema,
   ImageClipSchema,
   VideoClipSchema,
+  IconClipSchema,
+  ParticlesClipSchema,
+  DeviceClipSchema,
   AudioClipSchema,
 ]);
 
-export const VISUAL_CLIP_KINDS = ["text", "shape", "image", "video"] as const;
+export const VISUAL_CLIP_KINDS = ["text", "shape", "image", "video", "icon", "particles", "device"] as const;
 export const AUDIO_CLIP_KINDS = ["audio"] as const;
+
+// ---------------------------------------------------------------------------
+// Camera
+// ---------------------------------------------------------------------------
+
+/**
+ * The camera: one move at a time, over the whole picture.
+ *
+ * Every visual layer is drawn, then the camera looks at a point of the
+ * canvas at a zoom. A move says where it is looking and how close by the
+ * time it is done; between moves it holds. Push into the button as the
+ * cursor reaches it, pull back to show the whole window: the two moves that
+ * turn a screenshot into a film. Starts at the centre at 1.
+ */
+export const CameraMoveSchema = z.object({
+  /** The frame the move starts on, relative to the composition. */
+  from: z.number().int().min(0).max(MAX_FRAMES),
+  frames: z.number().int().min(1).max(MAX_FRAMES).default(20),
+  /** Where the camera is looking by the end, in canvas fractions. */
+  x: z.number().min(-1).max(2).default(0.5),
+  y: z.number().min(-1).max(2).default(0.5),
+  /** How close: 1 is the whole canvas, 1.6 a push into a region, 0.8 pulled back with the edges showing. */
+  scale: z.number().min(0.25).max(8).default(1),
+  easing: MotionEasingSchema.default("in-out"),
+});
+
+export const MAX_CAMERA_MOVES = 60;
 
 // ---------------------------------------------------------------------------
 // Elements
@@ -399,6 +596,9 @@ export const TextElementSchema = TextClipSchema.omit(PLACEMENT).extend({
 export const ShapeElementSchema = ShapeClipSchema.omit(PLACEMENT).extend(ElementBase);
 export const ImageElementSchema = ImageClipSchema.omit(PLACEMENT).extend(ElementBase);
 export const VideoElementSchema = VideoClipSchema.omit(PLACEMENT).extend(ElementBase);
+export const IconElementSchema = IconClipSchema.omit(PLACEMENT).extend(ElementBase);
+export const ParticlesElementSchema = ParticlesClipSchema.omit(PLACEMENT).extend(ElementBase);
+export const DeviceElementSchema = DeviceClipSchema.omit(PLACEMENT).extend(ElementBase);
 export const AudioElementSchema = AudioClipSchema.omit(PLACEMENT).extend(ElementBase);
 
 export const ElementSchema = z.discriminatedUnion("kind", [
@@ -406,10 +606,13 @@ export const ElementSchema = z.discriminatedUnion("kind", [
   ShapeElementSchema,
   ImageElementSchema,
   VideoElementSchema,
+  IconElementSchema,
+  ParticlesElementSchema,
+  DeviceElementSchema,
   AudioElementSchema,
 ]);
 
-export const ELEMENT_KINDS = ["text", "shape", "image", "video", "audio"] as const;
+export const ELEMENT_KINDS = ["text", "shape", "image", "video", "icon", "particles", "device", "audio"] as const;
 
 // ---------------------------------------------------------------------------
 // Tracks
@@ -728,6 +931,8 @@ export const ProjectFileSchema = z
     /** The library the film is built from. See the Elements section above. */
     elements: z.array(ElementSchema).max(MAX_ELEMENTS).default([]),
     tracks: z.array(TrackSchema).max(MAX_TRACKS).default([]),
+    /** The camera's moves, in order. Empty is a still camera on the whole canvas. */
+    camera: z.array(CameraMoveSchema).max(MAX_CAMERA_MOVES).default([]),
     /**
      * Defaulted, so a file written before this existed still opens — every
      * stage simply reads as pending. Not a version bump: nothing old becomes

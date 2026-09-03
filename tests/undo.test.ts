@@ -83,9 +83,12 @@ describe("deleting a file from assets", () => {
       src: "assets/shot.png",
       fit: "cover",
       radius: 0,
-      box: { x: 0.5, y: 0.5, width: 0.8, height: 0.45, rotation: 0, opacity: 1 },
-      animation: { enter: "none", exit: "none", enterFrames: 12, exitFrames: 12 },
-      motion: { x: 0, y: 0, scale: 1, frames: 0, delay: 0, easing: "out", press: false },
+      shadow: 0,
+      glow: 0,
+      blur: 0,
+      box: { x: 0.5, y: 0.5, width: 0.8, height: 0.45, rotation: 0, opacity: 1, tiltX: 0, tiltY: 0 },
+      animation: { enter: "none", exit: "none", enterFrames: 12, exitFrames: 12, travel: 0.03, spring: 0 },
+      motion: { x: 0, y: 0, scale: 1, frames: 0, delay: 0, easing: "out", press: false, rotate: 0, opacity: 1, blur: 0, arc: 0, spring: 0, trail: false },
     });
     expect(cursor.ok).toBe(true);
     const used = await actions.removeAsset("assets/shot.png");

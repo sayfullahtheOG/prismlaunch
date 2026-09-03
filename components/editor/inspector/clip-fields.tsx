@@ -3,14 +3,26 @@
 import { Field, TextArea, TextInput } from "@/components/ui/Field";
 import { Segmented } from "@/components/ui/Segmented";
 import { Select } from "@/components/ui/Select";
-import { MotionEasingSchema, RevealSchema, TransitionSchema } from "@/lib/studio/schema";
+import {
+  DeviceKindSchema,
+  IconNameSchema,
+  MotionEasingSchema,
+  ParticleStyleSchema,
+  RevealSchema,
+  RevealStyleSchema,
+  TransitionSchema,
+} from "@/lib/studio/schema";
 import type {
   Animation,
   Box,
+  DeviceKind,
   Fit,
   FontFamily,
+  IconName,
   Motion,
+  ParticleStyle,
   Reveal,
+  RevealStyle,
   TextAlign,
 } from "@/types/prism";
 import { ColorField, NumberField, Row } from "./fields";
@@ -33,10 +45,42 @@ export type TextStyle = {
   fontFamily: FontFamily;
   fontWeight: number;
   color: string;
+  accent?: string | undefined;
   align: TextAlign;
   lineHeight: number;
   letterSpacing: number;
+  fill?: string | undefined;
+  radius: number;
 };
+
+/** A colour that may be unset: typed as hex, cleared by emptying the field. */
+function OptionalColor({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string | undefined;
+  placeholder: string;
+  onChange: (value: string | undefined) => void;
+}) {
+  return (
+    <Field label={label}>
+      <TextInput
+        value={value ?? ""}
+        placeholder={placeholder}
+        onChange={(event) => {
+          const next = event.target.value.trim().toUpperCase();
+          onChange(next === "" ? undefined : next);
+        }}
+        className="tabular font-mono text-xs"
+        spellCheck={false}
+        aria-label={label}
+      />
+    </Field>
+  );
+}
 
 export function TextFields({
   value,
@@ -93,6 +137,20 @@ export function TextFields({
       </Field>
       <ColorField label="Colour" value={value.color} onChange={(color) => set({ color })} />
       <Row>
+        <OptionalColor
+          label="Accent (*words*)"
+          value={value.accent}
+          placeholder="none"
+          onChange={(accent) => set({ accent })}
+        />
+        <OptionalColor
+          label="Fill behind"
+          value={value.fill}
+          placeholder="none"
+          onChange={(fill) => set({ fill })}
+        />
+      </Row>
+      <Row>
         <NumberField
           label="Line height"
           value={value.lineHeight}
@@ -106,11 +164,27 @@ export function TextFields({
           onChange={(letterSpacing) => set({ letterSpacing })}
         />
       </Row>
+      {value.fill ? (
+        <NumberField
+          label="Fill radius"
+          value={value.radius}
+          step={0.05}
+          min={0}
+          max={0.5}
+          onChange={(radius) => set({ radius })}
+        />
+      ) : null}
     </>
   );
 }
 
-export type ShapeStyle = { shape: "rect" | "ellipse"; fill: string; radius: number };
+export type ShapeStyle = {
+  shape: "rect" | "ellipse";
+  fill: string;
+  fillTo?: string | undefined;
+  fillAngle: number;
+  radius: number;
+};
 
 export function ShapeFields({ value, set }: { value: ShapeStyle; set: Setter<ShapeStyle> }) {
   return (
@@ -124,6 +198,22 @@ export function ShapeFields({ value, set }: { value: ShapeStyle; set: Setter<Sha
         />
       </Field>
       <ColorField label="Fill" value={value.fill} onChange={(fill) => set({ fill })} />
+      <Row>
+        <OptionalColor
+          label="Gradient to"
+          value={value.fillTo}
+          placeholder="none"
+          onChange={(fillTo) => set({ fillTo })}
+        />
+        <NumberField
+          label="Angle"
+          value={value.fillAngle}
+          step={15}
+          min={0}
+          max={360}
+          onChange={(fillAngle) => set({ fillAngle })}
+        />
+      </Row>
       <NumberField
         label="Corner radius"
         value={value.radius}
@@ -133,6 +223,167 @@ export function ShapeFields({ value, set }: { value: ShapeStyle; set: Setter<Sha
         onChange={(radius) => set({ radius })}
       />
     </>
+  );
+}
+
+export type IconStyle = { icon: IconName; color: string; stroke: number; draw: boolean };
+
+const ICON_OPTIONS = IconNameSchema.options.map((name) => ({ value: name, label: name }));
+
+export function IconFields({ value, set }: { value: IconStyle; set: Setter<IconStyle> }) {
+  return (
+    <>
+      <Field label="Icon">
+        <Select
+          label="Icon"
+          options={ICON_OPTIONS}
+          value={value.icon}
+          onChange={(icon) => set({ icon: IconNameSchema.parse(icon) })}
+        />
+      </Field>
+      <ColorField label="Colour" value={value.color} onChange={(color) => set({ color })} />
+      <Row>
+        <NumberField
+          label="Stroke"
+          value={value.stroke}
+          step={0.25}
+          min={0.5}
+          max={4}
+          onChange={(stroke) => set({ stroke })}
+        />
+        <Field label="Draw on">
+          <Segmented
+            label="Draw on"
+            options={ON_OFF}
+            value={value.draw ? "on" : "off"}
+            onChange={(next) => set({ draw: next === "on" })}
+          />
+        </Field>
+      </Row>
+    </>
+  );
+}
+
+export type ParticlesStyle = {
+  style: ParticleStyle;
+  count: number;
+  colors: string[];
+  spread: number;
+  gravity: number;
+  size: number;
+  seed: number;
+};
+
+const PARTICLE_OPTIONS = ParticleStyleSchema.options.map((name) => ({ value: name, label: name }));
+
+export function ParticlesFields({ value, set }: { value: ParticlesStyle; set: Setter<ParticlesStyle> }) {
+  return (
+    <>
+      <Row>
+        <Field label="Style">
+          <Select
+            label="Particle style"
+            options={PARTICLE_OPTIONS}
+            value={value.style}
+            onChange={(style) => set({ style: ParticleStyleSchema.parse(style) })}
+          />
+        </Field>
+        <NumberField label="Count" value={value.count} step={10} min={1} max={400} onChange={(count) => set({ count })} />
+      </Row>
+      <Field label="Colours (comma-separated hex)">
+        <TextInput
+          value={value.colors.join(", ")}
+          onChange={(event) => {
+            const colors = event.target.value
+              .split(",")
+              .map((part) => part.trim().toUpperCase())
+              .filter((part) => /^#[0-9A-F]{6}([0-9A-F]{2})?$/.test(part));
+            if (colors.length > 0) set({ colors });
+          }}
+          className="tabular font-mono text-xs"
+          spellCheck={false}
+        />
+      </Field>
+      <Row>
+        <NumberField label="Spread" value={value.spread} step={0.05} min={0} max={1} onChange={(spread) => set({ spread })} />
+        <NumberField label="Gravity" value={value.gravity} step={0.1} min={0} max={2} onChange={(gravity) => set({ gravity })} />
+      </Row>
+      <Row>
+        <NumberField label="Size" value={value.size} step={0.002} min={0.003} max={0.1} onChange={(size) => set({ size })} />
+        <NumberField label="Seed" value={value.seed} step={1} min={0} max={9999} onChange={(seed) => set({ seed })} />
+      </Row>
+    </>
+  );
+}
+
+export type DeviceStyle = {
+  device: DeviceKind;
+  src?: string | undefined;
+  fit: Fit;
+  screen: string;
+  frame: string;
+  radius: number;
+};
+
+export function DeviceFields({ value, set }: { value: DeviceStyle; set: Setter<DeviceStyle> }) {
+  return (
+    <>
+      <Field label="Device">
+        <Segmented
+          label="Device"
+          options={DeviceKindSchema.options}
+          value={value.device}
+          onChange={(device) => set({ device })}
+        />
+      </Field>
+      <Field label="Screenshot">
+        <TextInput
+          value={value.src ?? ""}
+          placeholder="assets/app.png"
+          onChange={(event) => {
+            const next = event.target.value.trim();
+            set({ src: next === "" ? undefined : next });
+          }}
+          className="font-mono text-xs"
+          spellCheck={false}
+        />
+      </Field>
+      <Row>
+        <Field label="Fit">
+          <Segmented
+            label="Fit"
+            options={["cover", "contain", "fill"] as const}
+            value={value.fit}
+            onChange={(fit) => set({ fit })}
+          />
+        </Field>
+        <NumberField
+          label="Corner radius"
+          value={value.radius}
+          step={0.02}
+          min={0}
+          max={0.5}
+          onChange={(radius) => set({ radius })}
+        />
+      </Row>
+      <Row>
+        <ColorField label="Screen" value={value.screen} onChange={(screen) => set({ screen })} />
+        <ColorField label="Frame" value={value.frame} onChange={(frame) => set({ frame })} />
+      </Row>
+    </>
+  );
+}
+
+export type Depth = { shadow: number; glow: number; blur: number };
+
+/** What every visual clip has besides its box: how it sits in the frame. */
+export function DepthFields({ value, set }: { value: Depth; set: Setter<Depth> }) {
+  return (
+    <Row>
+      <NumberField label="Shadow" value={value.shadow} step={0.05} min={0} max={1} onChange={(shadow) => set({ shadow })} />
+      <NumberField label="Glow" value={value.glow} step={0.05} min={0} max={1} onChange={(glow) => set({ glow })} />
+      <NumberField label="Blur" value={value.blur} step={0.05} min={0} max={1} onChange={(blur) => set({ blur })} />
+    </Row>
   );
 }
 
@@ -287,6 +538,24 @@ export function BoxFields({ box, set }: { box: Box; set: (box: Box) => void }) {
           onChange={(opacity) => set({ ...box, opacity })}
         />
       </Row>
+      <Row>
+        <NumberField
+          label="Tilt X"
+          value={box.tiltX}
+          step={1}
+          min={-85}
+          max={85}
+          onChange={(tiltX) => set({ ...box, tiltX })}
+        />
+        <NumberField
+          label="Tilt Y"
+          value={box.tiltY}
+          step={1}
+          min={-85}
+          max={85}
+          onChange={(tiltY) => set({ ...box, tiltY })}
+        />
+      </Row>
     </>
   );
 }
@@ -338,6 +607,24 @@ export function AnimationFields({
           onChange={(exitFrames) => set({ ...animation, exitFrames })}
         />
       </Row>
+      <Row>
+        <NumberField
+          label="Travel"
+          value={animation.travel}
+          step={0.01}
+          min={0}
+          max={1}
+          onChange={(travel) => set({ ...animation, travel })}
+        />
+        <NumberField
+          label="Spring"
+          value={animation.spring}
+          step={0.05}
+          min={0}
+          max={1}
+          onChange={(spring) => set({ ...animation, spring })}
+        />
+      </Row>
     </>
   );
 }
@@ -347,9 +634,16 @@ const ON_OFF = [
   { value: "on", label: "On" },
 ] as const;
 
-export type TextReveal = { reveal: Reveal; revealFrames: number; caret: boolean };
+export type TextReveal = {
+  reveal: Reveal;
+  revealFrames: number;
+  revealStagger: number;
+  revealStyle: RevealStyle;
+  caret: boolean;
+};
 
 const REVEALS = RevealSchema.options.map((name) => ({ value: name, label: name }));
+const REVEAL_STYLES = RevealStyleSchema.options.map((name) => ({ value: name, label: name }));
 
 /** How a text clip's words arrive: typed, word by word, or counted up. */
 export function RevealFields({ value, set }: { value: TextReveal; set: Setter<TextReveal> }) {
@@ -373,6 +667,26 @@ export function RevealFields({ value, set }: { value: TextReveal; set: Setter<Te
           onChange={(revealFrames) => set({ revealFrames })}
         />
       </Row>
+      {value.reveal === "words" ? (
+        <Row>
+          <NumberField
+            label="Word stagger"
+            value={value.revealStagger}
+            step={1}
+            min={0}
+            max={120}
+            onChange={(revealStagger) => set({ revealStagger })}
+          />
+          <Field label="Word style">
+            <Select
+              label="Word style"
+              options={REVEAL_STYLES}
+              value={value.revealStyle}
+              onChange={(revealStyle) => set({ revealStyle: RevealStyleSchema.parse(revealStyle) })}
+            />
+          </Field>
+        </Row>
+      ) : null}
       <Field label="Caret">
         <Segmented
           label="Caret"
@@ -436,6 +750,60 @@ export function MotionFields({ motion, set }: { motion: Motion; set: (motion: Mo
             options={EASINGS}
             value={motion.easing}
             onChange={(easing) => set({ ...motion, easing: MotionEasingSchema.parse(easing) })}
+          />
+        </Field>
+      </Row>
+      <Row>
+        <NumberField
+          label="Rotate to"
+          value={motion.rotate}
+          step={15}
+          min={-1080}
+          max={1080}
+          onChange={(rotate) => set({ ...motion, rotate })}
+        />
+        <NumberField
+          label="Opacity to"
+          value={motion.opacity}
+          step={0.05}
+          min={0}
+          max={1}
+          onChange={(opacity) => set({ ...motion, opacity })}
+        />
+      </Row>
+      <Row>
+        <NumberField
+          label="Blur to"
+          value={motion.blur}
+          step={0.05}
+          min={0}
+          max={1}
+          onChange={(blur) => set({ ...motion, blur })}
+        />
+        <NumberField
+          label="Arc"
+          value={motion.arc}
+          step={0.1}
+          min={-1}
+          max={1}
+          onChange={(arc) => set({ ...motion, arc })}
+        />
+      </Row>
+      <Row>
+        <NumberField
+          label="Move spring"
+          value={motion.spring}
+          step={0.05}
+          min={0}
+          max={1}
+          onChange={(spring) => set({ ...motion, spring })}
+        />
+        <Field label="Trail">
+          <Segmented
+            label="Trail"
+            options={ON_OFF}
+            value={motion.trail ? "on" : "off"}
+            onChange={(next) => set({ ...motion, trail: next === "on" })}
           />
         </Field>
       </Row>

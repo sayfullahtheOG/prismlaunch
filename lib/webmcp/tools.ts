@@ -18,6 +18,7 @@ import {
   requestRender,
   seek,
   setBackground,
+  setCamera,
   setDuration,
   setPlaying,
   shiftTrack,
@@ -42,9 +43,12 @@ import {
 } from "@/lib/studio/schema";
 import {
   AddAudioInput,
+  AddDeviceInput,
   AddElementInput,
   AddFromLibraryInput,
+  AddIconInput,
   AddImageInput,
+  AddParticlesInput,
   AddShapeInput,
   AddTextInput,
   AddTrackInput,
@@ -62,6 +66,7 @@ import {
   RequestRenderInput,
   SeekInput,
   SetBackgroundInput,
+  SetCameraInput,
   SetDurationInput,
   SubmitAnimaticInput,
   SubmitBriefInput,
@@ -175,11 +180,17 @@ function visual(input: {
   box?: Loose<Box> | undefined;
   animation?: Loose<Animation> | undefined;
   motion?: Loose<Motion> | undefined;
-}): { box: Box; animation: Animation; motion: Motion } {
+  shadow?: number | undefined;
+  glow?: number | undefined;
+  blur?: number | undefined;
+}): { box: Box; animation: Animation; motion: Motion; shadow: number; glow: number; blur: number } {
   return {
     box: { ...DEFAULT_BOX, ...defined(input.box ?? {}) },
     animation: { ...DEFAULT_ANIMATION, ...defined(input.animation ?? {}) },
     motion: { ...DEFAULT_MOTION, ...defined(input.motion ?? {}) },
+    shadow: input.shadow ?? 0,
+    glow: input.glow ?? 0,
+    blur: input.blur ?? 0,
   };
 }
 
@@ -373,7 +384,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_text",
       description:
-        "Put words on screen. Position with `box` in canvas fractions — x/y are the CENTRE, so { x: 0.5, y: 0.5 } is centred. `fontSize` is a fraction of canvas height.",
+        "Put words on screen. Position with `box` in canvas fractions — x/y are the CENTRE, so { x: 0.5, y: 0.5 } is centred. `fontSize` is a fraction of canvas height. Star a word (\"Turn *books* into audio\") and set `accent` for a two-tone line; `fill` with `radius` 0.5 makes it a button.",
       schema: AddTextInput,
       execute: (input) =>
         createClip(
@@ -387,12 +398,17 @@ export function buildTools(): ModelContextTool[] {
             fontFamily: input.fontFamily ?? "display",
             fontWeight: input.fontWeight ?? 600,
             color: input.color ?? "#F7F8F8",
+            accent: input.accent,
             align: input.align ?? "center",
             lineHeight: input.lineHeight ?? 1.1,
             letterSpacing: input.letterSpacing ?? -0.02,
             reveal: input.reveal,
             revealFrames: input.revealFrames,
+            revealStagger: input.revealStagger,
+            revealStyle: input.revealStyle,
             caret: input.caret,
+            fill: input.fill,
+            radius: input.radius,
             label: input.label,
             ...visual(input),
           }) as Omit<Clip, "id">,
@@ -404,7 +420,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_shape",
       description:
-        "Add a rectangle or ellipse — a colour block behind a title, a rule, a dot.",
+        "Add a rectangle or ellipse — a colour block behind a title, a rule, a dot; with `fillTo`, a gradient bar. `enter: \"wipe\"` over 45 frames makes it a progress bar.",
       schema: AddShapeInput,
       execute: (input) =>
         createClip(
@@ -415,7 +431,86 @@ export function buildTools(): ModelContextTool[] {
             durationInFrames: input.durationInFrames,
             shape: input.shape,
             fill: input.fill ?? "#FFFFFF",
+            fillTo: input.fillTo,
+            fillAngle: input.fillAngle,
             radius: input.radius ?? 0,
+            label: input.label,
+            ...visual(input),
+          }) as Omit<Clip, "id">,
+          "agent",
+          input.note,
+        ),
+    }),
+
+    tool({
+      name: "prism.add_icon",
+      description:
+        "Add one of the studio's own icons — a check, an arrow, a sparkle, a cursor — crisp at any size, in any colour. `draw: true` draws an outlined icon on over its enter, like a pen: the check under \"Done\". Size it with `box`.",
+      schema: AddIconInput,
+      execute: (input) =>
+        createClip(
+          input.trackId,
+          defined({
+            kind: "icon",
+            from: input.from,
+            durationInFrames: input.durationInFrames,
+            icon: input.icon,
+            color: input.color ?? "#F7F8F8",
+            stroke: input.stroke ?? 2,
+            draw: input.draw ?? false,
+            label: input.label,
+            ...visual(input),
+          }) as Omit<Clip, "id">,
+          "agent",
+          input.note,
+        ),
+    }),
+
+    tool({
+      name: "prism.add_particles",
+      description:
+        "Add particles: confetti bursting from a point, a burst in every direction, sparkles twinkling in a region, or dust rising through it. The clip's `box` is the emitter; its length is how long the burst lasts (40 frames for confetti). Deterministic from `seed`, so the export matches the preview. Once per film for confetti — on the payoff.",
+      schema: AddParticlesInput,
+      execute: (input) =>
+        createClip(
+          input.trackId,
+          defined({
+            kind: "particles",
+            from: input.from,
+            durationInFrames: input.durationInFrames,
+            style: input.style,
+            count: input.count,
+            colors: input.colors,
+            spread: input.spread,
+            gravity: input.gravity,
+            size: input.size,
+            seed: input.seed,
+            label: input.label,
+            ...visual(input),
+          }) as Omit<Clip, "id">,
+          "agent",
+          input.note,
+        ),
+    }),
+
+    tool({
+      name: "prism.add_device",
+      description:
+        "Add a device around a screenshot: a phone with a bezel and an island, a browser with three dots in its bar, a frameless window with a hairline, or a white card. `src` is the screenshot in the project folder; without it the screen is a colour. Tilt it with `box.tiltX`/`tiltY`, float it with `shadow`, fly it in with `animation.travel` and `spring`, and drift it with `motion`.",
+      schema: AddDeviceInput,
+      execute: (input) =>
+        createClip(
+          input.trackId,
+          defined({
+            kind: "device",
+            from: input.from,
+            durationInFrames: input.durationInFrames,
+            device: input.device ?? "browser",
+            src: input.src,
+            fit: input.fit ?? "cover",
+            screen: input.screen,
+            frame: input.frame,
+            radius: input.radius,
             label: input.label,
             ...visual(input),
           }) as Omit<Clip, "id">,
@@ -506,8 +601,9 @@ export function buildTools(): ModelContextTool[] {
         "Define a piece of the look, to be placed later: a type style (kind 'text' — Headline, Support, Label; leave `text` empty, the words arrive when it is placed), a shape (an accent rule, a block), an image or video from the project folder (a device frame, the product shot), or a sound. Elements are the style stage's artifact, right after the storyboard: the approved boards say what pieces the film needs. Define them, build the two or three style frames by placing them, and submit_style_frames names them. Refuses until the storyboard is approved. PRISM_METHOD.md §7.",
       schema: AddElementInput,
       execute: (input) => {
-        const { kind, name, role, note, box, animation, motion, ...fields } = input;
+        const { kind, name, role, note, box, animation, motion, shadow, glow, blur, ...fields } = input;
         const identity = { name, ...defined({ role }) };
+        const depth = visual({ box, animation, motion, shadow, glow, blur });
         const media = () =>
           fields.src
             ? { ok: true as const, src: fields.src }
@@ -522,7 +618,7 @@ export function buildTools(): ModelContextTool[] {
             element = {
               kind,
               ...identity,
-              ...defined({ text: fields.text }),
+              ...defined({ text: fields.text, accent: fields.accent, fill: fields.fill }),
               fontSize: fields.fontSize ?? 0.09,
               fontFamily: fields.fontFamily ?? "display",
               fontWeight: fields.fontWeight ?? 600,
@@ -532,18 +628,61 @@ export function buildTools(): ModelContextTool[] {
               letterSpacing: fields.letterSpacing ?? -0.02,
               reveal: fields.reveal ?? "none",
               revealFrames: fields.revealFrames ?? 30,
+              revealStagger: fields.revealStagger ?? 0,
+              revealStyle: fields.revealStyle ?? "rise",
               caret: fields.caret ?? false,
-              ...visual({ box, animation, motion }),
+              radius: fields.radius ?? 0,
+              ...depth,
             };
             break;
           case "shape":
             element = {
               kind,
               ...identity,
+              ...defined({ fillTo: fields.fillTo }),
               shape: fields.shape ?? "rect",
               fill: fields.fill ?? "#FFFFFF",
+              fillAngle: fields.fillAngle ?? 180,
               radius: fields.radius ?? 0,
-              ...visual({ box, animation, motion }),
+              ...depth,
+            };
+            break;
+          case "icon":
+            element = {
+              kind,
+              ...identity,
+              icon: fields.icon ?? "check",
+              color: fields.color ?? "#F7F8F8",
+              stroke: fields.stroke ?? 2,
+              draw: fields.draw ?? false,
+              ...depth,
+            };
+            break;
+          case "particles":
+            element = {
+              kind,
+              ...identity,
+              style: fields.style ?? "confetti",
+              count: fields.count ?? 80,
+              colors: fields.colors ?? ["#5B8CFF", "#7CC7FF", "#F5A9E1"],
+              spread: fields.spread ?? 0.6,
+              gravity: fields.gravity ?? 1,
+              size: fields.size ?? 0.016,
+              seed: fields.seed ?? 1,
+              ...depth,
+            };
+            break;
+          case "device":
+            element = {
+              kind,
+              ...identity,
+              ...defined({ src: fields.src }),
+              device: fields.device ?? "browser",
+              fit: fields.fit ?? "cover",
+              screen: fields.screen ?? "#FFFFFF",
+              frame: fields.frame ?? "#111114",
+              radius: fields.radius ?? 0.06,
+              ...depth,
             };
             break;
           case "image": {
@@ -555,7 +694,7 @@ export function buildTools(): ModelContextTool[] {
               src: file.src,
               fit: fields.fit ?? "cover",
               radius: fields.radius ?? 0,
-              ...visual({ box, animation, motion }),
+              ...depth,
             };
             break;
           }
@@ -571,7 +710,7 @@ export function buildTools(): ModelContextTool[] {
               startFrom: fields.startFrom ?? 0,
               volume: fields.volume ?? 0,
               playbackRate: fields.playbackRate ?? 1,
-              ...visual({ box, animation, motion }),
+              ...depth,
             };
             break;
           }
@@ -730,6 +869,25 @@ export function buildTools(): ModelContextTool[] {
         "Set the ground everything sits on — a solid colour or a two-stop gradient. Always present, always behind every visual layer.",
       schema: SetBackgroundInput,
       execute: (input) => setBackground(input.background),
+    }),
+
+    tool({
+      name: "prism.set_camera",
+      description:
+        "Set the camera's moves, replacing the whole list. Every visual layer is drawn, then the camera looks at a point of the canvas at a zoom: a move says where it looks and how close by the time it is done, and it holds there until the next. Push into the button as the cursor reaches it (scale 1.6 over 18 frames), pull back to show the whole window. It starts at the centre at ×1; an empty list stills it. At most four moves in a film, none faster than 15 frames, and the thing being pushed into holds still while the camera moves.",
+      schema: SetCameraInput,
+      execute: (input) =>
+        setCamera(
+          input.moves.map((move) => ({
+            from: move.from,
+            frames: move.frames ?? 20,
+            x: move.x ?? 0.5,
+            y: move.y ?? 0.5,
+            scale: move.scale ?? 1,
+            easing: move.easing ?? "in-out",
+          })),
+          "agent",
+        ),
     }),
 
     tool({

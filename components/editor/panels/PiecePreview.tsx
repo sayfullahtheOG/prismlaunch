@@ -1,10 +1,12 @@
 "use client";
 
-import { AudioLines, MousePointer2, Music } from "lucide-react";
+import { AudioLines, Hand, MousePointer2, Music, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { isAnimated, previewFrames } from "@/lib/studio/library";
+import { HAND_SRC, isAnimated, previewFrames } from "@/lib/studio/library";
 import { Words } from "@/remotion/Film";
+import { drawProgress, ICON_PATHS } from "@/remotion/icons";
 import { clipStyle, motionState } from "@/remotion/motion";
+import { particlesAt } from "@/remotion/particles";
 import type { ElementDraft } from "@/types/prism";
 
 /**
@@ -26,7 +28,92 @@ const PREVIEW_FPS = 30;
 /** Frames the last state holds before the loop starts again. */
 const HOLD = 20;
 
-type VisualDraft = Extract<ElementDraft, { kind: "text" | "shape" | "image" | "video" }>;
+type VisualDraft = Extract<
+  ElementDraft,
+  { kind: "text" | "shape" | "image" | "video" | "icon" | "particles" | "device" }
+>;
+
+/** A shape's fill, a gradient if it has one. */
+function fillOf(draft: Extract<ElementDraft, { kind: "shape" }>): string {
+  return draft.fillTo
+    ? `linear-gradient(${draft.fillAngle}deg, ${draft.fill}, ${draft.fillTo})`
+    : draft.fill;
+}
+
+/** An icon at one frame of its draw-on, as the film draws it. */
+function IconGlyph({
+  draft,
+  size,
+  frame,
+}: {
+  draft: Extract<ElementDraft, { kind: "icon" }>;
+  size: number;
+  frame: number;
+}) {
+  const shape = ICON_PATHS[draft.icon];
+  const frames = draft.animation.enter === "none" ? 12 : Math.max(1, draft.animation.enterFrames);
+  const drawn = draft.draw ? drawProgress(frame, frames) : 1;
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} style={{ overflow: "visible" }} aria-hidden>
+      <path
+        d={shape.d}
+        pathLength={1}
+        fill={shape.filled ? draft.color : "none"}
+        fillOpacity={shape.filled ? drawn : undefined}
+        stroke={shape.filled ? "none" : draft.color}
+        strokeWidth={shape.filled ? undefined : draft.stroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeDasharray={draft.draw && !shape.filled ? 1 : undefined}
+        strokeDashoffset={draft.draw && !shape.filled ? 1 - drawn : undefined}
+      />
+    </svg>
+  );
+}
+
+/** A device frame in miniature: the bezel or the bar, and a blank screen. */
+function DeviceGlyph({
+  draft,
+  width,
+  height,
+}: {
+  draft: Extract<ElementDraft, { kind: "device" }>;
+  width: number;
+  height: number;
+}) {
+  const w = Math.max(10, draft.box.width * width);
+  const h = Math.max(10, draft.box.height * height);
+  const phone = draft.device === "phone";
+  const bar = draft.device === "browser" ? Math.max(3, h * 0.1) : 0;
+  return (
+    <span
+      style={{
+        display: "block",
+        width: w,
+        height: h,
+        background: draft.device === "window" || draft.device === "card" ? draft.screen : draft.frame,
+        borderRadius: phone ? w * 0.18 : Math.max(2, draft.radius * Math.min(w, h)),
+        boxShadow: draft.device === "window" ? `inset 0 0 0 1px ${draft.frame}66` : undefined,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {phone || bar ? (
+        <span
+          style={{
+            position: "absolute",
+            left: phone ? w * 0.06 : 0,
+            right: phone ? w * 0.06 : 0,
+            top: phone ? w * 0.06 : bar,
+            bottom: phone ? w * 0.06 : 0,
+            background: draft.screen,
+            borderRadius: phone ? w * 0.12 : 0,
+          }}
+        />
+      ) : null}
+    </span>
+  );
+}
 
 /**
  * A clock for a piece that moves: the frame to draw, looping over the
@@ -102,7 +189,23 @@ export function Preview({ draft, large = false }: { draft: ElementDraft; large?:
         </span>
       ) : draft.kind === "image" || draft.kind === "video" ? (
         <span className="absolute inset-0 flex items-center justify-center text-[#F5F5F7]">
-          <MousePointer2 size={large ? 40 : 22} strokeWidth={1.6} />
+          {draft.src === HAND_SRC ? (
+            <Hand size={large ? 40 : 22} strokeWidth={1.6} />
+          ) : (
+            <MousePointer2 size={large ? 40 : 22} strokeWidth={1.6} />
+          )}
+        </span>
+      ) : draft.kind === "icon" ? (
+        <span className="absolute inset-0 flex items-center justify-center">
+          <IconGlyph draft={draft} size={large ? 48 : 26} frame={999} />
+        </span>
+      ) : draft.kind === "particles" ? (
+        <span className="absolute inset-0 flex items-center justify-center" style={{ color: draft.colors[0] }}>
+          <Sparkles size={large ? 40 : 22} strokeWidth={1.6} />
+        </span>
+      ) : draft.kind === "device" ? (
+        <span className="absolute inset-0 flex items-center justify-center">
+          <DeviceGlyph draft={draft} width={width} height={height} />
         </span>
       ) : draft.kind === "audio" ? (
         <span className="absolute inset-0 flex items-center justify-center text-[#5B8CFF]">
@@ -121,7 +224,7 @@ export function Preview({ draft, large = false }: { draft: ElementDraft; large?:
             transform: "translate(-50%, -50%)",
             width: Math.max(6, draft.box.width * width),
             height: Math.max(3, draft.box.height * height),
-            background: draft.fill,
+            background: fillOf(draft),
             borderRadius:
               draft.shape === "ellipse"
                 ? "999px"
@@ -160,6 +263,7 @@ function Playing({
     "translate(-50%, -50%)",
     style.transform,
     move.scale !== 1 ? `scale(${move.scale})` : "",
+    move.rotate !== 0 ? `rotate(${move.rotate}deg)` : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -168,9 +272,56 @@ function Playing({
     left: `${(draft.box.x + move.dx) * 100}%`,
     top: `${(draft.box.y + move.dy) * 100}%`,
     transform,
-    opacity: style.opacity,
+    opacity: style.opacity * move.opacity,
     ...(style.filter ? { filter: style.filter } : {}),
+    ...(style.clipPath ? { clipPath: style.clipPath } : {}),
   };
+
+  if (draft.kind === "icon") {
+    return (
+      <span style={{ ...placed, display: "block", lineHeight: 0 }}>
+        <IconGlyph draft={draft} size={Math.max(14, draft.box.width * width * 1.6)} frame={frame} />
+      </span>
+    );
+  }
+
+  if (draft.kind === "particles") {
+    // The burst itself, at tile scale: every piece where the film would put it.
+    const pieces = particlesAt(draft, frame, frames, width / height);
+    return (
+      <>
+        {pieces.map((piece, index) => {
+          const h = Math.max(2, piece.size * height * 1.6);
+          return (
+            <span
+              key={index}
+              style={{
+                position: "absolute",
+                left: `${piece.x * 100}%`,
+                top: `${piece.y * 100}%`,
+                width: h * piece.aspect,
+                height: h,
+                marginLeft: (-h * piece.aspect) / 2,
+                marginTop: -h / 2,
+                background: piece.color,
+                borderRadius: piece.round ? "50%" : 1,
+                opacity: piece.opacity * style.opacity,
+                transform: `rotate(${piece.rotate}deg)`,
+              }}
+            />
+          );
+        })}
+      </>
+    );
+  }
+
+  if (draft.kind === "device") {
+    return (
+      <span style={{ ...placed, display: "block", lineHeight: 0 }}>
+        <DeviceGlyph draft={draft} width={width} height={height} />
+      </span>
+    );
+  }
 
   if (draft.kind === "text") {
     return (
@@ -201,7 +352,10 @@ function Playing({
               text: draft.text ?? "Aa",
               reveal: draft.reveal,
               revealFrames: draft.revealFrames,
+              revealStagger: draft.revealStagger,
+              revealStyle: draft.revealStyle,
               caret: draft.caret,
+              ...(draft.accent ? { accent: draft.accent } : {}),
             }}
             frame={frame}
             fps={PREVIEW_FPS}
@@ -220,7 +374,7 @@ function Playing({
           ...placed,
           width: w,
           height: h,
-          background: draft.fill,
+          background: fillOf(draft),
           borderRadius: draft.shape === "ellipse" ? "999px" : `${draft.radius * Math.min(w, h)}px`,
         }}
       />
@@ -230,6 +384,7 @@ function Playing({
   // An image or a video: the cursor, as its icon, and the spot it is
   // heading for, so the glide and the click have somewhere to land.
   const heading = draft.motion.x !== 0 || draft.motion.y !== 0;
+  const Pointer = draft.src === HAND_SRC ? Hand : MousePointer2;
   return (
     <>
       {heading ? (
@@ -248,7 +403,7 @@ function Playing({
         />
       ) : null}
       <span style={{ ...placed, display: "block", lineHeight: 0, color: "#F5F5F7" }}>
-        <MousePointer2
+        <Pointer
           size={Math.max(Math.round(width * 0.11), draft.box.width * width * 1.4)}
           strokeWidth={1.6}
         />

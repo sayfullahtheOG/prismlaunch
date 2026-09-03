@@ -43,8 +43,11 @@ const FILTERS: readonly Filter[] = ["All", "Type", "Shapes", "Media", "Sound"];
 const GROUP_OF: Record<Element["kind"], Group> = {
   text: "Type",
   shape: "Shapes",
+  icon: "Shapes",
+  particles: "Shapes",
   image: "Media",
   video: "Media",
+  device: "Media",
   audio: "Sound",
 };
 

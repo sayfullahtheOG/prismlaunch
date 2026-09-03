@@ -39,6 +39,9 @@ export function elementForFile(path: string): ElementDraft {
     box: { ...DEFAULT_BOX, width: 0.8, height: 0.45 },
     animation: { ...DEFAULT_ANIMATION },
     motion: { ...DEFAULT_MOTION },
+    shadow: 0,
+    glow: 0,
+    blur: 0,
   };
   if (kind === "audio") {
     return { kind, name, src: path, startFrom: 0, volume: 1, fadeInFrames: 0, fadeOutFrames: 0, playbackRate: 1 };

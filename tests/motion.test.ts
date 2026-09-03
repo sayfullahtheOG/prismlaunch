@@ -35,12 +35,19 @@ import { textClip } from "./fixture";
 
 describe("a move over the clip's life", () => {
   it("is still by default, and costs nothing", () => {
-    expect(motionState(DEFAULT_MOTION, 10, 60)).toEqual({ dx: 0, dy: 0, scale: 1 });
+    expect(motionState(DEFAULT_MOTION, 10, 60)).toEqual({
+      dx: 0,
+      dy: 0,
+      scale: 1,
+      rotate: 0,
+      opacity: 1,
+      blur: 0,
+    });
   });
 
   it("travels, eases out, and holds where it lands", () => {
     const motion = { ...DEFAULT_MOTION, x: 0.2, y: -0.1, frames: 20 };
-    expect(motionState(motion, 0, 60)).toEqual({ dx: 0, dy: -0, scale: 1 });
+    expect(motionState(motion, 0, 60)).toMatchObject({ dx: 0, dy: -0, scale: 1 });
     const half = motionState(motion, 10, 60);
     // Ease-out: more than halfway there at half time.
     expect(half.dx).toBeGreaterThan(0.1);
@@ -145,9 +152,23 @@ describe("the library's motion pieces", () => {
 
   it("has the pieces a product film keeps rebuilding, and ships their files", () => {
     const motion = LIBRARY.filter((item) => item.group === "Motion").map((item) => item.id);
-    expect(motion).toEqual(["cursor", "tap-ring", "typewriter", "word-by-word", "counter", "highlight"]);
+    expect(motion).toEqual([
+      "cursor",
+      "hand-cursor",
+      "tap-ring",
+      "typewriter",
+      "word-by-word",
+      "kinetic-line",
+      "counter",
+      "progress-bar",
+      "check",
+      "sparkle-trail",
+      "confetti",
+      "sparkles",
+      "highlight",
+    ]);
     for (const item of LIBRARY) {
-      if (!("src" in item.draft)) continue;
+      if (!("src" in item.draft) || typeof item.draft.src !== "string") continue;
       expect(existsSync(join(process.cwd(), "public", item.draft.src)), item.draft.src).toBe(true);
     }
   });

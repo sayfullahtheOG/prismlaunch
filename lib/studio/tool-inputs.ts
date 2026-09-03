@@ -5,11 +5,16 @@ import {
   AudioClipSchema,
   BackgroundSchema,
   BoxSchema,
+  CameraMoveSchema,
+  DeviceClipSchema,
   ELEMENT_KINDS,
+  IconClipSchema,
   ImageClipSchema,
+  MAX_CAMERA_MOVES,
   MAX_FRAMES,
   MAX_TEXT_LENGTH,
   MotionSchema,
+  ParticlesClipSchema,
   ShapeClipSchema,
   SlugSchema,
   StageIdSchema,
@@ -163,16 +168,24 @@ const visualExtras = {
   box: patchOf(BoxSchema)
     .optional()
     .describe(
-      "Position and size as fractions of the canvas. x/y are the CENTRE, so { x: 0.5, y: 0.5 } is centred. Defaults to a centred band.",
+      "Position and size as fractions of the canvas. x/y are the CENTRE, so { x: 0.5, y: 0.5 } is centred. tiltX/tiltY are perspective degrees: tiltX leans it back like a card on a desk, tiltY turns it like a door; ±12 floats a product shot, ±30 is a phone flying past. Defaults to a centred, flat band.",
     ),
   animation: patchOf(AnimationSchema)
     .optional()
-    .describe("How it enters and leaves. Defaults to no animation."),
+    .describe(
+      "How it enters and leaves. enter/exit: none, fade, rise, fall, slide-left, slide-right, scale, blur, pop (out of focus and a touch large, settling — the kinetic word), zoom (through the camera), flip (a card turning up), wipe (a true mask, left to right). travel: how far rise/fall/slides move in canvas fractions (0.03 settles, 0.25 arrives from off-stage). spring: overshoot on the enter, 0–1 (0.3 lands past and settles; never on text). Defaults to no animation.",
+    ),
   motion: patchOf(MotionSchema)
     .optional()
     .describe(
-      "One move over the clip's life: x/y how far the box travels in canvas fractions, scale what it grows to, frames how long (0 is the whole clip), delay when it starts, easing 'out' | 'in-out' | 'linear', press to dip once on arrival like a click. Defaults to still.",
+      "One move over the clip's life: x/y how far the box travels in canvas fractions, scale what it grows to, frames how long (0 is the whole clip), delay when it starts, easing 'out' | 'in-out' | 'linear', press to dip once on arrival like a click, rotate degrees turned by the end, opacity and blur (0–1) at the end, arc −1..1 to bow the path, spring 0–1 to land past the mark and settle, trail true for a streak behind it. Defaults to still.",
     ),
+  shadow: loose(TextClipSchema.shape.shadow)
+    .describe("Depth, 0–1: a soft tinted shadow under it. 0.3 a card, 0.6 a phone in the air. Default 0."),
+  glow: loose(TextClipSchema.shape.glow)
+    .describe("A halo in its own colour, 0–1. Ration it. Default 0."),
+  blur: loose(TextClipSchema.shape.blur)
+    .describe("Defocus held for the whole clip, 0–1: a wall of text or a screenshot behind the subject. Default 0."),
 };
 
 const reveal = {
@@ -181,7 +194,11 @@ const reveal = {
       "How the words arrive: 'type' a character at a time, 'words' one word after another, 'count' runs the first number in the text up from zero. Defaults to none.",
     ),
   revealFrames: loose(TextClipSchema.shape.revealFrames)
-    .describe("How many frames the reveal takes from the clip's first frame. Defaults to 30."),
+    .describe("How many frames the reveal takes from the clip's first frame; with revealStagger set, how long each word takes. Defaults to 30."),
+  revealStagger: loose(TextClipSchema.shape.revealStagger)
+    .describe("For 'words': frames between one word starting and the next. 6–9 is a kinetic line; 15 appends a word at a time. 0 spreads the words across revealFrames."),
+  revealStyle: loose(TextClipSchema.shape.revealStyle)
+    .describe("For 'words': how each word lands — 'rise' (default), 'fade', 'pop' (out of focus and a touch large, settling), 'blur'."),
   caret: loose(TextClipSchema.shape.caret)
     .describe("A blinking text caret after the words. Types along with 'type'."),
 };
@@ -189,7 +206,9 @@ const reveal = {
 export const AddTextInput = z.object({
   ...timing,
   ...visualExtras,
-  text: TextClipSchema.shape.text.describe("The words on screen."),
+  text: TextClipSchema.shape.text.describe(
+    "The words on screen. Wrap a run in asterisks to set it in `accent`: \"Turn *books* into audio\".",
+  ),
   fontSize: loose(TextClipSchema.shape.fontSize)
     .describe(
       "As a fraction of canvas height: 0.05 a caption, 0.09 a headline, 0.2 a hero word.",
@@ -198,9 +217,15 @@ export const AddTextInput = z.object({
   fontWeight: loose(TextClipSchema.shape.fontWeight)
     .describe("Only has an effect on the 'body' family."),
   color: loose(TextClipSchema.shape.color),
+  accent: loose(TextClipSchema.shape.accent)
+    .describe("The colour of the *starred* words — the two-tone line. Unset, the stars are printed."),
   align: loose(TextClipSchema.shape.align),
   lineHeight: loose(TextClipSchema.shape.lineHeight),
   letterSpacing: loose(TextClipSchema.shape.letterSpacing),
+  fill: loose(TextClipSchema.shape.fill)
+    .describe("A colour behind the words filling the box: a button, a chip. Pair with radius 0.5 for a pill."),
+  radius: loose(TextClipSchema.shape.radius)
+    .describe("Corner radius of the fill, as a fraction of the box's shorter side. 0.5 is a pill."),
   ...reveal,
 });
 
@@ -209,7 +234,84 @@ export const AddShapeInput = z.object({
   ...visualExtras,
   shape: ShapeClipSchema.shape.shape,
   fill: loose(ShapeClipSchema.shape.fill),
+  fillTo: loose(ShapeClipSchema.shape.fillTo)
+    .describe("A second colour makes the fill a gradient, from fill to this, along fillAngle."),
+  fillAngle: loose(ShapeClipSchema.shape.fillAngle)
+    .describe("Degrees. 90 runs left to right, 180 top to bottom. Default 180."),
   radius: loose(ShapeClipSchema.shape.radius),
+});
+
+const iconFields = {
+  icon: loose(IconClipSchema.shape.icon)
+    .describe("Which icon: check, x, plus, minus, arrow-right, arrow-up-right, chevron-right, chevron-down, sparkle, star, heart, bolt, play, search, circle, cursor, hand. sparkle, star, heart, bolt, play and cursor are filled; the rest are outlines."),
+  stroke: loose(IconClipSchema.shape.stroke)
+    .describe("Stroke width for the outlined icons, 0.5–4. Default 2."),
+  draw: loose(IconClipSchema.shape.draw)
+    .describe("true draws the stroke on over the enter, like a pen — a check drawing itself under \"Done\"."),
+};
+
+export const AddIconInput = z.object({
+  ...timing,
+  ...visualExtras,
+  icon: IconClipSchema.shape.icon.describe(iconFields.icon.description ?? ""),
+  color: loose(IconClipSchema.shape.color),
+  stroke: iconFields.stroke,
+  draw: iconFields.draw,
+});
+
+const particleFields = {
+  style: loose(ParticlesClipSchema.shape.style)
+    .describe("confetti (up from the box centre, falling and spinning), burst (every direction), sparkles (twinkling points inside the box), rise (drifting up through the box). Default confetti."),
+  count: loose(ParticlesClipSchema.shape.count).describe("How many pieces, 1–400. 90 is a payoff; 24 is sparkles. Default 80."),
+  colors: loose(ParticlesClipSchema.shape.colors)
+    .describe("One to six hex colours the pieces are drawn from. Default the accent blue, its light, and a pink."),
+  spread: loose(ParticlesClipSchema.shape.spread).describe("How far they fly, 0–1 of the canvas. Default 0.6."),
+  gravity: loose(ParticlesClipSchema.shape.gravity).describe("How hard they fall, 0–2. 0 floats. Default 1."),
+  size: loose(ParticlesClipSchema.shape.size).describe("Size of a piece as a fraction of canvas height. Default 0.016."),
+  seed: loose(ParticlesClipSchema.shape.seed).describe("Any integer; the same seed is the same burst every time."),
+};
+
+export const AddParticlesInput = z.object({
+  ...timing,
+  ...visualExtras,
+  ...particleFields,
+});
+
+const deviceFields = {
+  device: loose(DeviceClipSchema.shape.device)
+    .describe("phone (bezel and island), browser (title bar with three dots), window (a hairline and a shadow), card (a plain white panel). Default browser."),
+  screen: loose(DeviceClipSchema.shape.screen)
+    .describe("The screen colour when there is no screenshot, and the ground under one. Default white."),
+  frame: loose(DeviceClipSchema.shape.frame).describe("The bezel, the title bar, the hairline. Default near-black."),
+};
+
+export const AddDeviceInput = z.object({
+  ...timing,
+  ...visualExtras,
+  ...deviceFields,
+  src: AssetPathSchema.optional().describe(
+    "The screenshot, a path inside the project folder like 'assets/app.png'. Optional; without it the screen is the `screen` colour.",
+  ),
+  fit: loose(DeviceClipSchema.shape.fit),
+  radius: loose(DeviceClipSchema.shape.radius).describe("Corner radius as a fraction of the shorter side. Default 0.06; a phone wants ~0.14."),
+});
+
+export const SetCameraInput = z.object({
+  moves: z
+    .array(
+      z.object({
+        from: CameraMoveSchema.shape.from.describe("The composition frame the move starts on."),
+        frames: loose(CameraMoveSchema.shape.frames).describe("How long the move takes. 15–24 for a push. Default 20."),
+        x: loose(CameraMoveSchema.shape.x).describe("Where the camera looks by the end, in canvas fractions. Default 0.5."),
+        y: loose(CameraMoveSchema.shape.y).describe("Default 0.5."),
+        scale: loose(CameraMoveSchema.shape.scale).describe("How close: 1 the whole canvas, 1.6 a push into a region, 0.8 pulled back. Default 1."),
+        easing: loose(CameraMoveSchema.shape.easing).describe("'in-out' (default), 'out' or 'linear'."),
+      }),
+    )
+    .max(MAX_CAMERA_MOVES)
+    .describe(
+      "Every move of the camera, in order; this replaces the whole list. The camera holds between moves and starts at the centre at ×1. An empty list stills it. At most four in a film, none faster than 15 frames.",
+    ),
 });
 
 export const AddImageInput = z.object({
@@ -272,25 +374,44 @@ export const UpdateClipInput = z.object({
   box: visualExtras.box,
   animation: visualExtras.animation,
   motion: visualExtras.motion,
+  shadow: visualExtras.shadow,
+  glow: visualExtras.glow,
+  blur: visualExtras.blur,
   text: loose(TextClipSchema.shape.text),
   fontSize: loose(TextClipSchema.shape.fontSize),
   fontFamily: loose(TextClipSchema.shape.fontFamily),
   fontWeight: loose(TextClipSchema.shape.fontWeight),
-  color: loose(TextClipSchema.shape.color),
+  color: loose(TextClipSchema.shape.color).describe("text, icon."),
+  accent: loose(TextClipSchema.shape.accent).describe("text: the colour of the *starred* words."),
   align: loose(TextClipSchema.shape.align),
   lineHeight: loose(TextClipSchema.shape.lineHeight),
   letterSpacing: loose(TextClipSchema.shape.letterSpacing),
   ...reveal,
   shape: loose(ShapeClipSchema.shape.shape),
-  fill: loose(ShapeClipSchema.shape.fill),
-  radius: loose(ShapeClipSchema.shape.radius).describe("shape, image, video."),
-  src: AssetPathSchema.optional().describe("Swap the file behind an image, video or audio clip."),
+  fill: loose(ShapeClipSchema.shape.fill).describe("shape; text (a colour behind the words)."),
+  fillTo: loose(ShapeClipSchema.shape.fillTo).describe("shape: the gradient's second colour."),
+  fillAngle: loose(ShapeClipSchema.shape.fillAngle).describe("shape: the gradient's angle."),
+  radius: loose(ShapeClipSchema.shape.radius).describe("shape, text fill, image, video, device."),
+  src: AssetPathSchema.optional().describe("Swap the file behind an image, video, audio or device clip."),
   fit: loose(ImageClipSchema.shape.fit),
   startFrom: loose(VideoClipSchema.shape.startFrom),
   volume: loose(AudioClipSchema.shape.volume),
   playbackRate: loose(AudioClipSchema.shape.playbackRate),
   fadeInFrames: loose(AudioClipSchema.shape.fadeInFrames),
   fadeOutFrames: loose(AudioClipSchema.shape.fadeOutFrames),
+  icon: iconFields.icon.describe("icon: which one."),
+  stroke: iconFields.stroke.describe("icon: stroke width."),
+  draw: iconFields.draw.describe("icon: draw the stroke on over the enter."),
+  style: particleFields.style.describe("particles: confetti, burst, sparkles, rise."),
+  count: particleFields.count.describe("particles."),
+  colors: particleFields.colors.describe("particles."),
+  spread: particleFields.spread.describe("particles."),
+  gravity: particleFields.gravity.describe("particles."),
+  size: particleFields.size.describe("particles."),
+  seed: particleFields.seed.describe("particles."),
+  device: deviceFields.device.describe("device: phone, browser, window, card."),
+  screen: deviceFields.screen.describe("device: the screen colour."),
+  frame: deviceFields.frame.describe("device: the bezel colour."),
 });
 
 export const RemoveClipInput = z.object({
@@ -339,44 +460,66 @@ const elementFields = {
     .describe("text only. As a fraction of canvas height: 0.045 a caption, 0.09 a headline, 0.2 a hero word."),
   fontFamily: loose(TextClipSchema.shape.fontFamily).describe("text only."),
   fontWeight: loose(TextClipSchema.shape.fontWeight).describe("text only. Only the 'body' family has weights."),
-  color: loose(TextClipSchema.shape.color).describe("text only."),
+  color: loose(TextClipSchema.shape.color).describe("text, icon."),
+  accent: loose(TextClipSchema.shape.accent).describe("text only. The colour of the *starred* words."),
   align: loose(TextClipSchema.shape.align).describe("text only."),
   lineHeight: loose(TextClipSchema.shape.lineHeight).describe("text only."),
   letterSpacing: loose(TextClipSchema.shape.letterSpacing).describe("text only."),
   reveal: reveal.reveal.describe("text only. 'type', 'words' or 'count'; how the words arrive."),
-  revealFrames: reveal.revealFrames.describe("text only. Frames the reveal takes."),
+  revealFrames: reveal.revealFrames.describe("text only. Frames the reveal takes; per word with revealStagger."),
+  revealStagger: reveal.revealStagger.describe("text only. Frames between words for 'words'."),
+  revealStyle: reveal.revealStyle.describe("text only. rise, fade, pop or blur."),
   caret: reveal.caret.describe("text only. A blinking caret after the words."),
   // shape
   shape: loose(ShapeClipSchema.shape.shape).describe("shape only. Defaults to rect."),
-  fill: loose(ShapeClipSchema.shape.fill).describe("shape only."),
+  fill: loose(ShapeClipSchema.shape.fill).describe("shape; text (a colour behind the words)."),
+  fillTo: loose(ShapeClipSchema.shape.fillTo).describe("shape only. The gradient's second colour."),
+  fillAngle: loose(ShapeClipSchema.shape.fillAngle).describe("shape only. The gradient's angle."),
   radius: loose(ShapeClipSchema.shape.radius)
-    .describe("shape, image, video. Corner radius as a fraction of the shorter side; 0.5 rounds a rect into a pill."),
+    .describe("shape, text fill, image, video, device. Corner radius as a fraction of the shorter side; 0.5 rounds a rect into a pill."),
   // media
   src: AssetPathSchema.optional().describe(
-    "image, video, audio. Path inside the project folder, e.g. 'assets/app.png'. The file must already be there.",
+    "image, video, audio, device. Path inside the project folder, e.g. 'assets/app.png'. The file must already be there.",
   ),
-  fit: loose(ImageClipSchema.shape.fit).describe("image, video."),
+  fit: loose(ImageClipSchema.shape.fit).describe("image, video, device."),
   startFrom: loose(VideoClipSchema.shape.startFrom).describe("video, audio. Frame to start at inside the file."),
   volume: loose(AudioClipSchema.shape.volume).describe("video, audio. Video defaults to 0."),
   playbackRate: loose(AudioClipSchema.shape.playbackRate).describe("video, audio."),
   fadeInFrames: loose(AudioClipSchema.shape.fadeInFrames).describe("audio only."),
   fadeOutFrames: loose(AudioClipSchema.shape.fadeOutFrames).describe("audio only."),
+  // icon, particles, device
+  icon: iconFields.icon.describe("icon only. Which one."),
+  stroke: iconFields.stroke.describe("icon only."),
+  draw: iconFields.draw.describe("icon only. Draw the stroke on over the enter."),
+  style: particleFields.style.describe("particles only. confetti, burst, sparkles, rise."),
+  count: particleFields.count.describe("particles only."),
+  colors: particleFields.colors.describe("particles only."),
+  spread: particleFields.spread.describe("particles only."),
+  gravity: particleFields.gravity.describe("particles only."),
+  size: particleFields.size.describe("particles only."),
+  seed: particleFields.seed.describe("particles only."),
+  device: deviceFields.device.describe("device only. phone, browser, window, card."),
+  screen: deviceFields.screen.describe("device only."),
+  frame: deviceFields.frame.describe("device only."),
   // visual
   box: patchOf(BoxSchema)
     .optional()
-    .describe("Every visual kind. The default position and size, in canvas fractions; a placement can override it."),
+    .describe("Every visual kind. The default position and size, in canvas fractions, with tiltX/tiltY in degrees; a placement can override it."),
   animation: patchOf(AnimationSchema)
     .optional()
-    .describe("Every visual kind. The default enter and exit; a placement can override it."),
+    .describe("Every visual kind. The default enter and exit, with travel and spring; a placement can override it."),
   motion: patchOf(MotionSchema)
     .optional()
     .describe("Every visual kind. The default move over a clip's life; a placement can override it. See add_text."),
+  shadow: visualExtras.shadow.describe("Every visual kind. Depth, 0–1."),
+  glow: visualExtras.glow.describe("Every visual kind. A halo, 0–1."),
+  blur: visualExtras.blur.describe("Every visual kind. Defocus, 0–1."),
 };
 
 export const AddElementInput = z.object({
   kind: z
     .enum(ELEMENT_KINDS)
-    .describe("text: a type style. shape: a rule, a block, a dot. image or video: a file in the project folder. audio: a file for an audio track."),
+    .describe("text: a type style. shape: a rule, a block, a dot, a gradient bar. image or video: a file in the project folder. icon: a check, an arrow, a sparkle. particles: confetti, a burst, sparkles. device: a phone, browser, window or card around a screenshot. audio: a file for an audio track."),
   ...elementIdentity,
   ...elementFields,
 });
@@ -397,7 +540,7 @@ export const AddFromLibraryInput = z.object({
   itemId: z
     .enum(LIBRARY.map((item) => item.id) as [string, ...string[]])
     .describe(
-      "Which prebuilt piece. Motion: cursor, tap-ring, typewriter, word-by-word, counter, highlight. Type: headline, support, label, blank-type. Shapes: accent-rule, device, pill, dot, panel, blank-shape. Sound: sfx-whoosh, sfx-click, sfx-tick, sfx-impact, sfx-rise. Music: bed-calm, bed-upbeat, bed-cinematic.",
+      "Which prebuilt piece. Motion: cursor, hand-cursor, tap-ring, typewriter, word-by-word, kinetic-line, counter, progress-bar, check, sparkle-trail, confetti, sparkles, highlight. Type: headline, support, label, blank-type. Shapes: accent-rule, device, phone, browser, window, card, pill, button, gradient-bar, dot, panel, blank-shape. Sound: sfx-whoosh, sfx-click, sfx-tick, sfx-impact, sfx-rise. Music: bed-calm, bed-upbeat, bed-cinematic.",
     ),
   name: z
     .string()

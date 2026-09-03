@@ -102,6 +102,7 @@ import type { RenderSnapshot } from "@/lib/render/job";
 import type {
   ActivityEvent,
   Background,
+  CameraMove,
   Clip,
   ClipDraft,
   Element,
@@ -2002,13 +2003,18 @@ function boardClip(panel: StoryboardPanel, from: number, background: Background)
     reveal: "none",
     revealFrames: 30,
     caret: false,
-    box: { x: 0.5, y: 0.47, width: 0.8, height: 0.3, rotation: 0, opacity: 1 },
+    revealStagger: 0,
+    revealStyle: "rise",
+    radius: 0,
+    shadow: 0,
+    glow: 0,
+    blur: 0,
+    box: { x: 0.5, y: 0.47, width: 0.8, height: 0.3, rotation: 0, opacity: 1, tiltX: 0, tiltY: 0 },
     animation: {
       enter: panel.transitionIn,
       exit: panel.transitionOut,
       enterFrames: 10,
-      exitFrames: 6,
-    },
+      exitFrames: 6, travel: 0.03, spring: 0 },
     motion: { ...DEFAULT_MOTION },
   };
 }
@@ -2401,6 +2407,43 @@ export function setBackground(background: Background): ActionResult {
   if (rejected) return rejected;
 
   return ok(`Background is now a ${background.kind}.`);
+}
+
+/**
+ * The camera's moves, replaced whole.
+ *
+ * A list rather than one move at a time, because a camera is read as a
+ * sequence — where it goes and when it comes back — and an agent revising
+ * the third move wants to see the other two beside it. Sorted by frame so
+ * the file reads in order whatever order they were sent in.
+ */
+export function setCamera(moves: CameraMove[], origin: "human" | "agent" = "human"): ActionResult {
+  const guard = requireProject();
+  if (!guard.ok) return guard.result;
+  const project = guard.value;
+
+  const camera = [...moves].sort((a, b) => a.from - b.from);
+  const rejected = commit(
+    project,
+    { ...project.file, camera },
+    {
+      origin,
+      label: camera.length === 0 ? "Camera stilled" : "Camera moved",
+      detail:
+        camera.length === 0
+          ? "No moves: the whole canvas, still"
+          : camera.map((move) => `f${move.from} → (${move.x}, ${move.y}) ×${move.scale}`).join(" · "),
+    },
+  );
+  if (rejected) return rejected;
+
+  return ok(
+    camera.length === 0
+      ? "Camera is still on the whole canvas."
+      : `Camera has ${camera.length} move${camera.length === 1 ? "" : "s"}: ${camera
+          .map((move) => `frame ${move.from} looks at (${move.x}, ${move.y}) at ×${move.scale} over ${move.frames}f`)
+          .join("; ")}.`,
+  );
 }
 
 export function setDuration(frames: number): ActionResult {

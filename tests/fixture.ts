@@ -31,9 +31,15 @@ export function textClip(overrides: Partial<Clip> = {}): Clip {
     letterSpacing: -0.02,
     reveal: "none",
     revealFrames: 30,
+    revealStagger: 0,
+    revealStyle: "rise",
     caret: false,
-    box: { x: 0.5, y: 0.5, width: 0.8, height: 0.2, rotation: 0, opacity: 1 },
-    animation: { enter: "fade", exit: "fade", enterFrames: 10, exitFrames: 10 },
+    radius: 0,
+    shadow: 0,
+    glow: 0,
+    blur: 0,
+    box: { x: 0.5, y: 0.5, width: 0.8, height: 0.2, rotation: 0, opacity: 1, tiltX: 0, tiltY: 0 },
+    animation: { enter: "fade", exit: "fade", enterFrames: 10, exitFrames: 10, travel: 0.03, spring: 0 },
     motion: { ...DEFAULT_MOTION },
     ...overrides,
   } as Clip;
@@ -113,6 +119,7 @@ export function projectFile(overrides: Partial<ProjectFile> = {}): ProjectFile {
     background: { kind: "solid", color: "#0A0A0C" },
     process: approvedThrough("storyboard"),
     elements: [],
+    camera: [],
     tracks: [
       visualTrack([
         textClip({ id: "clip-a", from: 0, durationInFrames: 60 }),

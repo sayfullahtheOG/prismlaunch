@@ -56,6 +56,59 @@ export function isSpace(part: string): boolean {
   return /^\s+$/.test(part);
 }
 
+// ---------------------------------------------------------------------------
+// Two-tone lines
+// ---------------------------------------------------------------------------
+
+export type Run = { text: string; accent: boolean };
+
+const STARRED = /\*([^*\n]+)\*/g;
+
+/**
+ * "Turn *books* into audio" as runs: the starred ones are the accent's.
+ *
+ * A lone asterisk, or an empty pair, is printed as it is — the markup only
+ * claims a star that closes. This is the whole of the two-tone line that
+ * every kinetic product film is set in: one colour for the words, another
+ * for the one that matters.
+ */
+export function accentRuns(text: string): Run[] {
+  const runs: Run[] = [];
+  let last = 0;
+  for (const match of text.matchAll(STARRED)) {
+    const at = match.index;
+    if (at > last) runs.push({ text: text.slice(last, at), accent: false });
+    runs.push({ text: match[1]!, accent: true });
+    last = at + match[0].length;
+  }
+  if (last < text.length) runs.push({ text: text.slice(last), accent: false });
+  return runs.length > 0 ? runs : [{ text, accent: false }];
+}
+
+/** The words with the stars taken out, for the reveals that print one colour. */
+export function stripAccents(text: string): string {
+  return accentRuns(text)
+    .map((run) => run.text)
+    .join("");
+}
+
+export type WordPart = { part: string; accent: boolean; space: boolean };
+
+/** The words and their whitespace, each knowing whether it is the accent's. */
+export function markedWords(text: string): WordPart[] {
+  const out: WordPart[] = [];
+  for (const run of accentRuns(text)) {
+    for (const part of splitWords(run.text)) {
+      out.push({ part, accent: run.accent, space: isSpace(part) });
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Word by word
+// ---------------------------------------------------------------------------
+
 const STAGGER = 0.7;
 
 /**
@@ -67,6 +120,26 @@ const STAGGER = 0.7;
 export function wordProgress(index: number, count: number, progress: number): number {
   const start = count <= 1 ? 0 : (index / (count - 1)) * STAGGER;
   const local = Math.min(1, Math.max(0, (progress - start) / (1 - STAGGER)));
+  return 1 - Math.pow(1 - local, 3);
+}
+
+/**
+ * The same, in frames, with an explicit gap between words.
+ *
+ * With `stagger` set, word `index` starts `index × stagger` frames in and
+ * takes `revealFrames` to land — which is how a line is appended to, one
+ * word every fifteen frames, each in six. Without it, the proportional
+ * scheme above spreads the words across `revealFrames`.
+ */
+export function wordProgressAt(
+  index: number,
+  count: number,
+  frame: number,
+  revealFrames: number,
+  stagger: number,
+): number {
+  if (stagger <= 0) return wordProgress(index, count, revealProgress(frame, revealFrames));
+  const local = Math.min(1, Math.max(0, (frame - index * stagger) / Math.max(1, revealFrames)));
   return 1 - Math.pow(1 - local, 3);
 }
 

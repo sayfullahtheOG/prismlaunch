@@ -190,6 +190,12 @@ function clipWords(clip: Clip): string {
       return clip.text.slice(0, 40);
     case "shape":
       return clip.shape;
+    case "icon":
+      return clip.icon;
+    case "particles":
+      return clip.style;
+    case "device":
+      return clip.src ? clip.src.split("/").pop() ?? clip.device : clip.device;
     default:
       return clip.src.split("/").pop() ?? clip.kind;
   }

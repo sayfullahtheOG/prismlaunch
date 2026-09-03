@@ -46,10 +46,10 @@ describe("the shared registration", () => {
 
     const [first, second] = await Promise.all([acquirePrismTools(), acquirePrismTools()]);
     expect(first).toBe(second);
-    expect(first?.registered).toBe(36);
+    expect(first?.registered).toBe(40);
     expect(first?.failed).toEqual([]);
     expect(registry.duplicates).toEqual([]);
-    expect(registry.calls.length).toBe(36);
+    expect(registry.calls.length).toBe(40);
 
     // The first release keeps the tools; the last tears them down, and a
     // fresh acquire after that is a new registration.
@@ -60,7 +60,7 @@ describe("the shared registration", () => {
 
     const third = await acquirePrismTools();
     expect(third).not.toBe(first);
-    expect(third?.registered).toBe(36);
+    expect(third?.registered).toBe(40);
     expect(registry.duplicates).toEqual([]);
     releasePrismTools();
     await Promise.resolve();

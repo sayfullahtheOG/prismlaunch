@@ -4,8 +4,11 @@ import { useRef } from "react";
 import {
   AudioLines,
   Image as ImageIcon,
+  Smartphone,
+  Sparkle,
   Sparkles,
   Square,
+  Star,
   Type,
   Video as VideoIcon,
 } from "lucide-react";
@@ -61,6 +64,9 @@ const ICONS: Record<ClipKind, typeof Type> = {
   shape: Square,
   image: ImageIcon,
   video: VideoIcon,
+  icon: Star,
+  particles: Sparkle,
+  device: Smartphone,
   audio: AudioLines,
 };
 
@@ -258,6 +264,12 @@ function label(clip: Clip): string {
       return clip.text;
     case "shape":
       return clip.shape;
+    case "icon":
+      return clip.icon;
+    case "particles":
+      return clip.style;
+    case "device":
+      return clip.src ? clip.src.split("/").pop() ?? clip.device : clip.device;
     case "image":
     case "video":
     case "audio":

@@ -635,11 +635,11 @@ export function referencedAssets(file: ProjectFile): string[] {
   const paths = new Set<string>();
   for (const track of file.tracks) {
     for (const clip of track.clips) {
-      if ("src" in clip) paths.add(clip.src);
+      if ("src" in clip && typeof clip.src === "string") paths.add(clip.src);
     }
   }
   for (const element of file.elements) {
-    if ("src" in element) paths.add(element.src);
+    if ("src" in element && typeof element.src === "string") paths.add(element.src);
   }
   return [...paths];
 }

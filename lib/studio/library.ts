@@ -15,9 +15,13 @@ import type { ElementDraft } from "@/types/prism";
  *
  * The Motion pieces are what product films keep rebuilding by hand: a
  * cursor that glides and clicks, the ring under a tap, a typed line, a
- * headline arriving a word at a time, a number counting up, a highlight.
- * Each is an ordinary element with its reveal or motion already set, so
- * adding one and placing it is the whole job.
+ * headline arriving a word at a time, a number counting up, a highlight —
+ * and, from the kinetic register, a two-tone line whose words pop in, a
+ * gradient bar that fills, a check that draws itself, a sparkle that
+ * swoops with a trail, confetti. Each is an ordinary element with its
+ * reveal or motion already set, so adding one and placing it is the whole
+ * job. The device frames are the same idea for the product: a phone, a
+ * browser, a window, a card, with the screenshot dropped in.
  *
  * The sounds are files the studio ships under `library/`, served from the
  * site itself, so they work in every workspace with nothing to copy. They
@@ -65,7 +69,18 @@ function bed(name: string, file: string): Extract<ElementDraft, { kind: "audio" 
 const INK = "#F5F5F7";
 const MUTED = "#A9A9B3";
 const ACCENT = "#5B8CFF";
+const ACCENT_LIGHT = "#7CC7FF";
 const GROUND = "#14141A";
+
+/** What every visual piece starts from: centred, still, flat, no depth. */
+const VISUAL = {
+  box: { ...DEFAULT_BOX },
+  animation: { ...DEFAULT_ANIMATION },
+  motion: { ...DEFAULT_MOTION },
+  shadow: 0,
+  glow: 0,
+  blur: 0,
+};
 
 function text(
   overrides: Partial<Extract<ElementDraft, { kind: "text" }>>,
@@ -82,10 +97,11 @@ function text(
     letterSpacing: -0.02,
     reveal: "none",
     revealFrames: 30,
+    revealStagger: 0,
+    revealStyle: "rise",
     caret: false,
-    box: { ...DEFAULT_BOX },
-    animation: { ...DEFAULT_ANIMATION },
-    motion: { ...DEFAULT_MOTION },
+    radius: 0,
+    ...VISUAL,
     ...overrides,
   };
 }
@@ -98,16 +114,67 @@ function shape(
     name: "Shape",
     shape: "rect",
     fill: INK,
+    fillAngle: 180,
     radius: 0,
-    box: { ...DEFAULT_BOX },
-    animation: { ...DEFAULT_ANIMATION },
-    motion: { ...DEFAULT_MOTION },
+    ...VISUAL,
+    ...overrides,
+  };
+}
+
+function icon(
+  overrides: Partial<Extract<ElementDraft, { kind: "icon" }>>,
+): Extract<ElementDraft, { kind: "icon" }> {
+  return {
+    kind: "icon",
+    name: "Icon",
+    icon: "check",
+    color: INK,
+    stroke: 2,
+    draw: false,
+    ...VISUAL,
+    ...overrides,
+  };
+}
+
+function particles(
+  overrides: Partial<Extract<ElementDraft, { kind: "particles" }>>,
+): Extract<ElementDraft, { kind: "particles" }> {
+  return {
+    kind: "particles",
+    name: "Particles",
+    style: "confetti",
+    count: 80,
+    colors: [ACCENT, ACCENT_LIGHT, "#F5A9E1"],
+    spread: 0.6,
+    gravity: 1,
+    size: 0.016,
+    seed: 1,
+    ...VISUAL,
+    ...overrides,
+  };
+}
+
+function device(
+  overrides: Partial<Extract<ElementDraft, { kind: "device" }>>,
+): Extract<ElementDraft, { kind: "device" }> {
+  return {
+    kind: "device",
+    name: "Device",
+    role: "device",
+    device: "browser",
+    fit: "cover",
+    screen: "#FFFFFF",
+    frame: GROUND,
+    radius: 0.06,
+    ...VISUAL,
     ...overrides,
   };
 }
 
 /** The arrow the Cursor piece moves. An SVG the studio ships, so it is crisp at any size. */
 export const CURSOR_SRC = `${LIBRARY_PREFIX}cursor/arrow.svg`;
+/** The pointing hand the Hand cursor piece moves — the cursor of the kinetic register. */
+export const HAND_SRC = `${LIBRARY_PREFIX}cursor/hand.svg`;
 
 export const LIBRARY: readonly LibraryItem[] = [
   {
@@ -183,6 +250,57 @@ export const LIBRARY: readonly LibraryItem[] = [
     }),
   },
   {
+    id: "phone",
+    name: "Phone",
+    blurb: "A phone with a bezel and an island around a screenshot, tilted and floating. Set src to the screenshot.",
+    group: "Shapes",
+    draft: device({
+      name: "Phone",
+      device: "phone",
+      radius: 0.14,
+      shadow: 0.55,
+      box: { ...DEFAULT_BOX, width: 0.2, height: 0.72, y: 0.52, tiltX: 8, tiltY: -18 },
+    }),
+  },
+  {
+    id: "browser",
+    name: "Browser",
+    blurb: "A browser window, three dots in the bar, around a screenshot. Set src to the screenshot.",
+    group: "Shapes",
+    draft: device({
+      name: "Browser",
+      device: "browser",
+      shadow: 0.45,
+      box: { ...DEFAULT_BOX, width: 0.7, height: 0.68, y: 0.54, tiltX: 6 },
+    }),
+  },
+  {
+    id: "window",
+    name: "Window",
+    blurb: "A frameless app window: a hairline, a shadow, the screenshot. Set src to the screenshot.",
+    group: "Shapes",
+    draft: device({
+      name: "Window",
+      device: "window",
+      radius: 0.03,
+      shadow: 0.4,
+      box: { ...DEFAULT_BOX, width: 0.7, height: 0.66, y: 0.54 },
+    }),
+  },
+  {
+    id: "card",
+    name: "Card",
+    blurb: "A white card with a picture and room for a title under it, the tile of every library and feed.",
+    group: "Shapes",
+    draft: device({
+      name: "Card",
+      device: "card",
+      radius: 0.08,
+      shadow: 0.35,
+      box: { ...DEFAULT_BOX, width: 0.2, height: 0.3 },
+    }),
+  },
+  {
     id: "pill",
     name: "Pill",
     blurb: "A button shape for a call to action, with a label placed over it.",
@@ -193,6 +311,43 @@ export const LIBRARY: readonly LibraryItem[] = [
       fill: INK,
       radius: 0.5,
       box: { ...DEFAULT_BOX, width: 0.18, height: 0.07, y: 0.72 },
+    }),
+  },
+  {
+    id: "button",
+    name: "Button",
+    blurb: "Words on a filled pill: one clip, so the button and its label move together. Change fill on press.",
+    group: "Shapes",
+    draft: text({
+      name: "Button",
+      role: "cta",
+      text: "Get started",
+      fontFamily: "body",
+      fontWeight: 600,
+      fontSize: 0.03,
+      color: GROUND,
+      letterSpacing: -0.01,
+      lineHeight: 1,
+      fill: INK,
+      radius: 0.5,
+      shadow: 0.3,
+      box: { ...DEFAULT_BOX, width: 0.2, height: 0.075, y: 0.72 },
+    }),
+  },
+  {
+    id: "gradient-bar",
+    name: "Gradient bar",
+    blurb: "A rounded bar from the accent to its light, the one gradient a frame is allowed.",
+    group: "Shapes",
+    draft: shape({
+      name: "Gradient bar",
+      role: "accent",
+      fill: ACCENT,
+      fillTo: ACCENT_LIGHT,
+      fillAngle: 90,
+      radius: 0.5,
+      shadow: 0.3,
+      box: { ...DEFAULT_BOX, width: 0.5, height: 0.05, y: 0.55 },
     }),
   },
   {
@@ -234,9 +389,29 @@ export const LIBRARY: readonly LibraryItem[] = [
       src: CURSOR_SRC,
       fit: "contain",
       radius: 0,
+      ...VISUAL,
       box: { ...DEFAULT_BOX, x: 0.4, y: 0.62, width: 0.03, height: 0.0533 },
       animation: { ...DEFAULT_ANIMATION, enter: "fade", exit: "fade", enterFrames: 6, exitFrames: 6 },
       motion: { ...DEFAULT_MOTION, x: 0.12, y: -0.08, frames: 24, delay: 8, easing: "in-out", press: true },
+    },
+  },
+  {
+    id: "hand-cursor",
+    name: "Hand cursor",
+    blurb: "A pointing hand that glides in and presses, the cursor of the kinetic register. Move X and Y say where it lands.",
+    group: "Motion",
+    draft: {
+      kind: "image",
+      name: "Hand cursor",
+      role: "cursor",
+      src: HAND_SRC,
+      fit: "contain",
+      radius: 0,
+      ...VISUAL,
+      shadow: 0.35,
+      box: { ...DEFAULT_BOX, x: 0.62, y: 0.7, width: 0.028, height: 0.066 },
+      animation: { ...DEFAULT_ANIMATION, enter: "fade", exit: "fade", enterFrames: 6, exitFrames: 6 },
+      motion: { ...DEFAULT_MOTION, x: -0.1, y: -0.14, frames: 16, delay: 6, easing: "in-out", press: true },
     },
   },
   {
@@ -291,6 +466,29 @@ export const LIBRARY: readonly LibraryItem[] = [
     }),
   },
   {
+    id: "kinetic-line",
+    name: "Kinetic line",
+    blurb: "A two-tone line whose words pop in six frames apart, out of focus and settling; the starred word takes the accent. Holds short, leaves fast.",
+    group: "Motion",
+    draft: text({
+      name: "Kinetic line",
+      role: "headline",
+      text: "Turn *books* into audio",
+      fontFamily: "body",
+      fontWeight: 500,
+      fontSize: 0.09,
+      letterSpacing: -0.025,
+      lineHeight: 1,
+      accent: ACCENT,
+      reveal: "words",
+      revealFrames: 6,
+      revealStagger: 6,
+      revealStyle: "pop",
+      box: { ...DEFAULT_BOX, y: 0.47 },
+      animation: { ...DEFAULT_ANIMATION, exit: "pop", exitFrames: 5 },
+    }),
+  },
+  {
     id: "counter",
     name: "Counter",
     blurb: "A number that counts up from zero to itself in 1.5s, keeping its commas. Users, stars, hours saved.",
@@ -304,6 +502,84 @@ export const LIBRARY: readonly LibraryItem[] = [
       reveal: "count",
       revealFrames: 45,
       box: { ...DEFAULT_BOX, height: 0.3 },
+    }),
+  },
+  {
+    id: "progress-bar",
+    name: "Progress bar",
+    blurb: "A gradient bar that fills left to right over 1.5s. Put a Counter above it with the same frames.",
+    group: "Motion",
+    draft: shape({
+      name: "Progress bar",
+      role: "figure",
+      fill: ACCENT,
+      fillTo: ACCENT_LIGHT,
+      fillAngle: 90,
+      radius: 0.5,
+      shadow: 0.3,
+      box: { ...DEFAULT_BOX, width: 0.5, height: 0.045, y: 0.56 },
+      animation: { ...DEFAULT_ANIMATION, enter: "wipe", exit: "pop", enterFrames: 45, exitFrames: 8 },
+    }),
+  },
+  {
+    id: "check",
+    name: "Check",
+    blurb: "A check that draws itself on over 12 frames. Under \"Done\", after a bar fills.",
+    group: "Motion",
+    draft: icon({
+      name: "Check",
+      role: "figure",
+      icon: "check",
+      color: ACCENT,
+      stroke: 2.4,
+      draw: true,
+      box: { ...DEFAULT_BOX, width: 0.08, height: 0.142 },
+      animation: { ...DEFAULT_ANIMATION, enter: "scale", exit: "fade", enterFrames: 12, exitFrames: 8, spring: 0.3 },
+    }),
+  },
+  {
+    id: "sparkle-trail",
+    name: "Sparkle trail",
+    blurb: "A sparkle that swoops along an arc with a streak behind it and settles where it lands, 0.8s.",
+    group: "Motion",
+    draft: icon({
+      name: "Sparkle",
+      role: "motif",
+      icon: "sparkle",
+      color: ACCENT,
+      glow: 0.4,
+      box: { ...DEFAULT_BOX, x: 0.3, y: 0.36, width: 0.04, height: 0.071 },
+      animation: { ...DEFAULT_ANIMATION, enter: "zoom", exit: "fade", enterFrames: 10, exitFrames: 8 },
+      motion: { ...DEFAULT_MOTION, x: 0.3, y: 0.12, frames: 24, delay: 10, arc: 0.6, spring: 0.3, trail: true, rotate: 180 },
+    }),
+  },
+  {
+    id: "confetti",
+    name: "Confetti",
+    blurb: "Ninety pieces burst up from a point and fall, 1.3s. Once per film, on the payoff.",
+    group: "Motion",
+    draft: particles({
+      name: "Confetti",
+      role: "motif",
+      style: "confetti",
+      count: 90,
+      spread: 0.7,
+      box: { ...DEFAULT_BOX, width: 0.1, height: 0.1, y: 0.55 },
+    }),
+  },
+  {
+    id: "sparkles",
+    name: "Sparkles",
+    blurb: "Points of light twinkling inside a region. Around a feature, behind a logo, never everywhere.",
+    group: "Motion",
+    draft: particles({
+      name: "Sparkles",
+      role: "motif",
+      style: "sparkles",
+      count: 24,
+      colors: [ACCENT_LIGHT, INK],
+      size: 0.012,
+      box: { ...DEFAULT_BOX, width: 0.4, height: 0.3 },
     }),
   },
   {
@@ -385,7 +661,10 @@ export function isAnimated(draft: ElementDraft): boolean {
   if (!("motion" in draft)) return false;
   const { motion, animation } = draft;
   if (motion.x !== 0 || motion.y !== 0 || motion.scale !== 1 || motion.press) return true;
+  if (motion.rotate !== 0 || motion.opacity !== 1 || motion.blur !== 0) return true;
   if (draft.kind === "text" && draft.reveal !== "none") return true;
+  if (draft.kind === "particles") return true;
+  if (draft.kind === "icon" && draft.draw) return true;
   return animation.enter !== "none" || animation.exit !== "none";
 }
 
@@ -398,9 +677,13 @@ export function previewFrames(draft: ElementDraft): number {
   if (!("motion" in draft)) return 30;
   const { motion, animation } = draft;
   let end = animation.enterFrames;
-  if (motion.x !== 0 || motion.y !== 0 || motion.scale !== 1 || motion.press) {
+  if (motion.x !== 0 || motion.y !== 0 || motion.scale !== 1 || motion.press || motion.rotate !== 0) {
     end = Math.max(end, motion.delay + (motion.frames || 24) + (motion.press ? 8 : 0));
   }
-  if (draft.kind === "text" && draft.reveal !== "none") end = Math.max(end, draft.revealFrames);
+  if (draft.kind === "text" && draft.reveal !== "none") {
+    const words = draft.text ? draft.text.split(/\s+/).length : 3;
+    end = Math.max(end, draft.revealStagger > 0 ? draft.revealStagger * words + draft.revealFrames : draft.revealFrames);
+  }
+  if (draft.kind === "particles") end = Math.max(end, 40);
   return Math.max(30, end + 12);
 }

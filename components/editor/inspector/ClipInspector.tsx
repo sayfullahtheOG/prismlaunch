@@ -7,7 +7,11 @@ import { findElement } from "@/lib/studio/edits";
 import type { Clip, ProjectFile, Track } from "@/types/prism";
 import {
   AnimationFields,
+  DepthFields,
+  DeviceFields,
+  IconFields,
   MotionFields,
+  ParticlesFields,
   RevealFields,
   AudioFields,
   BoxFields,
@@ -110,6 +114,9 @@ export function ClipInspector({
           <PictureFields value={clip} set={set} />
         ) : null}
         {clip.kind === "video" ? <VideoFields value={clip} set={set} /> : null}
+        {clip.kind === "icon" ? <IconFields value={clip} set={set} /> : null}
+        {clip.kind === "particles" ? <ParticlesFields value={clip} set={set} /> : null}
+        {clip.kind === "device" ? <DeviceFields value={clip} set={set} /> : null}
         {clip.kind === "audio" ? <AudioFields value={clip} set={set} /> : null}
 
         <Row>
@@ -130,6 +137,7 @@ export function ClipInspector({
         </Row>
 
         {"box" in clip ? <BoxFields box={clip.box} set={(box) => set({ box })} /> : null}
+        {"shadow" in clip ? <DepthFields value={clip} set={set} /> : null}
         {"animation" in clip ? (
           <AnimationFields animation={clip.animation} set={(animation) => set({ animation })} />
         ) : null}

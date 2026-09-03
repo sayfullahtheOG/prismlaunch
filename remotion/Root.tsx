@@ -23,6 +23,7 @@ const FIXTURE: ProjectFile = {
   background: { kind: "gradient", from: "#0A0A0C", to: "#1B1B22", angle: 160 },
   process: EMPTY_PROCESS,
   elements: [],
+  camera: [],
   tracks: [
     {
       id: "track-1",
@@ -48,7 +49,13 @@ const FIXTURE: ProjectFile = {
           letterSpacing: -0.02,
           reveal: "none",
           revealFrames: 30,
+          revealStagger: 0,
+          revealStyle: "rise",
           caret: false,
+          radius: 0,
+          shadow: 0,
+          glow: 0,
+          blur: 0,
           box: { ...DEFAULT_BOX },
           animation: { ...DEFAULT_ANIMATION, enter: "rise", exit: "fade" },
           motion: { ...DEFAULT_MOTION },

@@ -5,8 +5,8 @@ description: How to make a promo video worth watching. The craft — concept, sc
 
 # The Prism Method
 
-You have a timeline, a stack of layers, eight transitions and three typefaces.
-That is enough to make something people stop for. It is also enough to make
+You have a timeline, a stack of layers, twelve transitions, three typefaces
+and a camera. That is enough to make something people stop for. It is also enough to make
 the thing everyone has already seen: a purple gradient, six centred headlines
 that all bounce in, a whoosh on every cut, and a music bed that ends because
 the video did.
@@ -27,14 +27,22 @@ person decide.**
 ## 0. What you are making
 
 A **composition**: 1920×1080 at 30fps, a background, visual layers above it,
-audio layers below it. Clips on layers: text, shapes, images, video, sound.
-Each clip has a start frame, a length, a normalised box (centre x/y, width,
-height), and an enter and exit from `none | fade | rise | fall | slide-left |
-slide-right | scale | blur`, each with a frame count. Text has a size as a
-fraction of canvas height, a family (`display` = Instrument Serif, `body` =
-Inter 400–900, `mono` = JetBrains Mono), colour, alignment, tracking and
-leading. No keyframes, no camera, no masks, no per-character animation. Anything
-in this document that sounds like it needs those has a recipe in §8.
+audio layers below it. Clips on layers: text, shapes, images, video, icons,
+particles, device frames, sound. Each clip has a start frame, a length, a
+normalised box (centre x/y, width, height, rotation, opacity, a perspective
+tilt), and an enter and exit from `none | fade | rise | fall | slide-left |
+slide-right | scale | blur | pop | zoom | flip | wipe`, each with a frame
+count, a `travel` distance and a `spring`. Text has a size as a fraction of
+canvas height, a family (`display` = Instrument Serif, `body` = Inter
+400–900, `mono` = JetBrains Mono), colour, alignment, tracking, leading, and
+an `accent` for the starred words of a two-tone line. Every visual clip can
+make one `motion` over its life — travel, scale, rotate, opacity, blur, an
+arc, a spring, a trail — and carries a `shadow`, a `glow` and a `blur`.
+Shapes take a gradient fill. Icons draw themselves on. Particles burst.
+Device frames hold screenshots. A camera makes up to four moves in a film.
+Still no keyframe lists: one move per clip, one list of camera moves, and
+everything else is a name. Anything in this document that sounds like it
+needs more has a recipe in §8.
 
 The unit you think in is the **beat**: one idea, on screen for 2–6 seconds,
 made of one to three clips. A 30-second film has five to seven beats. You
@@ -57,7 +65,7 @@ the order and the lock points do not.
 | **Script** | The words, timed | What is said, in what order? | Word count, beat order, the button | 10% |
 | **Storyboard** | One panel per beat: frame, action, duration, transition, sound | What is on screen at each beat? | Beat count, shot list | 10% |
 | **Animatic** | Boards on the real timeline, cut to the real music | Does it *feel* right at speed? | **Timing. Permanently.** | 10% |
-| **Style frames** | 2–3 finished hero frames | What does it look like? | Ground, ink, accent, type, margins, motif | 10% |
+| **Style frames** | 2–3 finished hero frames | What does it look like? | Ground, ink, accent, type, margins, motif, the motion register | 10% |
 | **Build** | Real clips replacing the boards, in place | — | Nothing new. Execution only | 20% |
 | **Sound** | Music and accents under locked picture | Does it land? | The mix | 5% |
 | **Polish** | The fix list, burned down | Is it shippable? | Everything | 5% |
@@ -108,6 +116,13 @@ Before anything else, write down:
 - **The length.** 15 seconds is one idea with no turn. 30 seconds is one idea
   with a turn — the sweet spot, and 84% of viewers finish it. 45 seconds is one
   idea with an escalation. Never 45 seconds for a 15-second idea.
+
+**Get the product.** At the brief, not later, ask for: the logo (SVG, or PNG
+on transparent); three to six screenshots at 2×, of the screens the demo
+moment lives on; the brand colour as a hex; and a short screen recording if
+the film needs one. They go in `assets/` — the person drops them on the
+Elements section, or your file tools put them there. A product film without
+the product is text on a gradient, and no amount of motion will hide it.
 
 Then immerse. Read the product. Find the *demo moment* — the single
 interaction that, seen once, explains the whole thing. Find the words its users
@@ -162,8 +177,9 @@ Score each direction 0–2 on six tests. **Kill anything under 8 of 12.**
 4. **Visual test.** Does it produce a *picture*, not a description? "Trust" is
    not a picture. "Forty tabs collapsing into one line" is.
 5. **Second-3 test.** Does the strongest image land before 0:03?
-6. **Constraint test.** Is it buildable from text, shapes, images, video and
-   sound, with eight transitions, at 1920×1080?
+6. **Constraint test.** Is it buildable from text, shapes, images, video,
+   icons, device frames and sound, with twelve transitions and four camera
+   moves, at 1920×1080?
 
 Present the three survivors to the person with one marked as your
 recommendation and a one-sentence reason. Three, not ten: two feels binary,
@@ -291,6 +307,13 @@ So a 23-character line holds ~84 frames (2.8s). Floors: a single hero word
 **≥ 45f**, a full line **≥ 60f**, two stacked lines **≥ 75f**. Anything under
 36f is decoration, not communication; anything over 105f is dead air unless it
 is the deliberate pause. Add the enter (8–16f) and exit (6–10f) on top.
+
+The exception is the **kinetic run**: three or more short lines, 1–4 words
+each, that together are one beat — "Turn *books*" / "into *audio*" /
+"*Just* drop and go". Each line holds **15–30f** and the run is timed as one
+beat: the formula applies to the run's characters together, not to each
+line, and the run sits in one board panel. A lone 20f line outside a run is
+still decoration.
 
 ### How to write it
 
@@ -465,10 +488,13 @@ Four roles. **Use two per frame.**
 
 ### Product imagery
 
-- **Device-less by default.** A browser or phone chrome frame dates the film
-  and adds three greys you did not choose. Sit the raw UI on a ground 4–8%
-  lighter or darker than itself; let its own corner radius and a hairline rect
-  frame it.
+- **Device-less by default** in every look but KINETIC. A browser or phone
+  chrome frame dates the film and adds three greys you did not choose. Sit
+  the raw UI on a ground 4–8% lighter or darker than itself; let its own
+  corner radius and a hairline rect frame it. **In KINETIC the device frame
+  is the point:** the `device` clip's frame is the studio's own, one colour,
+  tilted 8–25° with a shadow, and it is the thing that flies. A frame with no
+  real screenshot in it is a placeholder, not a product shot.
 - **Width 0.55–0.78 of the frame.** Never full-bleed unless it is video and the
   type is out of the way.
 - **Corner radius matches the source**, scaled with it. A hand-set radius that
@@ -478,7 +504,7 @@ Four roles. **Use two per frame.**
 - **Type never over the busy centre of a UI shot.** Type on ground, product
   beside it; or the product moves and the type holds still.
 
-### Four looks
+### Four looks, and a fifth
 
 Pick one. Every value below is ready to write into a clip.
 
@@ -523,6 +549,23 @@ before/after numbers.*
 - Left, margin 0.10. Device: a hairline rect (height 0.001) at full measure
   under each metric.
 
+**KINETIC** — *The launch-film register of consumer SaaS, AI products,
+anything with a bright UI; a launch that has to feel alive.*
+- Background `#F6F7FC`; ink `#111114`; accent `#2F7CF6`; a lighter
+  `#7FB6FF` for the second word when a line needs two; shadows tinted blue,
+  `shadow` 0.4–0.6 under every floating object
+- Hero: Inter 500–600, 0.085–0.10, letterSpacing −0.025, lineHeight 1.0,
+  **centred at y 0.47**; every line two-tone, the accent on the one word
+  that matters and never on two; lines of 1–4 words
+- Support: Inter 400, 0.034. Label: mono uppercase 0.020, +0.10
+- The one gradient, `#4F5BFF` → `#7CC7FF`, on at most one object — the
+  progress bar — and never on the ground
+- Product: real screenshots in `device` frames, `tiltX`/`tiltY` 8–25°,
+  `shadow` 0.4–0.6, and everything floats: a slow `motion` drift under every
+  held object, nothing still but the end card
+- The register with the most moving parts, so the one where restraint shows
+  most: one confetti burst, one trail, four camera moves at most (§8)
+
 **Endcard, any look:** flood the frame with the accent as a solid ground, ink
 in white or near-black, the wordmark centred at y 0.47 at 0.11, one mono line
 beneath. **One frame, at the end, never in the middle.**
@@ -532,8 +575,9 @@ beneath. **One frame, at the end, never in the middle.**
 Build **two or three beats for real** — the hook, the reveal, the endcard —
 before building anything else. A style frame must settle: ground, ink, accent,
 the one family that owns headlines, the type sizes for each role, the margins,
-how the product is shown, and the recurring motif. If a frame does not answer
-all of those, it is not a style frame. Get them approved. Everything built
+how the product is shown, the recurring motif, and the motion register (§8),
+chosen once for the whole film. If a frame does not answer all of those, it
+is not a style frame. Get them approved. Everything built
 afterwards is an *application* of these frames, not a new decision.
 
 In PrismLaunch the decisions a frame settles are **elements**: one
@@ -568,10 +612,13 @@ element leads; the rest follow on a stagger, or hold still. When everything
 enters at frame 0 the eye has no entry point, and that — everything moving at
 once — is the single most legible signature of generated motion.
 
-**Restraint is a distance argument.** The renderer's `rise` travels 3% of the
+**Restraint is a distance argument.** `travel` defaults to 0.03 of the
 canvas, deliberately: a small travel with a firm ease-out reads as an object
-settling into a place designed for it; a large one reads as arriving from
-off-stage — attention bought with volume rather than precision.
+settling into a place designed for it; a large one (0.25–0.35) reads as
+arriving from off-stage — attention bought with volume rather than
+precision. That is right for a phone flying into frame and wrong for a
+headline. Text travels 0.03; an object may travel further; nothing travels
+further than it needs to.
 
 **Delight is rationed.** Exactly **one** move in the film is allowed to be
 showy. If every beat has a signature move, none of them is. Name yours.
@@ -587,10 +634,14 @@ showy. If every beat has a signature move, none of them is. Name yours.
 | Image / video card | 16–24 | 10–12 |
 | Full-frame background element | 24–40 (fade only) | 20–30 |
 | Logo lockup, final beat | 18–24 | 0 — hold to the end |
+| Kinetic line, in a run | 5–6 (`pop`, per word) | 4–5 (`pop`) |
 
-**Hard limits:** nothing enters in **under 6f** (it reads as a pop) or **over
-24f** (past 0.8s the viewer has finished reading and is watching the animation
-finish, which is the definition of slow). Backgrounds are exempt.
+**Hard limits:** nothing enters in **under 6f** (it reads as a pop, and a
+pop is right only in a kinetic run, where every line is one) or **over 24f**
+(past 0.8s the viewer has finished reading and is watching the animation
+finish, which is the definition of slow). Backgrounds are exempt, and so is
+a `wipe` that *is* the content: a bar filling over 45f is the beat, not a
+transition.
 
 ### Stagger
 
@@ -610,9 +661,53 @@ Separate clips, offset `from`:
 
 Every beat needs **10–15 frames where nothing is moving.** If something is
 animating in every frame, nothing is emphasised. And: if the background moves,
-the foreground holds. Pick one plane.
+the foreground holds. Pick one plane. The kinetic register below is the one
+exception, and it is narrow: the background plane *drifts* — slowly, at a
+speed the eye does not track — while the foreground pops, and a drift under
+a held line counts as the line's stillness. A background that pops while the
+foreground drifts is noise.
 
-### The eight transitions
+### The kinetic register
+
+The other register this tool can hold, and the one the best consumer launch
+films are cut in now. Choose it at the style stage, once, for the whole
+film: a film that is calm for six beats and kinetic for one has a glitch,
+not an accent. Its numbers, from a frame-by-frame read of a studio-made
+33-second launch film:
+
+- **Words pop.** Each word arrives out of focus and ~15% too large and
+  settles in **5–6f** (`revealStyle: "pop"`, `revealFrames: 6`); the words
+  of a line are **6–9f** apart (`revealStagger`); a line leaves by shrinking
+  and blurring out in **4–5f** (`exit: "pop"`, `exitFrames: 5`). A line in a
+  run holds **15–30f**, and the run — three to five lines — is the beat: a
+  five-line run covers the first 2.2 seconds. Words appended to a standing
+  line pop in ~15f apart while the earlier ones hold.
+- **Objects spring.** An icon or a card enters with `spring` 0.3–0.4 over
+  **8–12f**, and the text beside it slides aside to make room. A phone flies
+  in with `travel` 0.25–0.35 over **18–24f**, tilted 20–30°, overshoots a
+  little, then **drifts 0.02–0.04 of the canvas over the whole beat** by a
+  `motion` with `easing: "linear"`. Nothing floating is ever still.
+- **The cursor is a character.** A hand glides in over **12–20f**
+  (`easing: "in-out"`) and presses (`press: true`); the thing it presses
+  answers on the next frame — a card lifts to 1.04, a button changes colour.
+- **The camera moves four times at most**, **1.4–1.8×** over **15–24f**,
+  into a thing that holds still while it does.
+- **Confetti once**: ~90 pieces, **40f**, on the one "Done". A trail on the
+  one swoop. Glow on nothing, or on one thing.
+- **Every cut is carried by an object.** The phone flies out and drags the
+  bar behind it; the bar fills and becomes the check; the check becomes the
+  card; the button becomes the sparkle; the sparkle becomes the star in the
+  logo. Twelve beats in 33 seconds, and something is in flight across every
+  join. If nothing carries across, cut on the beat instead: a straight cut
+  beats a transition with nothing in it.
+- **Two planes.** The background plane — the text wall, the scatter of
+  cards — drifts slowly, out of focus, for the whole beat, while the
+  foreground pops. The drift is texture the eye does not track; the pop is
+  the event. "One thing moves at a time" still holds for the foreground.
+
+### The twelve transitions
+
+*(formerly "### The eight transitions": the first eight are the classic grammar, the last four the kinetic one)*
 
 | Transition | Use for | enter | exit | Notes |
 |---|---|---|---|---|
@@ -623,44 +718,70 @@ the foreground holds. Pick one plane.
 | **slide-left / slide-right** | Lateral narrative: time, before/after, sequence. Forward in time = `slide-left` | 12–16 | 8–10 | **Direction must match across the cut** — outgoing exits the way incoming enters. Mismatched direction is the classic tell. |
 | **scale** | Emphasis and emergence: images, cards, the logo | 14–18 (16–24 image) | 8–10 | On text, only for the single hero moment of the film. |
 | **blur** | Focus pulls, reveals, and rescuing a transition that won't sit right | 12–18 | 8–12 | Best with `scale` (rack focus), or on the outgoing clip while the incoming fades. |
+| **pop** | The kinetic word: every line in a run of short lines; a chip, a badge, a count landing | 5–6 | 4–5 | Out of focus and ~15% large, settling; the exit shrinks and blurs out. Right only in a kinetic run, and then on every line of it — one `pop` in a `rise` film is a glitch. |
+| **zoom** | Through the camera: a shot replaced from inside itself; a screenshot giving way to the next | 14–20 | 10–14 | In from 0.6, out to 1.4 with blur. Pairs with a camera move; never with `scale` on the same beat. |
+| **flip** | A card turning up: a proof, a result, a price | 12–16 | 8–10 | rotateX from 70°. Cards and devices only, never text. |
+| **wipe** | A true mask reveal, left to right: a bar filling, a line uncovered, an underline drawing on | 10–45 | 8–12 | The exit uncovers from the left. The bar a counter runs against is a `wipe` over 45f; no rect in the background colour is needed any more. |
 
-**Grammar: pick two.** Usually `fade` plus one directional. Use them for the
-whole film, and let the one accent move (`scale` or `blur`, once) be the
-exception that means something. Using all eight because they exist is
-transition salad.
+**Grammar: pick two.** Usually `fade` plus one directional; in the kinetic
+register, `pop` plus one directional, and `wipe` where a bar fills. Use them
+for the whole film, and let the one accent move (`scale`, `blur`, `zoom` or
+`flip`, once) be the exception that means something. Using all twelve because
+they exist is transition salad.
 
 **At least one true cut** — `none` out, `none` in — on a music downbeat. A cut
 is the most powerful transition available and it costs nothing. A film where
 every beat cross-fades is a monotone.
 
-### Recipes for what the tool does not have
+### Recipes
 
-- **Typewriter** — one text clip per word, `enter: none`, each positioned along
-  the line, staggered 3–4f. A thin rect (width ≈ 0.006, height ≈ fontSize) as
-  a cursor, stepping position with each word. Per-character only for a single
-  logotype, at 2f.
-- **Wipe / mask reveal** — a rect filled with the *exact* background colour,
-  on a layer **above** the text, exiting `slide-left` over 12f. The text is
-  already fully opaque underneath; the rect uncovering it is a true wipe. The
-  highest-value fake in the toolkit.
-- **Text rising from behind a bar** — the same rect, covering the lower half of
-  the text's box, never moving; the text enters with `rise`.
-- **Underline draw-on** — a rect, height 0.006, `slide-right` in over 10f,
-  starting 4f after the word it underlines.
-- **Match-cut portal** — image A exits `scale` over 10f while image B enters
-  `scale` over the same 10f, both centred, overlapping exactly. Reads as
-  pushing through the frame. (Gunner's Duolingo device.)
-- **Camera push-in** — one full-frame image, `scale` enter over 60–90f. Slow
-  scale over a long duration reads as a push, not a transition.
+The tool has the moves now; these are the settings. SKILL.md carries each
+as a full clip list.
+
+- **Two-tone kinetic line** — `"Turn *books* into audio"`, `accent` the brand
+  hex, `reveal: "words"`, `revealStyle: "pop"`, `revealStagger: 6`,
+  `revealFrames: 6`, `exit: "pop"` 5f; the clip 20–30f. Three to five in a
+  row are a beat.
+- **Words appended to a standing line** — one clip, `reveal: "words"`,
+  `revealStagger: 15`, `revealStyle: "pop"`: each word lands where it already
+  sits, so the line never reflows.
+- **Typewriter** — `reveal: "type"`, `caret: true`, ~2f per character. The
+  URL under the wordmark, and nothing else.
+- **Wipe / mask reveal** — `enter: "wipe"`, a true mask, left to right; the
+  exit uncovers from the left. An underline draws on as a rect, height 0.006,
+  `wipe` over 10f, 4f after its word.
+- **Progress bar** — a rect with `fill` → `fillTo` (the film's one gradient),
+  `radius: 0.5`, `wipe` over 45f; a mono `count` line above,
+  `revealFrames: 45`, so the number runs up as the bar fills.
+- **Overshoot** — `animation.spring` 0.3–0.4 on an icon, a card, a device;
+  `motion.spring` at the end of a move. Never on text: letters are not
+  rubber.
+- **Flying object** — a `device` with `travel` 0.25–0.35 over 18–24f, `tiltY`
+  20–30, `shadow` 0.6, `spring` 0.35; then a `motion` drift of 0.02–0.04
+  with `easing: "linear"` for the rest of the beat.
+- **Card lift under the cursor** — the library's `hand-cursor` gliding
+  12–20f with `press: true`; the card's `motion`
+  `{ scale: 1.04, frames: 8, delay: <arrival> }`, `shadow` 0.3.
+- **Camera push-in** — one camera move, 1.4–1.8× over 15–24f, onto a thing
+  that holds still; the cursor arrives as the camera does. Four moves in a
+  film, at most. A 60–90f `scale` on a single full-frame still is still the
+  right way to push on a still.
+- **Done** — an `icon` check with `draw: true` over 12f; `"Done"` popping in
+  6f beside it; `confetti`, ~90 pieces, 40f, from the check's centre. Once.
+- **Sparkle swoop** — an `icon` sparkle, `motion` with `arc` 0.6, `spring`
+  0.3, `trail: true`, over ~24f, landing where the next line's caret would
+  sit. The film's one trail.
+- **Text wall** — body copy at `blur` 0.5 and box opacity 0.35 behind the
+  subject, drifting. Texture, not reading matter.
+- **Match-cut portal** — the outgoing clip exits `zoom` while the incoming
+  enters `zoom` over the same 10–14f, both centred: pushing through the
+  frame. (Gunner's Duolingo device.)
 - **Flash cut** — a white or accent rect, 3f total, fade in 1 / out 2, placed
-  exactly on a cut. Hides a transition the tool can't make.
+  exactly on a cut.
 - **Cross-dissolve** — overlap outgoing `fade` exit and incoming `fade` enter
   by identical frame counts, 8–12f. Longer is a dream sequence.
 - **Hold on black** — 12–20f of empty background between acts. Not a bug; a
   beat. Use it before the endcard.
-- **Overshoot / bounce** — do not fake it with two clips; the seam shows. And
-  letters are not rubber: bounce on text is a tell regardless. Use a shorter
-  `scale` enter (10f), which reads as snappier.
 
 ---
 
@@ -997,7 +1118,10 @@ version was finished.
 Bounce on text. Symmetric in and out. Travel that arrives from another room.
 Never cutting. No stillness. Text leaving before it can be read. Text and
 background both moving. Decorative shapes performing. Slide directions that
-disagree across a cut.
+disagree across a cut. And the kinetic tells: tilt on everything. Confetti on
+every beat. Glow on everything. A trail on everything. A camera that never
+stops. Spring on text. Twelve transitions used because they exist. A device
+frame with nothing real in it.
 
 **Sound.** The corporate-upbeat bed. Music laid under a finished edit. A whoosh
 on every cut. The track ending because the video ended. Every cut beat-locked.
@@ -1057,6 +1181,13 @@ Run all of it. Every line is a thing that has shipped wrong.
 - [ ] At least one true cut on a downbeat; at least one held frame ≥ 15f
 - [ ] Slide directions agree across every cut and with the narrative
 - [ ] Hero : caption size ratio ≥ 4:1
+- [ ] The motion register named once, at the style stage, and held for the
+      whole film
+- [ ] ≤ 4 camera moves, none under 15f, each into a thing that holds still
+- [ ] One particle burst in the film, at most
+- [ ] No tilt past 30°; `spring` never on text; `trail` on one object only
+- [ ] Every device frame holds a real screenshot
+- [ ] The accent word in each two-tone line is the word that matters
 
 **Sound**
 - [ ] Tempo chosen before the cut list; every cut at `beatFrame − 2..4`

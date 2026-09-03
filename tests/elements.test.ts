@@ -34,9 +34,15 @@ const HEADLINE: Element = {
   letterSpacing: -0.02,
   reveal: "none",
   revealFrames: 30,
+  revealStagger: 0,
+  revealStyle: "rise",
   caret: false,
-  box: { x: 0.5, y: 0.5, width: 0.8, height: 0.2, rotation: 0, opacity: 1 },
-  animation: { enter: "rise", exit: "fade", enterFrames: 12, exitFrames: 8 },
+  radius: 0,
+  shadow: 0,
+  glow: 0,
+  blur: 0,
+  box: { x: 0.5, y: 0.5, width: 0.8, height: 0.2, rotation: 0, opacity: 1, tiltX: 0, tiltY: 0 },
+  animation: { enter: "rise", exit: "fade", enterFrames: 12, exitFrames: 8, travel: 0.03, spring: 0 },
   motion: { ...DEFAULT_MOTION },
 };
 

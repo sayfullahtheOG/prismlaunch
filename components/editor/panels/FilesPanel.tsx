@@ -6,6 +6,7 @@ import { IconButton } from "@/components/ui/IconButton";
 import { openFile } from "@/lib/studio/actions";
 import { useStudioStore } from "@/lib/studio/store";
 import { listDirectory, LIST_LIMIT, type DirEntry } from "@/lib/workspace/fs";
+import { Connection, type ConnectionProps } from "./Connection";
 import { PanelShell } from "./PanelShell";
 
 /**
@@ -17,14 +18,15 @@ import { PanelShell } from "./PanelShell";
  * repository costs nothing until someone looks inside it. node_modules and
  * its kind are shown but stay shut. A browser workspace has no folder and
  * is drawn as one, so the two look the same. Clicking a file shows it in
- * the middle.
+ * the middle. Where the folder is, how the agent reaches it, and the way
+ * to link a different one sit behind the button beside the title.
  */
 
 type Listing =
   | { state: "ready"; entries: DirEntry[] }
   | { state: "failed"; message: string };
 
-export function FilesPanel() {
+export function FilesPanel(connection: ConnectionProps) {
   const linked = useStudioStore((state) => state.workspace);
   const workspace = linked.kind === "linked" ? linked.workspace : null;
   const selected = useStudioStore((state) => state.filePath);
@@ -86,14 +88,17 @@ export function FilesPanel() {
       title="Files"
       {...(hint ? { hint } : {})}
       action={
-        workspace ? (
-          <IconButton
-            label="Read the folder again"
-            size="sm"
-            onClick={refresh}
-            icon={<RefreshCw size={13} strokeWidth={2} aria-hidden />}
-          />
-        ) : undefined
+        <>
+          {workspace ? (
+            <IconButton
+              label="Read the folder again"
+              size="sm"
+              onClick={refresh}
+              icon={<RefreshCw size={13} strokeWidth={2} aria-hidden />}
+            />
+          ) : null}
+          <Connection {...connection} />
+        </>
       }
     >
       {workspace ? (

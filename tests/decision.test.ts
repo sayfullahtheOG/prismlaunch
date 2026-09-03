@@ -113,9 +113,9 @@ describe("what the middle shows", () => {
     expect(middleView("process", "animatic", process)).toBe("editor");
     expect(middleView("process", "build", process)).toBe("editor");
     expect(middleView("elements", "brief", process)).toBe("editor");
-    // The Storyboard section is a list beside the editor; the big boards are a review.
-    expect(middleView("storyboard", null, process)).toBe("editor");
-    expect(middleView("storyboard", "storyboard", process)).toBe("editor");
+    // The Storyboard section is the boards at full size, whatever stage is open.
+    expect(middleView("storyboard", null, process)).toBe("boards");
+    expect(middleView("storyboard", "brief", process)).toBe("boards");
     // "Back to editor": the canvas, whatever stage the film is at.
     expect(middleView("process", "brief", process, false)).toBe("editor");
   });

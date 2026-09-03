@@ -16,8 +16,10 @@ import { ReviewBar } from "./ReviewBar";
  * A storyboard is read as a sequence of frames, and a sequence of frames
  * needs the width of the screen — six panels in a 300px column is a list,
  * not a board. So this takes the middle of the editor, where the canvas and
- * timeline normally are, and lays the panels out as a grid of frames with
- * their notes beneath, the way a board is pinned to a wall.
+ * timeline normally are, with no column beside it, and lays the panels out
+ * as a grid of frames with their notes beneath, the way a board is pinned
+ * to a wall. It is the Storyboard section of the rail, and the storyboard
+ * stage's review.
  *
  * Each frame is a rough, deliberately: the film's own ground with the
  * panel's words set on it in the display face. Enough to read the film as
@@ -32,7 +34,7 @@ export function StoryboardBoard({ file }: { file: ProjectFile }) {
 
   const grid = useRef<HTMLOListElement>(null);
 
-  // Selecting from the side list scrolls the board into view.
+  // A selection made elsewhere, the process panel say, scrolls its board into view.
   useEffect(() => {
     if (!selected) return;
     grid.current

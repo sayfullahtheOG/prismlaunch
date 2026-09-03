@@ -41,7 +41,6 @@ import { ElementsPanel } from "./panels/ElementsPanel";
 import { FilesPanel } from "./panels/FilesPanel";
 import { LibraryPanel } from "./panels/LibraryPanel";
 import { ProcessPanel } from "./panels/ProcessPanel";
-import { StoryboardPanel } from "./panels/StoryboardPanel";
 
 /**
  * The editor is the page.
@@ -53,8 +52,8 @@ import { StoryboardPanel } from "./panels/StoryboardPanel";
  * moment a composition opens, and the same chrome carries on with real data.
  *
  * Three columns: the rail and its section on the left, the film in the
- * middle, properties on the right. The first section, the editor, has no
- * column, so the film gets the width. Which section is showing lives in the
+ * middle, properties on the right. The editor and the storyboard have no
+ * column, so the film and the boards get the width. Which section is showing lives in the
  * store rather than here, because the Process panel needs to open the
  * storyboard or the elements from a link, and a `useState` here would be
  * unreachable from there.
@@ -158,11 +157,10 @@ export function EditorShell() {
             counts={file.elements.length > 0 ? { elements: file.elements.length } : {}}
           />
 
-          {/* The Editor section is the film alone: no column beside it. */}
-          {tab !== "editor" ? (
+          {/* The Editor section is the film alone, and the Storyboard the boards alone: no column beside either. */}
+          {tab !== "editor" && tab !== "storyboard" ? (
             <div className="flex w-[300px] shrink-0 flex-col border-r border-line-soft bg-surface">
               {tab === "process" ? <ProcessPanel file={file} /> : null}
-              {tab === "storyboard" ? <StoryboardPanel file={file} /> : null}
               {tab === "elements" ? <ElementsPanel file={file} /> : null}
               {tab === "text" ? (
                 <LibraryPanel
@@ -196,15 +194,14 @@ export function EditorShell() {
                   groups={["Music", "Sound"]}
                 />
               ) : null}
-              {tab === "files" ? <FilesPanel /> : null}
-              {tab === "agent" ? (
-                <AgentPanel
-                  activity={project?.activity ?? []}
+              {tab === "files" ? (
+                <FilesPanel
                   kind={webmcp.kind}
                   toolCount={webmcp.registered}
                   slug={project?.slug ?? null}
                 />
               ) : null}
+              {tab === "agent" ? <AgentPanel activity={project?.activity ?? []} /> : null}
             </div>
           ) : null}
 

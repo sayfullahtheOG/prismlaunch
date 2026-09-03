@@ -11,9 +11,10 @@ import type { RailTab } from "./store";
  * at full size. The rest (animatic, style frames, build) are the canvas and
  * the timeline, so reviewing them is looking at the editor.
  *
- * The Storyboard section of the rail is a list beside the editor, not the
- * big boards: the boards at full size are a review, and reviews open from
- * the process.
+ * The Storyboard section of the rail is the boards at full size too: the
+ * editor has a section of its own now, so nothing needs to sit beside it,
+ * and a board read in a 300px column is a list, not a board. The same
+ * boards open from the process when that stage is under review.
  */
 export const REVIEW_PAGES: readonly StageId[] = ["brief", "concept", "script", "sound", "polish"];
 
@@ -33,6 +34,7 @@ export function middleView(
   // The Files section shows a file; the Editor section is the film alone;
   // every other section sits beside the film.
   if (tab === "files") return "files";
+  if (tab === "storyboard") return "boards";
   if (tab !== "process" || !reviewing) return "editor";
   const stage = reviewedStage(openStage, process);
   if (stage === "storyboard") return "boards";

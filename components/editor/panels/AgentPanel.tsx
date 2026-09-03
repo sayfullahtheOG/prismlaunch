@@ -1,70 +1,29 @@
 "use client";
 
-import { FolderOpen, Globe, Lock, Settings2, Sparkles, User } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Popover } from "@/components/ui/Popover";
-import { linkFolder } from "@/lib/studio/actions";
-import { WORKSPACE_DIR } from "@/lib/studio/schema";
+import { Lock, Sparkles, User } from "lucide-react";
 import { useStudioStore } from "@/lib/studio/store";
 import type { ActivityEvent } from "@/types/prism";
 import { PanelShell, PanelSection } from "./PanelShell";
 
 type Props = {
   activity: ActivityEvent[];
-  /**
-   * Never collapse this to a boolean. A fallback registry is invisible to
-   * external agents, so reporting it as connected would claim reach the
-   * product does not have.
-   */
-  kind: "native" | "fallback" | "absent";
-  toolCount: number;
-  /** The open composition's folder under `.prismlaunch`, or null. */
-  slug: string | null;
-};
-
-const CONNECTION: Record<
-  Props["kind"],
-  { title: string; detail: (n: number) => string; dot: string; tone: string }
-> = {
-  native: {
-    title: "Agent tools available",
-    detail: (n) => `${n} WebMCP tools registered on this page`,
-    dot: "bg-accent",
-    tone: "text-ink",
-  },
-  fallback: {
-    title: "In-page tools only",
-    detail: (n) =>
-      `${n} tools registered, but this browser has no WebMCP, so external agents cannot see them`,
-    dot: "bg-warning",
-    tone: "text-warning",
-  },
-  absent: {
-    title: "Use direct controls",
-    detail: () => "No WebMCP in this browser. Every control still works.",
-    dot: "bg-faint",
-    tone: "text-muted",
-  },
 };
 
 /**
  * What happened, newest first.
  *
  * Both parties' edits are here, the person's and the agent's, so the panel
- * is Activity rather than the agent's. The record is the panel. Where the
- * work lives and how the agent reaches it are facts a person checks once,
- * so they sit behind one button beside the title rather than as boxes
- * above the list. Newest at the top, because the question is "what just
- * happened", and the answer should not be at the bottom of a scroll.
+ * is Activity rather than the agent's. The record is the panel; where the
+ * work lives and how the agent reaches it are facts about the folder, and
+ * sit in the Files section. Newest at the top, because the question is
+ * "what just happened", and the answer should not be at the bottom of a
+ * scroll.
  */
-export function AgentPanel({ activity, kind, toolCount, slug }: Props) {
+export function AgentPanel({ activity }: Props) {
   const lastCapture = useStudioStore((state) => state.lastCapture);
 
   return (
-    <PanelShell
-      title="Activity"
-      action={<Connection kind={kind} toolCount={toolCount} slug={slug} />}
-    >
+    <PanelShell title="Activity">
       {lastCapture ? (
         <PanelSection label="What your agent saw">
           <div className="flex flex-col gap-2">
@@ -138,60 +97,5 @@ export function AgentPanel({ activity, kind, toolCount, slug }: Props) {
         })}
       </ol>
     </PanelShell>
-  );
-}
-
-/** Where the work lives and how the agent reaches it, behind one button. */
-function Connection({ kind, toolCount, slug }: Omit<Props, "activity">) {
-  const connection = CONNECTION[kind];
-  const inBrowser = useStudioStore(
-    (state) => state.workspace.kind === "linked" && state.workspace.workspace.kind === "browser",
-  );
-
-  return (
-    <Popover label="Folder and connection" icon={<Settings2 size={15} strokeWidth={1.9} aria-hidden />}>
-      <div className="flex items-start gap-2.5">
-        {inBrowser ? (
-          <Globe size={14} strokeWidth={1.8} className="mt-0.5 shrink-0 text-subtle" aria-hidden />
-        ) : (
-          <FolderOpen size={14} strokeWidth={1.8} className="mt-0.5 shrink-0 text-subtle" aria-hidden />
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="font-mono text-xs break-all text-ink">
-            {inBrowser ? `this browser · ${slug ?? ""}` : `${WORKSPACE_DIR}/${slug ?? ""}`}
-          </p>
-          <p className="mt-0.5 text-xs leading-[var(--ds-leading-body)] text-muted">
-            {inBrowser
-              ? "Kept in this browser's storage. Nothing is uploaded."
-              : "Read and written on this machine. Nothing is uploaded."}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex items-start gap-2.5">
-        <span className={`mt-1.5 size-2 shrink-0 rounded-pill ${connection.dot}`} aria-hidden />
-        <div className="min-w-0 flex-1">
-          <p className={`text-xs font-medium ${connection.tone}`}>{connection.title}</p>
-          <p className="mt-0.5 text-xs leading-[var(--ds-leading-body)] text-muted">
-            {connection.detail(toolCount)}
-          </p>
-        </div>
-      </div>
-
-      <p className="flex items-start gap-2 text-xs leading-[var(--ds-leading-body)] text-muted">
-        <Lock size={12} strokeWidth={1.8} className="mt-px shrink-0 text-subtle" aria-hidden />
-        Your agent can propose a render but cannot start one.
-      </p>
-
-      <Button
-        variant="secondary"
-        size="sm"
-        className="self-start"
-        onClick={() => void linkFolder()}
-        icon={<FolderOpen size={12} strokeWidth={1.9} aria-hidden />}
-      >
-        {inBrowser ? "Link a folder instead" : "Link a different folder"}
-      </Button>
-    </Popover>
   );
 }

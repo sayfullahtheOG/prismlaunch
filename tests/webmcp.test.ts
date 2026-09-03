@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   acquirePrismTools,
   PRISM_TOOLSETS,
+  registerPrismTools,
   releasePrismTools,
 } from "@/lib/webmcp/register";
 import { buildTools } from "@/lib/webmcp/tools";
+import type { ModelContextTool } from "@/lib/webmcp/types";
+import { readGuides } from "./guide-setup";
 
 /**
  * One registration, however many components ask.
@@ -17,11 +20,12 @@ import { buildTools } from "@/lib/webmcp/tools";
  */
 
 type Registry = {
-  registerTool: (tool: { name: string }, options?: { signal?: AbortSignal }) => Promise<void>;
+  registerTool: (tool: ModelContextTool, options?: { signal?: AbortSignal }) => Promise<void>;
 };
 
-function stubDocument(): { calls: string[]; duplicates: string[] } {
+function stubDocument() {
   const names = new Set<string>();
+  const tools = new Map<string, ModelContextTool>();
   const calls: string[] = [];
   const duplicates: string[] = [];
   const registry: Registry = {
@@ -32,13 +36,17 @@ function stubDocument(): { calls: string[]; duplicates: string[] } {
         throw new Error(`duplicate ${tool.name}`);
       }
       names.add(tool.name);
-      options?.signal?.addEventListener("abort", () => names.delete(tool.name));
+      tools.set(tool.name, tool);
+      options?.signal?.addEventListener("abort", () => {
+        names.delete(tool.name);
+        tools.delete(tool.name);
+      });
     },
   };
   vi.stubGlobal("document", { modelContext: registry });
   vi.stubGlobal("navigator", {});
   vi.stubGlobal("window", { location: { origin: "http://test" } });
-  return { calls, duplicates };
+  return { calls, duplicates, tools };
 }
 
 afterEach(() => {
@@ -46,6 +54,31 @@ afterEach(() => {
 });
 
 describe("the shared registration", () => {
+  it("preserves delivered guides through real toolset switches and resets after teardown", async () => {
+    const registry = stubDocument();
+    const registration = await registerPrismTools();
+    try {
+      await readGuides([...registry.tools.values()]);
+      for (const toolset of Object.keys(PRISM_TOOLSETS)) {
+        await registry.tools.get("prism.use_toolset")!.execute({ toolset });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(registry.tools.has("prism.read_guide")).toBe(true);
+        const result = await registry.tools.get("prism.get_project_context")!.execute({});
+        expect(JSON.parse(String(result)).agentGuidance.requiredBeforeWork).toEqual([]);
+      }
+    } finally {
+      registration?.teardown();
+    }
+    const fresh = await registerPrismTools();
+    try {
+      const result = await registry.tools.get("prism.get_project_context")!.execute({});
+      expect(JSON.parse(String(result)).agentGuidance.requiredBeforeWork).toHaveLength(2);
+      expect(registry.duplicates).toEqual([]);
+    } finally {
+      fresh?.teardown();
+    }
+  });
+
   it("registers one workflow toolset for two holders, with no duplicates", async () => {
     const registry = stubDocument();
 

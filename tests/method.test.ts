@@ -31,7 +31,7 @@ describe("public/PRISM_METHOD.md", () => {
 
   it("is reached from SKILL.md before an agent builds anything", () => {
     expect(SKILL).toContain("PRISM_METHOD.md");
-    expect(SKILL).toMatch(/## Before you build anything/);
+    expect(SKILL).toMatch(/## Before any creative work/);
   });
 
   /** Short enough to be read whole: the old version burned a fifth of a context window. */

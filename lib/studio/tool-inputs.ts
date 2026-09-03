@@ -42,6 +42,12 @@ import { LIBRARY } from "./library";
 
 export const EmptyInput = z.object({});
 
+export const ReadGuideInput = z.object({
+  document: z.enum(["SKILL.md", "PRISM_METHOD.md"]).describe(
+    "Required before work: read SKILL.md for operation and PRISM_METHOD.md for creative method. Call separately for each full guide.",
+  ),
+});
+
 export const OpenProjectInput = z.object({
   slug: SlugSchema.describe(
     "Folder name under .prismlaunch, as listed by get_project_context.",
@@ -777,14 +783,16 @@ export const SubmitScriptInput = z.object({
         words: z
           .string()
           .max(160)
-          .describe("The on-screen text, or the VO line. Under seven words if on screen."),
-        seconds: z.number().min(0.3).max(20),
+          .describe("On-screen text in runs of 1–4 words per line; one accent word. PRISM_METHOD.md §6."),
+        seconds: z.number().min(0.3).max(20).describe(
+          "Derive from visual events, never a preset budget. Usually 2–4 seconds per section, averaging two events per second. PRISM_METHOD.md §1.",
+        ),
         sound: z.string().max(140).optional().describe("What the music or SFX does here."),
       }),
     )
     .min(2)
     .max(14)
-    .describe("The film, beat by beat. Five to seven for 30 seconds."),
+    .describe("The film as connected visual events. Around 10–12 sections for 30 seconds; let the actual events determine length. PRISM_METHOD.md §1."),
   voiceover: z
     .string()
     .max(800)

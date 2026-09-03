@@ -75,7 +75,7 @@ describe("a notice", () => {
   });
 
   it("split refuses, with a reason, when the playhead is outside the clip", async () => {
-    const tools = (await import("@/lib/webmcp/tools")).buildTools();
+    const tools = await (await import("./guide-setup")).preparedTools();
     const call = (name: string, input: Record<string, unknown>) =>
       tools.find((tool) => tool.name === name)!.execute(input);
     // Clips come after the storyboard is approved; approve the way through.

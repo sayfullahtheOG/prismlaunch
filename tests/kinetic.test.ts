@@ -19,6 +19,7 @@ import {
   UpdateClipInput,
 } from "@/lib/studio/tool-inputs";
 import { buildTools } from "@/lib/webmcp/tools";
+import { readGuides } from "./guide-setup";
 import { resetBrowserStore } from "@/lib/workspace/browser-store";
 import { ICON_PATHS } from "@/remotion/icons";
 import {
@@ -324,6 +325,7 @@ describe("the tools", () => {
 
   it("sets the camera through the tool, sorted by frame", async () => {
     const tools = buildTools();
+    await readGuides(tools);
     const set = tools.find((tool) => tool.name === "prism.set_camera")!;
     const result = String(
       await set.execute({

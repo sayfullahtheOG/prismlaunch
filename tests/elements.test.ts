@@ -9,6 +9,7 @@ import {
 import { DEFAULT_MOTION, PROJECT_FILE_VERSION, ProjectFileSchema } from "@/lib/studio/schema";
 import { readProject, resetStudio, useStudioStore } from "@/lib/studio/store";
 import { buildTools } from "@/lib/webmcp/tools";
+import { preparedTools } from "./guide-setup";
 import type { Clip, Element } from "@/types/prism";
 import { approvedThrough, audioTrack, film, projectFile, textClip, visualTrack } from "./fixture";
 
@@ -324,7 +325,7 @@ describe("the actions", () => {
   });
 
   it("builds a text style from the flat add_element input", async () => {
-    const add = buildTools().find((tool) => tool.name === "prism.add_element")!;
+    const add = (await preparedTools()).find((tool) => tool.name === "prism.add_element")!;
     const message = await add.execute({
       kind: "text",
       name: "Support",
@@ -341,7 +342,7 @@ describe("the actions", () => {
   });
 
   it("tells an agent when a media element has no file", async () => {
-    const add = buildTools().find((tool) => tool.name === "prism.add_element")!;
+    const add = (await preparedTools()).find((tool) => tool.name === "prism.add_element")!;
     const message = await add.execute({ kind: "image", name: "Product shot" });
     expect(message).toMatch(/src/);
     expect(readProject()!.file.elements.some((element) => element.name === "Product shot")).toBe(false);

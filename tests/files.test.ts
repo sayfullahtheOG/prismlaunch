@@ -5,7 +5,7 @@ import { EMPTY_PROCESS } from "@/lib/studio/schema";
 import { resetStudio, useStudioStore } from "@/lib/studio/store";
 import { resetBrowserStore } from "@/lib/workspace/browser-store";
 import { browserWorkspace, listDirectory, readFileAt } from "@/lib/workspace/fs";
-import { buildTools } from "@/lib/webmcp/tools";
+import { preparedTools } from "./guide-setup";
 
 /**
  * The Files section and the way back to the editor.
@@ -23,7 +23,7 @@ beforeEach(async () => {
 
 describe("the files section", () => {
   it("draws a browser workspace as a folder of compositions", async () => {
-    const create = buildTools().find((tool) => tool.name === "prism.create_project")!;
+    const create = (await preparedTools()).find((tool) => tool.name === "prism.create_project")!;
     await create.execute({ slug: "vector", name: "Vector" });
     await actions.flushWrites();
     const workspace = browserWorkspace();

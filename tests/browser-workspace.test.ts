@@ -14,6 +14,7 @@ import {
 } from "@/lib/workspace/fs";
 import { hostedByAgent } from "@/lib/studio/hosted";
 import { buildTools } from "@/lib/webmcp/tools";
+import { readGuides } from "./guide-setup";
 import { projectFile } from "./fixture";
 
 /**
@@ -108,6 +109,7 @@ describe("starting in the browser", () => {
   it("lets the agent create and build through the tools alone", async () => {
     await actions.startInBrowser();
     const tools = buildTools();
+    await readGuides(tools);
     const create = tools.find((tool) => tool.name === "prism.create_project")!;
     const context = tools.find((tool) => tool.name === "prism.get_project_context")!;
 

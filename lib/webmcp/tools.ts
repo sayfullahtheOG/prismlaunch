@@ -62,6 +62,7 @@ import {
   OpenProjectInput,
   PlaceElementInput,
   PreviewInput,
+  ReadGuideInput,
   RemoveClipInput,
   RemoveElementInput,
   RequestRenderInput,
@@ -88,15 +89,17 @@ import { useStudioStore } from "@/lib/studio/store";
 import { LIBRARY } from "@/lib/studio/library";
 import type { Animation, Box, Clip, Element, ElementDraft, Motion } from "@/types/prism";
 import type { JsonSchema, ModelContextTool } from "./types";
+import { createGuideSession } from "./guides";
 
 /**
  * The tools PrismLaunch registers on the studio page.
  *
  * Three rules hold across every one of them:
  *
- * 1. **Each tool wraps an existing action.** There is no tool-only code path,
+ * 1. **Each film-changing tool wraps an existing action.** There is no separate editing path,
  *    so anything an agent does produces exactly the visible result a human
  *    click would (context/architecture.md invariant 1).
+ *    Guide delivery is session onboarding, not a change to the film.
  *
  * 2. **Each executor validates its own input.** Chrome does not check input
  *    against `inputSchema` — verified against a live implementation: missing
@@ -132,22 +135,34 @@ type Executor<S extends z.ZodType> = (
   input: z.infer<S>,
 ) => Promise<ActionResult> | ActionResult;
 
-function tool<S extends z.ZodType>(config: {
+type ToolConfig<S extends z.ZodType> = {
   name: string;
   description: string;
   schema: S;
   annotations?: ModelContextTool["annotations"];
   execute: Executor<S>;
-}): ModelContextTool {
+};
+
+function defineTool<S extends z.ZodType>(
+  config: ToolConfig<S>,
+  guides: ReturnType<typeof createGuideSession>,
+): ModelContextTool {
   return {
     name: config.name,
-    description: config.description,
+    description: config.annotations?.readOnlyHint === true
+      ? config.description
+      : `${config.description} Read both guides with prism.read_guide before work.`,
     inputSchema: toolInputJsonSchema(config.schema) as JsonSchema,
     ...(config.annotations ? { annotations: config.annotations } : {}),
     execute: async (raw) => {
       const parsed = config.schema.safeParse(raw ?? {});
       if (!parsed.success) {
         return `Invalid input — ${explainZodError(parsed.error)}`;
+      }
+
+      if (config.annotations?.readOnlyHint !== true) {
+        const requirement = guides.beforeWrite();
+        if (requirement) return requirement;
       }
 
       // Awaiting here is what guarantees the visible state has already changed
@@ -211,14 +226,27 @@ function defined<T extends object>(value: T): Defined<T> {
 }
 
 export function buildTools(): ModelContextTool[] {
+  const guides = createGuideSession();
+  const tool = <S extends z.ZodType>(config: ToolConfig<S>) => defineTool(config, guides);
   return [
+    tool({
+      name: "prism.read_guide",
+      description:
+        "Required first: read SKILL.md and PRISM_METHOD.md before planning, drafting or editing. Call once per document; returns the full current guide. Editing tools require both this session. Re-read relevant sections before stages and revisions.",
+      schema: ReadGuideInput,
+      annotations: { readOnlyHint: true },
+      execute: ({ document }) => guides.read(document),
+    }),
     tool({
       name: "prism.get_project_context",
       description:
-        "Read storage mode, compositions, open canvas, tracks, clips, playhead and process state. Call first and after uncertain changes. Read SKILL.md and PRISM_METHOD.md before making a film.",
+        "Read required agent guidance, storage, canvas and process state. Read agentGuidance first: call prism.read_guide for both guides before planning or editing, including when resuming an existing film. Then follow process and the person's notes.",
       schema: EmptyInput,
       annotations: { readOnlyHint: true },
-      execute: () => ({ ok: true, message: JSON.stringify(getProjectContext()) }),
+      execute: () => ({
+        ok: true,
+        message: JSON.stringify({ agentGuidance: guides.context(), ...getProjectContext() }),
+      }),
     }),
 
     tool({

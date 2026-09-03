@@ -72,9 +72,21 @@ own `library/` sounds, music beds and pieces work here exactly as on disk,
 and the person can drop image, video or sound files onto the Elements
 section to make them available as `assets/` paths.
 
-## Before you build anything
+## Before any creative work
 
-Read **https://tryprismlaunch.vercel.app/PRISM_METHOD.md** first.
+**Read both this operating guide and
+https://tryprismlaunch.vercel.app/PRISM_METHOD.md in full before planning,
+writing a brief, drafting a script or editing a film.** Installing the skill
+is not the same as reading it. This also applies when resuming an existing
+composition, not just when creating one.
+
+In the studio, call `prism.read_guide` twice: with `document: "SKILL.md"`,
+then with `document: "PRISM_METHOD.md"`. Each call returns one full current
+guide directly through WebMCP; no separate browser fetch or local file access
+is needed. Creative tools refuse to run until both have been delivered in
+this page session. A reload starts a new session; switching toolsets does not.
+Read the returned text, not just the delivery status. Before each new stage
+or revision, re-read the relevant method sections and the person's notes.
 
 This file tells you how to operate the tool. That one tells you how to make
 something worth watching: how to find the one idea, write the line, time the
@@ -100,17 +112,19 @@ to stop.
    reject an oversized catalog. It starts on `workflow`. Call
    `prism.use_toolset` whenever you need `graphics`, `media`, `elements`,
    `edit`, or to return to `workflow`, then refresh your tool list.
-4. Call `prism.get_project_context`. Read its `process` block first: it says
-   which stage the film is at, what the person said about the last thing you
-   submitted, and exactly what to do next.
+4. Call `prism.get_project_context`. Read `agentGuidance` first and retrieve
+   both guides with `prism.read_guide` if required. Then read `process`: it
+   says which stage the film is at, what the person said about the last thing
+   you submitted, and exactly what to do next.
 5. There is probably already a blank composition open. Linking an empty folder
    makes one, because there is nothing to ask. If you want another, or a
    specific folder name, call `prism.create_project`; or write the file
    yourself and call `prism.open_project`.
 6. Work the stages, in order, one at a time. Each has a `submit_*` tool. After
-   each submit, call `prism.wait_for_decision`: it returns when the person
-   approves the stage or sends it back with a note. You cannot approve a
-   stage yourself; there is no tool for it.
+   each submit, end your turn and ask the person to message you after their
+   review. Then read `prism.get_project_context` or call
+   `prism.wait_for_decision` once. Do not poll. You cannot approve a stage
+   yourself; there is no tool for it.
 7. The timeline opens up once the storyboard is approved. Approving the
    animatic locks the timing and opens the elements: define the look as
    elements, then build by placing them.
@@ -667,7 +681,8 @@ rather than crashing the render. It is still a hole, so check.
 | Tool | What it does |
 | --- | --- |
 | `prism.use_toolset` | Switch the visible tools: `workflow`, `graphics`, `media`, `elements`, or `edit`. Refresh the tool list after calling it. |
-| `prism.get_project_context` | Where things stand: the folder, the canvas, every track and clip with its id, the playhead, and which clips are unreviewed. **Call this first.** |
+| `prism.read_guide` | Required before creative work. Call for `SKILL.md` and `PRISM_METHOD.md`, then read both full results. Available in every toolset. |
+| `prism.get_project_context` | Required guide-reading instructions and delivery status, then the folder, canvas, tracks, clips, playhead and process. **Read `agentGuidance` before acting on `process`.** |
 | `prism.create_project` | Create an empty composition and open it. It starts with no runtime and grows as you place clips. |
 | `prism.open_project` | Show one that already exists in the folder. |
 | `prism.submit_brief` … `prism.submit_build` | The eight stages, in order. See *The process* above. |
@@ -775,27 +790,30 @@ Each is one beat; PRISM_METHOD.md says how many of them a film gets.
 
 ## Making a good one
 
-You are directing, so the craft is yours. What the medium rewards:
+PRISM_METHOD.md is the source of truth for creative decisions. Apply its
+rules rather than filling a preset runtime with held captions:
 
 - **Say one thing.** A fifteen-second video that lands one idea beats one that
   lists five. Cut the second-best line.
-- **Open on the problem, not the product.** "Six clicks to assign an issue"
-  earns attention that "Introducing Vector" spends.
-- **Hold long enough to read.** A line of text needs roughly 0.3 seconds per
-  word plus a second. Under two seconds for anything but a single word is too
-  fast, and everyone gets this wrong in the same direction.
+- **Open on action.** Words arrive within six frames; show the strongest
+  image by three seconds. Use the approved concept's problem or product demo.
+- **Time events, not slides.** A line enters in 5–6 frames, holds for
+  `min(60, 12 + characters × 2)` frames, then leaves in 4–5 frames at 30fps.
+  Aim for two visual events per second on average. Sections follow their
+  events; do not pad them to fill a duration budget. PRISM_METHOD.md §1.
 - **Move the eye deliberately.** If two things animate at once the viewer sees
   neither. Stagger by 6 to 12 frames.
-- **Let the ground do work.** A gradient background and one accent colour will
-  carry a whole film; four colours will not.
+- **Let the ground do work.** One ground, one ink, one accent. Select the
+  look through PRISM_METHOD.md §7.
 - **Put the product on screen.** A real screenshot in a `device` frame,
   tilted and shadowed, beats any headline about it. If you have none, ask
   before you build.
-- **Silence is a choice.** If there is no audio, the fades have to carry the
-  rhythm. If there is music, cut on it.
+- **Let objects carry cuts.** Name each handoff. Choose music before locking
+  timing; cuts follow the beat and action. PRISM_METHOD.md §2 and §9.
 
-Fifteen to twenty-five seconds is the range for a launch film. Under ten reads
-as a teaser; over forty and people leave.
+Derive the runtime from the idea, the real actions and the person's brief.
+The method's reference is 33 seconds with 12 sections; it is a pacing
+reference, not a compulsory length for every film.
 
 ### Boards are roughs
 

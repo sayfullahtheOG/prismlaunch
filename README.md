@@ -87,11 +87,13 @@ The tool without the method produces the video everyone has seen. The method is 
 
 ## The tools
 
-Forty-one WebMCP tools are registered on the studio page: the process (`submit_brief` through `submit_build`, `lay_animatic`, `wait_for_decision`), the canvas (`create_project`, `open_project`, `set_background`, `set_duration`, `set_camera`), the stack (`add_track`, `update_track`, `move_track`, `remove_track`), the elements (`add_element`, `update_element`, `remove_element`, `add_from_library`, `place_element`), the clips (`add_text`, `add_shape`, `add_image`, `add_video`, `add_audio`, `add_icon`, `add_particles`, `add_device`, `add_html`, `update_clip`, `remove_clip`), the view (`seek`, `preview`, `capture_frames`, `get_project_context`) and the gate (`request_render`, `confirm_render`).
+PrismLaunch exposes five compact WebMCP toolsets, switched with `use_toolset`. The operations cover the guides (`read_guide`), the process (`submit_brief` through `submit_build`, `lay_animatic`, `wait_for_decision`), the canvas (`create_project`, `open_project`, `set_background`, `set_duration`, `set_camera`), the stack (`add_track`, `update_track`, `move_track`, `remove_track`), the elements (`add_element`, `update_element`, `remove_element`, `add_from_library`, `place_element`), the clips (`add_text`, `add_shape`, `add_image`, `add_video`, `add_audio`, `add_icon`, `add_particles`, `add_device`, `add_html`, `update_clip`, `remove_clip`), the view (`seek`, `preview`, `capture_frames`, `get_project_context`) and the gate (`request_render`, `confirm_render`).
 
 The clip tools exist so an agent *without* file access is not locked out. An agent with file tools should edit the film's files directly, one element or layer at a time — it is the same composition either way, and far fewer round trips.
 
 `public/SKILL.md` documents all of them, and `tests/skill.test.ts` asserts the documented list matches the registered one exactly.
+
+Before an agent can change a film, `prism.read_guide` delivers `SKILL.md` and `PRISM_METHOD.md` in full, in separate calls. It is available in every toolset; `get_project_context.agentGuidance` reports what is still required even when resuming a later stage. Delivery is tracked for the page's tool registration, survives toolset switches, and resets on reload. Human editing and stage approvals are unaffected. This enforces delivery before WebMCP mutations, not an agent's comprehension or direct file edits.
 
 ## Testing WebMCP
 

@@ -4,6 +4,7 @@ import type { ModelContextTool, RegisterToolOptions } from "./types";
 
 export const PRISM_TOOLSETS = {
   workflow: [
+    "prism.read_guide",
     "prism.get_project_context",
     "prism.create_project",
     "prism.open_project",
@@ -19,6 +20,7 @@ export const PRISM_TOOLSETS = {
     "prism.wait_for_decision",
   ],
   graphics: [
+    "prism.read_guide",
     "prism.get_project_context",
     "prism.add_track",
     "prism.update_track",
@@ -30,6 +32,7 @@ export const PRISM_TOOLSETS = {
     "prism.add_particles",
   ],
   media: [
+    "prism.read_guide",
     "prism.get_project_context",
     "prism.add_html",
     "prism.add_device",
@@ -38,6 +41,7 @@ export const PRISM_TOOLSETS = {
     "prism.add_audio",
   ],
   elements: [
+    "prism.read_guide",
     "prism.get_project_context",
     "prism.add_element",
     "prism.update_element",
@@ -46,6 +50,7 @@ export const PRISM_TOOLSETS = {
     "prism.place_element",
   ],
   edit: [
+    "prism.read_guide",
     "prism.get_project_context",
     "prism.update_clip",
     "prism.remove_clip",

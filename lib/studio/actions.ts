@@ -162,6 +162,7 @@ export type ActionErrorCode =
   | "stage-gated"
   | "timing-locked"
   | "graph-invalid"
+  | "guide-unavailable"
   | "disk-error";
 
 function ok(message: string): ActionResult {

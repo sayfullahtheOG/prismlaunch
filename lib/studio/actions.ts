@@ -2174,6 +2174,12 @@ export function approveStage(
   if (!guard.ok) return guard.result;
   const project = guard.value;
   const process = project.file.process;
+  const view = useStudioStore.getState();
+  // A reopened page follows currentStage while openStage is null. Approval
+  // advances the workflow, but must leave the person on the artifact they
+  // just reviewed rather than showing an empty next stage.
+  const keepReview = view.tab === "process" && view.reviewing &&
+    (view.openStage ?? currentStage(process)) === stage;
 
   const next: Process = {
     ...process,
@@ -2206,6 +2212,8 @@ export function approveStage(
     },
   );
   if (rejected) return rejected;
+
+  if (keepReview) useStudioStore.getState().setOpenStage(stage);
 
   return ok(
     stage === "animatic"

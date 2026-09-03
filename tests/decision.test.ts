@@ -132,6 +132,66 @@ describe("waiting for a decision", () => {
 });
 
 describe("where a film opens", () => {
+  async function reachScript() {
+    await submitBrief();
+    actions.approveStage("brief");
+    await actions.submitConcepts({
+      directions: [
+        { id: "demo", title: "Self demo", line: "The film opens into its editor." },
+        { id: "note", title: "One note", line: "Feedback changes the film." },
+      ],
+      recommended: "demo",
+    });
+    actions.approveStage("concept", { chosen: "demo" });
+    await actions.submitScript({
+      beats: [
+        { id: "hook", label: "Hook", words: "Made here.", seconds: 2 },
+        { id: "proof", label: "Proof", words: "Watch it change.", seconds: 3 },
+      ],
+    });
+  }
+
+  it.each([null, "script"] as const)("keeps the approved script and note visible when openStage was %s", async (openStage) => {
+    await reachScript();
+    useStudioStore.getState().setOpenStage(openStage);
+    const result = actions.approveStage("script", { note: "Show the UI of the app." });
+    expect(result.ok).toBe(true);
+
+    const state = useStudioStore.getState();
+    const context = actions.getProjectContext();
+    expect(context.process?.stage).toBe("storyboard");
+    expect(context.process?.stages.script?.personSaid).toBe("Show the UI of the app.");
+    expect(state.openStage).toBe("script");
+    expect(middleView(state.tab, state.openStage, readProject()!.file.process, state.reviewing)).toBe("review");
+
+    // A real submission opens the next artifact once it exists.
+    const submitted = await actions.submitStoryboard({
+      panels: [
+        { id: "p1", beatId: "hook", label: "Hook", frame: "The editor preview.", durationInFrames: 60, transitionIn: "none", transitionOut: "none" },
+        { id: "p2", beatId: "proof", label: "Proof", frame: "The same editable timeline.", durationInFrames: 90, transitionIn: "none", transitionOut: "none" },
+      ],
+    });
+    expect(submitted.ok, submitted.message).toBe(true);
+    expect(useStudioStore.getState().openStage).toBe("storyboard");
+    expect(middleView("process", "storyboard", readProject()!.file.process)).toBe("boards");
+  });
+
+  it("keeps an unsuccessful approval on the same review without changing navigation", async () => {
+    await reachScript();
+    useStudioStore.getState().setOpenStage(null);
+    expect(actions.approveStage("script", { note: "x".repeat(601) }).ok).toBe(false);
+    expect(useStudioStore.getState().openStage).toBeNull();
+    expect(readProject()!.file.process.script.status).toBe("submitted");
+  });
+
+  it("does not take over another view when a stage is approved", async () => {
+    await reachScript();
+    actions.showEditor();
+    actions.approveStage("script");
+    expect(useStudioStore.getState().tab).toBe("editor");
+    expect(useStudioStore.getState().reviewing).toBe(false);
+  });
+
   it("lands on the process while the work is documents, the editor once it is the film", async () => {
     expect(openingTab(readProject()!.file.process)).toBe("process");
     expect(useStudioStore.getState().tab).toBe("process");

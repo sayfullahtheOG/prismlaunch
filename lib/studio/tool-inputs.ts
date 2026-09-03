@@ -248,6 +248,11 @@ export const AddAudioInput = z.object({
   playbackRate: loose(AudioClipSchema.shape.playbackRate),
 });
 
+/**
+ * Every property a clip has, patchable. A tool that can set a colour but
+ * not a font family sends the agent back to deleting and re-adding, which
+ * loses the id, the approval trail and the person's patience.
+ */
 export const UpdateClipInput = z.object({
   clipId: z.string().min(1).max(60).describe("From get_project_context."),
   note: z
@@ -255,17 +260,37 @@ export const UpdateClipInput = z.object({
     .min(1)
     .max(240)
     .describe("One sentence on what you changed and why. Shown to the person."),
+  trackId: z
+    .string()
+    .min(1)
+    .max(60)
+    .optional()
+    .describe("Move the clip to this layer. Audio stays on audio layers, visuals on visual ones."),
   from: z.number().int().min(0).max(MAX_FRAMES).optional(),
   durationInFrames: z.number().int().min(1).max(MAX_FRAMES).optional(),
+  label: z.string().max(60).optional(),
   box: visualExtras.box,
   animation: visualExtras.animation,
   motion: visualExtras.motion,
   text: loose(TextClipSchema.shape.text),
   fontSize: loose(TextClipSchema.shape.fontSize),
+  fontFamily: loose(TextClipSchema.shape.fontFamily),
+  fontWeight: loose(TextClipSchema.shape.fontWeight),
   color: loose(TextClipSchema.shape.color),
-  fill: loose(ShapeClipSchema.shape.fill),
-  volume: loose(AudioClipSchema.shape.volume),
+  align: loose(TextClipSchema.shape.align),
+  lineHeight: loose(TextClipSchema.shape.lineHeight),
+  letterSpacing: loose(TextClipSchema.shape.letterSpacing),
   ...reveal,
+  shape: loose(ShapeClipSchema.shape.shape),
+  fill: loose(ShapeClipSchema.shape.fill),
+  radius: loose(ShapeClipSchema.shape.radius).describe("shape, image, video."),
+  src: AssetPathSchema.optional().describe("Swap the file behind an image, video or audio clip."),
+  fit: loose(ImageClipSchema.shape.fit),
+  startFrom: loose(VideoClipSchema.shape.startFrom),
+  volume: loose(AudioClipSchema.shape.volume),
+  playbackRate: loose(AudioClipSchema.shape.playbackRate),
+  fadeInFrames: loose(AudioClipSchema.shape.fadeInFrames),
+  fadeOutFrames: loose(AudioClipSchema.shape.fadeOutFrames),
 });
 
 export const RemoveClipInput = z.object({

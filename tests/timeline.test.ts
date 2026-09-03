@@ -99,3 +99,72 @@ describe("a notice", () => {
     expect(result.message).toMatch(/not inside/);
   });
 });
+
+describe("update_clip reaches the whole clip", () => {
+  it("patches type fields the old input dropped, and moves a clip across layers", async () => {
+    const { resetBrowserStore } = await import("@/lib/workspace/browser-store");
+    const { resetStudio, readProject } = await import("@/lib/studio/store");
+    const actions = await import("@/lib/studio/actions");
+    resetBrowserStore();
+    resetStudio();
+    await actions.startInBrowser();
+
+    actions.createTrack("visual", "Titles");
+    actions.createTrack("visual", "Overlay");
+    const file = () => readProject()!.file;
+    const [overlay, titles] = file().tracks.filter((track) => track.kind === "visual");
+    const made = actions.createClip(titles!.id, {
+      kind: "text",
+      from: 0,
+      durationInFrames: 30,
+      approval: "accepted",
+      text: "Hello",
+      fontSize: 0.09,
+      fontFamily: "display",
+      fontWeight: 600,
+      color: "#F7F8F8",
+      align: "center",
+      lineHeight: 1.1,
+      letterSpacing: -0.02,
+      reveal: "none",
+      revealFrames: 30,
+      caret: false,
+      box: { x: 0.5, y: 0.5, width: 0.8, height: 0.2, rotation: 0, opacity: 1 },
+      animation: { enter: "none", exit: "none", enterFrames: 12, exitFrames: 12 },
+      motion: { x: 0, y: 0, scale: 1, frames: 0, delay: 0, easing: "out", press: false },
+    });
+    expect(made.ok, made.message).toBe(true);
+    const clipId = file().tracks.flatMap((track) => track.clips)[0]!.id;
+
+    const styled = actions.patchClip(clipId, { fontFamily: "mono", align: "left", letterSpacing: 0.04 }, "agent", "mono, left");
+    expect(styled.ok, styled.message).toBe(true);
+
+    const moved = actions.patchClip(clipId, { trackId: overlay!.id, from: 12 }, "agent", "onto the overlay");
+    expect(moved.ok, moved.message).toBe(true);
+    const after = file().tracks.find((track) => track.id === overlay!.id)!;
+    expect(after.clips.map((clip) => [clip.id, clip.from])).toEqual([[clipId, 12]]);
+    const patched = after.clips[0]!;
+    expect(patched.kind === "text" && patched.fontFamily).toBe("mono");
+
+    // Audio cannot land on a visual layer, and it says so.
+    actions.createTrack("audio", "Music");
+    const audioTrack = file().tracks.find((track) => track.kind === "audio")!;
+    const bed = actions.createClip(audioTrack.id, {
+      kind: "audio",
+      from: 0,
+      durationInFrames: 30,
+      approval: "accepted",
+      src: "library/audio/bed-calm.mp3",
+      startFrom: 0,
+      volume: 1,
+      fadeInFrames: 0,
+      fadeOutFrames: 0,
+      playbackRate: 1,
+    });
+    expect(bed.ok, bed.message).toBe(true);
+    const bedId = audioTrack ? file().tracks.find((track) => track.kind === "audio")!.clips[0]!.id : "";
+    const refused = actions.patchClip(bedId, { trackId: overlay!.id }, "agent", "no");
+    expect(refused.ok).toBe(false);
+    expect(refused.message).toMatch(/audio stays on audio/);
+  });
+});

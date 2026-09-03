@@ -9,6 +9,7 @@ import { useStudioStore } from "@/lib/studio/store";
 import { timecode } from "@/lib/studio/timing";
 import type { ProjectFile, StoryboardPanel } from "@/types/prism";
 import { Sparkles } from "lucide-react";
+import { roughInk } from "@/lib/studio/color";
 import { StageDecision } from "./panels/StageDecision";
 import { ReviewBar } from "./ReviewBar";
 
@@ -52,6 +53,9 @@ export function StoryboardBoard({ file }: { file: ProjectFile }) {
       : `linear-gradient(${file.background.angle}deg, ${file.background.from}, ${file.background.to})`;
 
   const starts = startFrames(panels);
+  // Roughs carry no colour decision of their own, so their ink answers the
+  // ground — white words on a near-white film is a board nobody can read.
+  const { ink, faint } = roughInk(file.background);
 
   return (
     <section
@@ -90,6 +94,8 @@ export function StoryboardBoard({ file }: { file: ProjectFile }) {
               fill={fill}
               selected={panel.id === selected}
               lockedLabel={beat ? `${timecode(beat.from / file.fps)}–${timecode((beat.from + beat.durationInFrames) / file.fps)}` : null}
+              ink={ink}
+              faint={faint}
             />
           );
         })}
@@ -146,6 +152,8 @@ function Board({
   fps,
   fill,
   selected,
+  ink,
+  faint,
   lockedLabel,
 }: {
   panel: StoryboardPanel;
@@ -154,6 +162,8 @@ function Board({
   fps: number;
   fill: string;
   selected: boolean;
+  ink: string;
+  faint: string;
   lockedLabel: string | null;
 }) {
   const words = panel.words?.trim();
@@ -177,8 +187,9 @@ function Board({
         >
           {words ? (
             <span
-              className="line-clamp-3 text-center leading-[1.15] tracking-[-0.02em] text-[#F5F5F7]"
+              className="line-clamp-3 text-center leading-[1.15] tracking-[-0.02em]"
               style={{
+                color: ink,
                 fontFamily: "var(--film-display), Georgia, serif",
                 fontSize: words.length <= 8 ? "2rem" : words.length <= 24 ? "1.35rem" : "1.05rem",
               }}
@@ -186,7 +197,7 @@ function Board({
               {words}
             </span>
           ) : (
-            <span className="font-mono text-2xs text-[#F5F5F7]/50">{panel.label}</span>
+            <span className="font-mono text-2xs" style={{ color: faint }}>{panel.label}</span>
           )}
 
           <span className="tabular absolute top-2 left-2 rounded-xs bg-black/40 px-1.5 py-0.5 font-mono text-2xs text-[#F5F5F7]/80">

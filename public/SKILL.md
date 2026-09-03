@@ -119,7 +119,7 @@ itself rather than by a document.
 | 1 Brief | `prism.submit_brief` | audience, message, feeling, length; the truth and the demo moment from immersion | lets you concept |
 | 2 Concept | `prism.submit_concepts` | 2 to 4 directions, one recommended | picks the idea |
 | 3 Script | `prism.submit_script` | beats with words and seconds; VO if any | lets you board |
-| 4 Storyboard | `prism.submit_storyboard` | one panel per beat: frame, action, frames, in/out, sound, words | opens the timeline |
+| 4 Storyboard | `prism.submit_storyboard` | one panel per beat: frame, action, frames, in/out, sound, words. Sent back? Submit the full corrected set again — it replaces what was there | opens the timeline |
 | 5 Animatic | `prism.lay_animatic`, then `prism.submit_animatic` | the boards on the timeline, music underneath, cut to the grid | **locks the timing** |
 | 6 Style frames | `prism.submit_style_frames` | the look, the elements it is made of, and the 2 to 3 frames built from them | fixes the look |
 | 7 Build | `prism.submit_build` | every beat built, inside its window | lets you do sound |
@@ -480,6 +480,17 @@ You are directing, so the craft is yours. What the medium rewards:
 
 Fifteen to twenty-five seconds is the range for a launch film. Under ten reads
 as a teaser; over forty and people leave.
+
+### Boards are roughs
+
+A storyboard panel has words, a frame description, timing and transitions —
+no colour, no face, on purpose: the board is where the cut is argued, and
+the style stage is where colour is decided. The boards and the animatic's
+placeholder clips draw their ink automatically against the film's
+background, dark on a light ground and light on a dark one, so do not try
+to style them and do not worry about their contrast. When the person asks
+for colours at the storyboard stage, note it for the style stage and say
+so in your summary.
 
 ## Look before you show
 

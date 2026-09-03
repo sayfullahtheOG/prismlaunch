@@ -25,6 +25,7 @@ import {
   type Placement,
 } from "./edits";
 import { blankProjectFile } from "./blank";
+import { roughInk } from "./color";
 import { pickLanding } from "./landing";
 import {
   agentMayPlaceClips,
@@ -1391,7 +1392,7 @@ export function deleteClip(clipId: string): ActionResult {
 
 export function patchClip(
   clipId: string,
-  patch: Partial<Clip>,
+  patch: Partial<Clip> & { trackId?: string },
   origin: "human" | "agent" = "human",
   note?: string,
 ): ActionResult {
@@ -1405,9 +1406,34 @@ export function patchClip(
   const locked = requireUnlocked(found.track);
   if (locked) return locked;
 
+  // A move is part of the same patch: `trackId` carries the clip to another
+  // layer, landing at `from` (or where it was). Kind mismatch and a full
+  // layer are refusals with reasons, not silent no-ops.
+  const { trackId: toTrackId, ...rest } = patch;
+  const patchRest: Partial<Clip> = rest;
+  let file = project.file;
+  if (toTrackId && toTrackId !== found.track.id) {
+    const target = findTrack(file, toTrackId);
+    if (!target) return fail("not-found", `No track "${toTrackId}".`);
+    if ((found.clip.kind === "audio") !== (target.kind === "audio")) {
+      return fail(
+        "invalid-input",
+        `A ${found.clip.kind} clip cannot move to “${target.name}”: audio stays on audio layers, visuals on visual ones.`,
+      );
+    }
+    const targetLocked = requireUnlocked(target);
+    if (targetLocked) return targetLocked;
+    file = moveClip(file, clipId, toTrackId, patchRest.from ?? found.clip.from);
+    const landed = findClip(file, clipId);
+    if (!landed || landed.track.id !== toTrackId) {
+      return fail("invalid-input", `“${target.name}” has no room for it at that frame.`);
+    }
+    patchRest.from = landed.clip.from;
+  }
+
   const merged = {
-    ...found.clip,
-    ...patch,
+    ...findClip(file, clipId)!.clip,
+    ...patchRest,
     ...(origin === "agent"
       ? { approval: "draft" as const, revisionNote: note ?? "Changed by your agent" }
       : {}),
@@ -1419,14 +1445,14 @@ export function patchClip(
   }
 
   // Only a timing change can break the lock; a colour change never does.
-  if ("from" in patch || "durationInFrames" in patch) {
+  if ("from" in patchRest || "durationInFrames" in patchRest) {
     const outside = requireInsideBeats(project, parsed.data, origin);
     if (outside) return outside;
   }
 
   const rejected = commit(
     project,
-    updateClip(project.file, clipId, parsed.data),
+    updateClip(file, clipId, parsed.data),
     {
       origin,
       label: origin === "agent" ? "prism.update_clip" : "Edited clip",
@@ -1910,7 +1936,7 @@ export async function layAnimatic(): Promise<ActionResult> {
 
   let cursor = 0;
   const clips: Clip[] = panels.map((panel) => {
-    const clip = boardClip(panel, cursor);
+    const clip = boardClip(panel, cursor, project.file.background);
     cursor += panel.durationInFrames;
     return clip;
   });
@@ -1953,7 +1979,7 @@ export async function layAnimatic(): Promise<ActionResult> {
 }
 
 /** A placeholder clip from a panel: its words, its transitions, its slot. */
-function boardClip(panel: StoryboardPanel, from: number): Clip {
+function boardClip(panel: StoryboardPanel, from: number, background: Background): Clip {
   return {
     kind: "text",
     id: mintId("board"),
@@ -1966,7 +1992,8 @@ function boardClip(panel: StoryboardPanel, from: number): Clip {
     fontSize: 0.07,
     fontFamily: "mono",
     fontWeight: 400,
-    color: "#F7F8F899",
+    // A placeholder has no colour decision of its own: it answers the ground.
+    color: `${roughInk(background).ink}B3`,
     align: "center",
     lineHeight: 1.2,
     letterSpacing: 0,

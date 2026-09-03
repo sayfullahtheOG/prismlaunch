@@ -58,7 +58,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
       </head>
-      <body className="h-full">
+      {/*
+        Browser extensions — Grammarly, most often — stamp attributes onto
+        <body> before React hydrates, and React would otherwise report the
+        mismatch on every load. Suppressed on this element only.
+      */}
+      <body className="h-full" suppressHydrationWarning>
         <a className="skip-link" href="#studio">
           Skip to the studio
         </a>

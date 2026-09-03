@@ -61,12 +61,15 @@ playhead, playing the composition on the person's screen, proposing a render.
 **Or no folder at all.** Some browsers cannot hand the page a folder:
 ChatGPT's built-in browser opens the picker and then refuses it; Safari and
 Firefox have no picker. There the person clicks **Start in the browser**
-instead, and the composition lives in the page. Nothing changes for you
-except that the tools are the only way in: `prism.get_project_context`
-reports `workspace.storage: "browser"` and returns the whole composition, so
-if you want it in the repository, write what it returns to
-`.prismlaunch/<slug>/project.json` yourself. Assets are not available in this
-mode yet; build with text and shapes.
+instead, and the composition lives in the page. `prism.get_project_context`
+reports `workspace.storage: "browser"`, and the tools are the only way in:
+your file tools write to your own sandbox, which the page never sees, so do
+not write `project.json` anywhere or keep drafts in files and expect the
+studio to notice. Everything you need is a tool call, and the context tool
+returns the whole composition whenever you want to re-read it. The studio's
+own `library/` sounds, music beds and pieces work here exactly as on disk,
+and the person can drop image, video or sound files onto the Elements
+section to make them available as `assets/` paths.
 
 ## Before you build anything
 

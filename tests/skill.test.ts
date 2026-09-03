@@ -139,7 +139,7 @@ describe("public/SKILL.md", () => {
     const { buildTools } = await import("@/lib/webmcp/tools");
     const wait = buildTools().find((tool) => tool.name === "prism.wait_for_decision")!;
     const timeout = (wait.inputSchema as { properties: Record<string, { description?: string }> })
-      .properties.timeoutSeconds;
+      .properties.timeoutSeconds!;
     expect(timeout.description).toMatch(/1–600/);
     const background = buildTools().find((tool) => tool.name === "prism.set_background")!;
     expect(JSON.stringify(background.inputSchema)).toContain("anyOf");

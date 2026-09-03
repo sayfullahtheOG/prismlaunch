@@ -2614,6 +2614,11 @@ export function getProjectContext() {
            */
           storage: workspace.workspace.kind === "disk" ? ("folder" as const) : ("browser" as const),
           directory: workspace.workspace.kind === "disk" ? WORKSPACE_DIR : null,
+          ...(workspace.workspace.kind === "browser"
+            ? {
+                note: "This composition lives in the page. Your file tools cannot reach it: anything you write lands in your own sandbox, which the studio never sees. Change the film only through these prism.* tools; this context is the complete composition.",
+              }
+            : {}),
           compositions: workspace.projects.map((entry) => ({
             slug: entry.slug,
             name: entry.name,

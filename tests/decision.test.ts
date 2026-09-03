@@ -122,17 +122,11 @@ describe("where a film opens", () => {
 
     const process = structuredClone(readProject()!.file.process);
     for (const stage of ["brief", "concept", "script", "storyboard"] as const) {
-      process[stage] = { ...process[stage], status: "approved" };
+      process[stage].status = "approved";
     }
     expect(openingTab(process)).toBe("editor");
-    for (const stage of [
-      "animatic",
-      "style",
-      "build",
-      "sound",
-      "polish",
-    ] as const) {
-      process[stage] = { ...process[stage], status: "approved" };
+    for (const stage of ["animatic", "style", "build", "sound", "polish"] as const) {
+      process[stage].status = "approved";
     }
     expect(openingTab(process)).toBe("editor");
   });

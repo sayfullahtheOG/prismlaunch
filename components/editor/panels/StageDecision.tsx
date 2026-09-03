@@ -31,6 +31,7 @@ export function StageDecision({
 }) {
   const [note, setNote] = useState("");
   const [chosen, setChosen] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   if (state.status === "approved") {
     return (
@@ -90,16 +91,28 @@ export function StageDecision({
 
       <TextArea
         value={note}
-        onChange={(event) => setNote(event.target.value)}
-        placeholder="What should change? Your agent reads this."
+        onChange={(event) => {
+          setNote(event.target.value);
+          setError(null);
+        }}
+        placeholder="Add a note with approval, or say what should change."
         rows={2}
+        maxLength={600}
         aria-label="Feedback for your agent"
       />
+      {error ? <p role="alert" className="text-xs text-danger">{error}</p> : null}
 
       <div className="flex gap-1.5">
         <Button
           variant="primary"
-          onClick={() => approveStage(stage, pick ? { chosen: pick } : {})}
+          onClick={() => {
+            const result = approveStage(stage, { ...(pick ? { chosen: pick } : {}), note });
+            if (!result.ok) setError(result.message);
+            else {
+              setNote("");
+              setError(null);
+            }
+          }}
           icon={<Check size={13} strokeWidth={2.4} aria-hidden />}
         >
           {stage === "animatic" ? "Approve and lock timing" : "Approve"}
@@ -108,8 +121,12 @@ export function StageDecision({
           variant="secondary"
           disabled={note.trim().length === 0}
           onClick={() => {
-            requestChanges(stage, note);
-            setNote("");
+            const result = requestChanges(stage, note);
+            if (!result.ok) setError(result.message);
+            else {
+              setNote("");
+              setError(null);
+            }
           }}
           icon={<Undo2 size={13} strokeWidth={2.2} aria-hidden />}
         >

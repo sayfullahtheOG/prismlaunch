@@ -2167,7 +2167,7 @@ export function patchStoryboardPanel(
  */
 export function approveStage(
   stage: StageId,
-  extra: { chosen?: string } = {},
+  extra: { chosen?: string; note?: string } = {},
 ): ActionResult {
   const guard = requireProject();
   if (!guard.ok) return guard.result;
@@ -2179,7 +2179,7 @@ export function approveStage(
     [stage]: {
       ...process[stage],
       status: "approved" as const,
-      note: undefined,
+      note: extra.note?.trim() || undefined,
       ...(stage === "animatic" ? { beats: snapshotBeats(project.file) } : {}),
       ...(stage === "concept" && extra.chosen ? { chosen: extra.chosen } : {}),
     },
@@ -2196,10 +2196,12 @@ export function approveStage(
     {
       origin: "human",
       label: `Approved ${STAGE_LABELS[stage].toLowerCase()}`,
-      detail:
+      detail: [
         stage === "animatic"
           ? `Timing locked: ${checked.data.animatic.beats.length} beats`
           : (extra.chosen ?? ""),
+        checked.data[stage].note,
+      ].filter(Boolean).join(" · "),
     },
   );
   if (rejected) return rejected;
@@ -2251,7 +2253,7 @@ export function waitForDecision(input: {
     if (state.status === "approved") {
       const next = nextInstruction(current);
       return ok(
-        `${label} approved. ${next.stage ? `Next, ${STAGE_LABELS[next.stage]}: ${next.instruction}` : next.instruction}`,
+        `${label} approved.${state.note ? ` The person said: “${state.note}”.` : ""} ${next.stage ? `Next, ${STAGE_LABELS[next.stage]}: ${next.instruction}` : next.instruction}`,
       );
     }
     if (state.status === "changes-requested") {

@@ -480,6 +480,48 @@ describe("the storyboard", () => {
   });
 });
 
+describe("approving with feedback", () => {
+  it.each(STAGES)("preserves the note for %s in the saved project, activity and agent context", async (stage) => {
+    const project = filmApprovedThrough(null);
+    project.file.process[stage].status = "submitted";
+    useStudioStore.getState().setProject(project, 0);
+
+    const note = "Keep the real product visible throughout.";
+    const result = actions.approveStage(stage, { note: `  ${note}\n` });
+    expect(result.ok, result.message).toBe(true);
+
+    const saved = ProjectFileSchema.parse(JSON.parse(JSON.stringify(current().file)));
+    expect(saved.process[stage]).toMatchObject({ status: "approved", note });
+    expect(current().activity.at(-1)?.detail).toContain(note);
+    const contextTool = buildTools().find((tool) => tool.name === "prism.get_project_context")!;
+    const context = JSON.parse(String(await contextTool.execute({})));
+    expect(context.process.stages[stage].personSaid).toBe(note);
+  });
+
+  it("keeps the chosen concept alongside its approval note", () => {
+    useStudioStore.getState().setProject(filmApprovedThrough("brief"), 0);
+    const result = actions.approveStage("concept", { chosen: "c2", note: "Use the first opening shot." });
+    expect(result.ok, result.message).toBe(true);
+    expect(current().file.process.concept).toMatchObject({
+      status: "approved", chosen: "c2", note: "Use the first opening shot.",
+    });
+  });
+
+  it("accepts approval without feedback and does not carry an old rejection note", () => {
+    useStudioStore.getState().setProject(filmApprovedThrough(null), 0);
+    actions.requestChanges("brief", "An old request.");
+    expect(actions.approveStage("brief", { note: " \n " }).ok).toBe(true);
+    expect(current().file.process.brief.note).toBeUndefined();
+  });
+
+  it("rejects an oversized note without approving the stage", () => {
+    useStudioStore.getState().setProject(filmApprovedThrough(null), 0);
+    const before = current();
+    expect(actions.approveStage("brief", { note: "x".repeat(601) }).ok).toBe(false);
+    expect(current()).toBe(before);
+  });
+});
+
 describe("sending a stage back", () => {
   it("records the note and hands it to the agent as the next instruction", async () => {
     useStudioStore.getState().setProject(filmApprovedThrough(null), 0);

@@ -70,6 +70,20 @@ describe("waiting for a decision", () => {
     expect(result.ok && result.message).toMatch(/Brief approved/);
   });
 
+  it("delivers approval feedback to both a waiting and a returning agent", async () => {
+    await submitBrief();
+    const tool = buildTools().find((tool) => tool.name === "prism.wait_for_decision")!;
+    const waiting = tool.execute({ stage: "brief", timeoutSeconds: 5 });
+    const note = "Keep the opening product shot.";
+    actions.approveStage("brief", { note });
+
+    for (const response of [await waiting, await tool.execute({ stage: "brief" })]) {
+      expect(String(response)).toContain("Brief approved");
+      expect(String(response)).toContain(note);
+      expect(String(response)).toContain("prism.submit_concepts");
+    }
+  });
+
   it("says so, politely, when the wait runs out", async () => {
     await submitBrief();
     const result = await actions.waitForDecision({ timeoutSeconds: 1 });

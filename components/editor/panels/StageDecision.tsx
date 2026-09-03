@@ -5,6 +5,7 @@ import { Check, Circle, RotateCcw, Sparkles, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/Field";
 import { approveStage, reopenStage, requestChanges } from "@/lib/studio/actions";
+import { MAX_STAGE_NOTE_LENGTH } from "@/lib/studio/schema";
 import type { Process, StageId, StageStatus } from "@/types/prism";
 
 /**
@@ -87,7 +88,7 @@ export function StageDecision({
         }}
         placeholder="Add a note with approval, or say what should change."
         rows={2}
-        maxLength={600}
+        maxLength={MAX_STAGE_NOTE_LENGTH}
         aria-label="Feedback for your agent"
       />
       {error ? <p role="alert" className="text-xs text-danger">{error}</p> : null}

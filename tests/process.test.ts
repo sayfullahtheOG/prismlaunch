@@ -515,7 +515,7 @@ describe("approving with feedback", () => {
     project.file.process[stage].status = "submitted";
     useStudioStore.getState().setProject(project, 0);
 
-    const note = "Keep the real product visible throughout.";
+    const note = "Keep the real product visible throughout. Add purposeful zooms and component movement. ".repeat(8).slice(0, 600).trim();
     const result = actions.approveStage(stage, { note: `  ${note}\n` });
     expect(result.ok, result.message).toBe(true);
 
@@ -552,6 +552,27 @@ describe("approving with feedback", () => {
 });
 
 describe("sending a stage back", () => {
+  it.each(STAGES)("accepts a full-length note for %s without the activity log blocking it", (stage) => {
+    useStudioStore.getState().setProject(filmApprovedThrough(null), 0);
+    const note = "Make the motion more expressive. ".repeat(20).slice(0, 600).trim();
+    const result = actions.requestChanges(stage, note);
+    expect(result.ok, result.message).toBe(true);
+    expect(current().file.process[stage]).toMatchObject({ status: "changes-requested", note });
+    expect(current().activity.at(-1)?.detail).toBe(note);
+  });
+
+  it("accepts the full supported agent summary when recording a submission", async () => {
+    useStudioStore.getState().setProject(filmApprovedThrough(null), 0);
+    const summary = "A focused film for product builders. ".repeat(10).slice(0, 300);
+    const result = await actions.submitBrief(
+      { audience: "Product builders", message: "Direct your next launch film", feeling: "confidence", lengthSeconds: 45 },
+      summary,
+    );
+    expect(result.ok, result.message).toBe(true);
+    expect(current().file.process.brief.summary).toBe(summary);
+    expect(current().activity.at(-1)?.detail).toBe(summary);
+  });
+
   it("records the note and hands it to the agent as the next instruction", async () => {
     useStudioStore.getState().setProject(filmApprovedThrough(null), 0);
     await actions.submitBrief(

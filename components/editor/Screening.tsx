@@ -8,14 +8,15 @@ import { useStudioStore } from "@/lib/studio/store";
 import { timecode } from "@/lib/studio/timing";
 import type { ProjectFile } from "@/types/prism";
 import { Canvas } from "./Canvas";
+import { ScreeningDecision } from "./ScreeningDecision";
 
 /**
  * The animatic, watched.
  *
  * An animatic is judged by watching it against the music, not by reading
  * its layers — the cut either breathes or it does not. So its review is a
- * screening: the film large, a transport underneath, and nothing else. The
- * decision sits in the Process panel beside it, and the layers are one
+ * screening: the film large, a transport and compact review controls underneath.
+ * The Process panel stays navigation, and the layers are one
  * click away in the Editor for anyone who wants to see the seams.
  */
 export function Screening({ file, stage }: { file: ProjectFile; stage: "animatic" | "build" }) {
@@ -59,6 +60,7 @@ export function Screening({ file, stage }: { file: ProjectFile; stage: "animatic
           onClick={fullscreen}
         />
       </div>
+      <ScreeningDecision stage={stage} process={file.process} />
     </section>
   );
 }

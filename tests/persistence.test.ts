@@ -4,7 +4,7 @@ import { activityEvent } from "@/lib/studio/activity";
 import { readProject, resetStudio, useStudioStore } from "@/lib/studio/store";
 import { readStoredFiles, resetBrowserStore } from "@/lib/workspace/browser-store";
 import { browserWorkspace, modifiedAt, readFileAt, readProjectFile, writeProjectFile } from "@/lib/workspace/fs";
-import { ProjectFileSchema } from "@/lib/studio/schema";
+import { ActivityEventSchema, MAX_ACTIVITY_DETAIL_LENGTH, ProjectFileSchema } from "@/lib/studio/schema";
 import { fakeWorkspace } from "./fake-disk";
 import { approvedThrough, projectFile } from "./fixture";
 
@@ -61,12 +61,15 @@ describe.each(["browser", "disk"] as const)("durable %s projects", (kind) => {
     useStudioStore.setState({ workspace: { kind: "linked", workspace, projects: [] } });
     await actions.openProject("launch");
     expect(readProject()!.activity).toContainEqual(events[0]);
-    actions.approveStage("storyboard", { note: "Keep the product visible." });
+    const note = "Keep the product visible with more camera and component motion. ".repeat(10).slice(0, 600).trim();
+    const result = actions.approveStage("storyboard", { note });
+    expect(result.ok, result.message).toBe(true);
     await actions.flushWrites();
     const approval = readProject()!.activity.at(-1)!;
     await actions.openProject("launch");
     expect(readProject()!.activity).toContainEqual(approval);
-    expect(readProject()!.file.process.storyboard.note).toBe("Keep the product visible.");
+    expect(readProject()!.file.process.storyboard.note).toBe(note);
+    expect(approval.detail).toContain(note);
     expect(new Set(readProject()!.activity.map((event) => event.id)).size).toBe(readProject()!.activity.length);
     expect(approval.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
@@ -148,6 +151,13 @@ it("flushes the old project's pending activity before switching projects", async
   expect(readProject()!.file.process.brief.note).toBe("Keep this on the first film.");
   const second = await readProjectFile(browserWorkspace(), "second");
   expect(second.ok && second.value.file.process.brief.note).toBeUndefined();
+});
+
+it("bounds oversized diagnostics so logging cannot invalidate a project edit", () => {
+  const event = activityEvent({ origin: "agent", label: "Updated element", detail: "x".repeat(2000) });
+  expect(ActivityEventSchema.safeParse(event).success).toBe(true);
+  expect(event.detail).toHaveLength(MAX_ACTIVITY_DETAIL_LENGTH);
+  expect(event.detail.endsWith("…")).toBe(true);
 });
 
 it("keeps ids unique after the 200-event history limit", async () => {

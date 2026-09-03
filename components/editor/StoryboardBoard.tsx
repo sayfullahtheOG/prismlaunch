@@ -8,6 +8,8 @@ import { selectedIdOf } from "@/lib/studio/selection";
 import { useStudioStore } from "@/lib/studio/store";
 import { timecode } from "@/lib/studio/timing";
 import type { ProjectFile, StoryboardPanel } from "@/types/prism";
+import { Sparkles } from "lucide-react";
+import { StageDecision } from "./panels/StageDecision";
 import { ReviewBar } from "./ReviewBar";
 
 /**
@@ -92,6 +94,36 @@ export function StoryboardBoard({ file }: { file: ProjectFile }) {
           );
         })}
       </ol>
+
+      {/*
+        The decision lives where the boards are read, the same as every other
+        stage's page: this view IS the storyboard review, so Approve and Send
+        back end it. (The Process panel is only the list.)
+      */}
+      <footer className="shrink-0 border-t border-line-soft bg-canvas px-6 py-4">
+        <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3">
+          {file.process.storyboard.summary ? (
+            <p className="flex items-start gap-2 text-xs leading-[var(--ds-leading-body)] text-muted">
+              <Sparkles size={13} strokeWidth={2.2} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+              <span>
+                <span className="font-medium text-ink">Your agent: </span>
+                {file.process.storyboard.summary}
+              </span>
+            </p>
+          ) : null}
+          {file.process.storyboard.note ? (
+            <p className="text-xs leading-[var(--ds-leading-body)] text-warning">
+              <span className="font-medium">You said: </span>
+              {file.process.storyboard.note}
+            </p>
+          ) : null}
+          <StageDecision
+            stage="storyboard"
+            state={file.process.storyboard}
+            process={file.process}
+          />
+        </div>
+      </footer>
     </section>
   );
 }

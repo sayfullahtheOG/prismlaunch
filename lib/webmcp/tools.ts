@@ -31,6 +31,7 @@ import {
   submitStoryboard,
   submitStyleFrames,
   layAnimatic,
+  waitForDecision,
   type ActionResult,
 } from "@/lib/studio/actions";
 import {
@@ -75,6 +76,7 @@ import {
   UpdateClipInput,
   UpdateElementInput,
   UpdateTrackInput,
+  WaitForDecisionInput,
 } from "@/lib/studio/tool-inputs";
 import { useStudioStore } from "@/lib/studio/store";
 import type { Animation, Box, Clip, Element, ElementDraft } from "@/types/prism";
@@ -721,6 +723,16 @@ export function buildTools(): ModelContextTool[] {
         }
         return setPlaying(input.play);
       },
+    }),
+
+    tool({
+      name: "prism.wait_for_decision",
+      description:
+        "Wait for the person to decide on the stage you submitted. Returns the moment they click Approve or Send back in PrismLaunch — with the decision, their note if they wrote one, and what to do next — so you never have to ask them to tell you. Call it right after every prism.submit_*. If it returns \"still waiting\" after the timeout (default 60 seconds), call it again; do not move on and do not resubmit. Read-only.",
+      schema: WaitForDecisionInput,
+      annotations: { readOnlyHint: true },
+      execute: (input) =>
+        waitForDecision({ stage: input.stage, timeoutSeconds: input.timeoutSeconds }),
     }),
 
     /*

@@ -17,6 +17,7 @@ import {
 } from "@/lib/studio/actions";
 import { BLANK_FILE } from "@/lib/studio/blank";
 import { currentStage } from "@/lib/studio/process";
+import { middleView, reviewedStage } from "@/lib/studio/review";
 import { selectedClipId } from "@/lib/studio/selection";
 import { useStudioStore } from "@/lib/studio/store";
 import { draftCount } from "@/lib/studio/timing";
@@ -26,6 +27,7 @@ import { IconRail } from "./IconRail";
 import { Inspector } from "./Inspector";
 import { RenderConfirm } from "./RenderConfirm";
 import { SetupDialog } from "./SetupDialog";
+import { StageReview } from "./StageReview";
 import { StoryboardBoard } from "./StoryboardBoard";
 import { TopBar } from "./TopBar";
 import { useDiskSync } from "./useDiskSync";
@@ -61,6 +63,7 @@ export function EditorShell() {
   const pendingRender = useStudioStore((state) => state.pendingRender);
   const renderNote = useStudioStore((state) => state.renderNote);
   const tab = useStudioStore((state) => state.tab);
+  const openStage = useStudioStore((state) => state.openStage);
 
   useDiskSync();
   useTimelineKeys();
@@ -77,6 +80,9 @@ export function EditorShell() {
   // the agent has proposed, and nothing moves until they answer.
   const stage = currentStage(file.process);
   const stageWaiting = stage !== null && file.process[stage].status === "submitted";
+
+  const view = middleView(tab, openStage, file.process);
+  const reviewing = reviewedStage(openStage, file.process);
 
   async function exportFilm() {
     const store = useStudioStore.getState();
@@ -157,14 +163,17 @@ export function EditorShell() {
           </div>
 
           {/*
-            The storyboard takes the whole middle. A board is read as a
-            sequence of frames and needs the width; the canvas and timeline
-            are one click away, and the boards are on the timeline anyway
-            once the animatic is laid.
+            The middle is whatever is being reviewed. A document stage opens
+            as a page at reading size; the storyboard takes the width a
+            sequence of frames needs; everything else is the film itself,
+            canvas and timeline, which is what the animatic, the style frames
+            and the build are.
           */}
           <main id="studio" className="flex min-w-0 flex-1 flex-col">
-            {tab === "storyboard" ? (
+            {view === "boards" ? (
               <StoryboardBoard file={file} />
+            ) : view === "review" && reviewing ? (
+              <StageReview stage={reviewing} file={file} />
             ) : (
               <>
                 <Canvas file={file} />
@@ -209,8 +218,8 @@ function useTimelineKeys(): void {
       const store = useStudioStore.getState();
       if (!store.project) return;
       // No timeline on screen, no timeline shortcuts: space over the boards
-      // should not start a player nobody can see.
-      if (store.tab === "storyboard") return;
+      // or a brief should not start a player nobody can see.
+      if (middleView(store.tab, store.openStage, store.project.file.process) !== "editor") return;
 
       const step = event.shiftKey ? store.project.file.fps : 1;
 

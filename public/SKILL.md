@@ -92,8 +92,8 @@ look like every other AI-made video, which is the thing this exists to stop.
    specific folder name, call `prism.create_project`; or write the file
    yourself and call `prism.open_project`.
 4. Work the stages, in order, one at a time. Each has a `submit_*` tool. After
-   each submit, **stop** — the person approves it in the Process panel, or
-   sends it back with a note you will find in `process`. You cannot approve a
+   each submit, call `prism.wait_for_decision`: it returns when the person
+   approves the stage or sends it back with a note. You cannot approve a
    stage yourself; there is no tool for it.
 5. The timeline opens up once the storyboard is approved. Approving the
    animatic locks the timing and opens the elements: define the look as
@@ -363,6 +363,7 @@ rather than crashing the render — but it is still a hole, so check.
 | `prism.create_project` | Create an empty composition and open it. It starts with no runtime and grows as you place clips. |
 | `prism.open_project` | Show one that already exists in the folder. |
 | `prism.submit_brief` … `prism.submit_polish` | The nine stages, in order. See *The process* above. |
+| `prism.wait_for_decision` | **Call after every submit.** Returns the moment the person approves or sends back, with their note and what to do next. |
 | `prism.lay_animatic` | The approved boards onto the timeline, as placeholders, with the frame arithmetic done. |
 | `prism.add_track` | Add a visual or audio layer. |
 | `prism.update_track` | Rename, hide/mute, or set a layer's volume. |
@@ -433,6 +434,17 @@ closely — `at: [6.0, 6.1, 6.2, 6.3]` — to see the easing, then fix the clip
 and capture again. Do this before you ask the person to look; they should be
 reviewing your judgement, not finding your bugs. They see every sheet you
 capture in the Agent panel.
+
+## After you submit
+
+Every stage you submit opens at reading size in PrismLaunch, with Approve
+and Send back at the end of it. You are not told about the decision unless
+you ask, so ask the way that waits: call `prism.wait_for_decision` right
+after `prism.submit_*`. It holds until they click, then returns the decision,
+their note if they wrote one, and the instruction for the next stage. If it
+returns "still waiting" after its timeout, call it again. Do not move on
+without it, do not resubmit while it is waiting, and do not ask the person to
+tell you in chat what the tool will tell you itself.
 
 ## Working with the person
 

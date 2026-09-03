@@ -11,6 +11,7 @@ import {
   MAX_TEXT_LENGTH,
   ShapeClipSchema,
   SlugSchema,
+  StageIdSchema,
   TextClipSchema,
   TrackKindSchema,
   VideoClipSchema,
@@ -357,6 +358,19 @@ export const SeekInput = z.object({
     .min(0)
     .max(300)
     .describe("Where to put the playhead, so the person sees that moment."),
+});
+
+export const WaitForDecisionInput = z.object({
+  stage: StageIdSchema.optional().describe(
+    "Which stage to wait on. Default: the one that is submitted and waiting.",
+  ),
+  timeoutSeconds: z
+    .number()
+    .int()
+    .min(1)
+    .max(600)
+    .optional()
+    .describe("How long to wait before returning \"still waiting\", so you can call again. Default 60."),
 });
 
 export const CaptureFramesInput = z.object({

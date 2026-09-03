@@ -1654,7 +1654,7 @@ async function submitStage<S extends StageId>(
 
   await flushWrites();
   return ok(
-    `${STAGE_LABELS[stage]} submitted. It is waiting for the person in the Process panel — do not move on until they approve it.`,
+    `${STAGE_LABELS[stage]} submitted. It is open for the person to read in PrismLaunch. Do not move on: call prism.wait_for_decision, which returns the moment they approve it or send it back.`,
   );
 }
 
@@ -1999,6 +1999,102 @@ export function approveStage(
 }
 
 /** HUMAN ONLY. Send a stage back with a note the agent will read. */
+/**
+ * Wait for the person to decide on a submitted stage.
+ *
+ * This is the notification the agent otherwise has no way to get. WebMCP is
+ * request and response, so the page cannot push "they approved it" into a
+ * chat; what it can do is hold a call open until there is something to say.
+ * The agent submits, calls this, and the call resolves the instant the
+ * person clicks Approve or Send back — with the decision, their note, and
+ * what to do next. Nothing is written; nothing moves.
+ *
+ * If the stage was already decided before the call, it returns at once. If
+ * nothing has been submitted there is nothing to wait for, and saying so is
+ * more useful than hanging. A timeout returns "still waiting" rather than
+ * failing, so an agent can simply call again.
+ */
+export function waitForDecision(input: {
+  stage?: StageId | undefined;
+  timeoutSeconds?: number | undefined;
+}): Promise<ActionResult> {
+  const guard = requireProject();
+  if (!guard.ok) return Promise.resolve(guard.result);
+  const process = guard.value.file.process;
+
+  const stage =
+    input.stage ??
+    STAGES.find((candidate) => process[candidate].status === "submitted") ??
+    currentStage(process);
+  if (!stage) {
+    return Promise.resolve(
+      ok("Every stage is approved; there is nothing left to wait for. Propose the render."),
+    );
+  }
+
+  const describe = (current: Process): ActionResult => {
+    const state = current[stage];
+    const label = STAGE_LABELS[stage];
+    if (state.status === "approved") {
+      const next = nextInstruction(current);
+      return ok(
+        `${label} approved. ${next.stage ? `Next, ${STAGE_LABELS[next.stage]}: ${next.instruction}` : next.instruction}`,
+      );
+    }
+    if (state.status === "changes-requested") {
+      return ok(
+        `${label} sent back${state.note ? `: “${state.note}”` : ""}. Address that and resubmit with prism.submit_${stage}, then wait again.`,
+      );
+    }
+    return ok(`${label} is still waiting for the person.`);
+  };
+
+  const initial = process[stage];
+  if (initial.status === "approved" || initial.status === "changes-requested") {
+    return Promise.resolve(describe(process));
+  }
+  if (initial.status === "pending") {
+    return Promise.resolve(
+      fail(
+        "invalid-input",
+        `${STAGE_LABELS[stage]} has not been submitted, so there is nothing to wait for. Submit it with prism.submit_${stage} first.`,
+      ),
+    );
+  }
+
+  const timeoutMs = Math.min(600, Math.max(1, input.timeoutSeconds ?? 60)) * 1000;
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (result: ActionResult) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      unsubscribe();
+      resolve(result);
+    };
+
+    const unsubscribe = useStudioStore.subscribe((state) => {
+      const current = state.project?.file.process;
+      if (!current) {
+        finish(fail("no-project", "The composition was closed while waiting."));
+        return;
+      }
+      if (current[stage].status !== "submitted") finish(describe(current));
+    });
+
+    const timer = setTimeout(
+      () =>
+        finish(
+          ok(
+            `Still waiting: the person has not decided on ${STAGE_LABELS[stage]} yet. Do not move on — call prism.wait_for_decision again.`,
+          ),
+        ),
+      timeoutMs,
+    );
+  });
+}
+
 export function requestChanges(stage: StageId, note: string): ActionResult {
   const guard = requireProject();
   if (!guard.ok) return guard.result;

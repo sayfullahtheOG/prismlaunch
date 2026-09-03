@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -20,6 +19,7 @@ import {
   timingLocked,
 } from "@/lib/studio/process";
 import { STAGES } from "@/lib/studio/schema";
+import { useStudioStore } from "@/lib/studio/store";
 import { clipCount, draftCount } from "@/lib/studio/timing";
 import type { Process, ProjectFile, StageId } from "@/types/prism";
 import { PanelShell } from "./PanelShell";
@@ -44,9 +44,11 @@ import { STAGE_STATUS, StageDecision } from "./StageDecision";
 export function ProcessPanel({ file }: { file: ProjectFile }) {
   const process = file.process;
   const current = currentStage(process);
-  const [open, setOpen] = useState<StageId | null>(null);
+  const open = useStudioStore((state) => state.openStage);
+  const setOpen = useStudioStore((state) => state.setOpenStage);
 
   // The current stage opens by default; clicking another opens that instead.
+  // The middle of the editor follows the same choice.
   const expanded = open ?? current;
 
   return (

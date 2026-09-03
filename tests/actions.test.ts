@@ -87,8 +87,10 @@ describe("the approval boundary", () => {
       expect(registered.inputSchema?.type).toBe("object");
 
       // Chrome validates nothing, so garbage must come back as a corrective
-      // message rather than an exception.
-      const result = await registered.execute({ nonsense: true } as never);
+      // message rather than an exception. A tool whose every field is
+      // optional accepts garbage by ignoring it, which is also correct — the
+      // one that waits is told not to wait long.
+      const result = await registered.execute({ nonsense: true, timeoutSeconds: 1 } as never);
       expect(typeof result).toBe("string");
     }
   });

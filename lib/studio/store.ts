@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ProjectEntry, Workspace } from "@/lib/workspace/fs";
-import type { FilmProject } from "@/types/prism";
+import type { FilmProject, StageId } from "@/types/prism";
 
 /**
  * The studio store: state and setters ONLY.
@@ -64,6 +64,12 @@ export type StudioState = {
   workspace: WorkspaceState;
   /** Which section the rail is showing. The process is where a film starts. */
   tab: RailTab;
+  /**
+   * The stage the person has opened to review, or null for "wherever the
+   * film is". Lives here rather than in the Process panel because the middle
+   * of the editor follows it: a document stage opens as a page there.
+   */
+  openStage: StageId | null;
   project: FilmProject | null;
   /** `project.json`'s mtime when we last read it, for change detection. */
   loadedAt: number;
@@ -96,6 +102,7 @@ export type StudioState = {
   snap: boolean;
 
   setTab: (tab: RailTab) => void;
+  setOpenStage: (stage: StageId | null) => void;
   setWorkspace: (workspace: WorkspaceState) => void;
   setProjects: (projects: ProjectEntry[]) => void;
   setProject: (project: FilmProject | null, loadedAt: number) => void;
@@ -118,6 +125,7 @@ export type StudioState = {
 export const useStudioStore = create<StudioState>((set) => ({
   workspace: { kind: "checking" },
   tab: "process",
+  openStage: null,
   project: null,
   loadedAt: 0,
   loadError: null,
@@ -133,6 +141,7 @@ export const useStudioStore = create<StudioState>((set) => ({
   snap: true,
 
   setTab: (tab) => set({ tab }),
+  setOpenStage: (openStage) => set({ openStage }),
   setWorkspace: (workspace) => set({ workspace }),
   setProjects: (projects) =>
     set((state) =>
@@ -191,6 +200,7 @@ export function resetStudio(): void {
   useStudioStore.setState({
     workspace: { kind: "checking" },
     tab: "process",
+    openStage: null,
     pixelsPerSecond: DEFAULT_ZOOM,
     snap: true,
   });

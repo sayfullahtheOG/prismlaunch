@@ -64,9 +64,11 @@ the order and the lock points do not.
 
 Two rules carry the whole table.
 
-**Timing is locked before design.** You cut the animatic to the music, get it
-approved, and after that no in-point or out-point moves without it being
-surfaced as a decision. Change the timing after forty clips exist and every
+**Timing is locked before the build.** The pieces come first — the approved
+boards say what elements the film needs, and the style stage defines them —
+then you cut the animatic to the music, get it approved, and after that no
+in-point or out-point moves without it being surfaced as a decision. Change
+the timing after forty clips exist and every
 synced moment has to be re-found. This is the single most common way a film
 goes wrong, and it is a sequencing error, not a taste error.
 
@@ -309,7 +311,7 @@ is the deliberate pause. Add the enter (8–16f) and exit (6–10f) on top.
 
 ---
 
-## 6. Storyboard and animatic — timing before design
+## 6. Storyboard and animatic — timing before the build
 
 ### The board
 
@@ -341,7 +343,7 @@ nothing, so there is no excuse for skipping it.
 
 1. **Choose the music first** (§9). Tempo sets the shot lengths. A track laid
    under a finished edit never fits.
-2. **`prism.lay_animatic`.** Once the storyboard is approved, this puts one
+2. **`prism.lay_animatic`.** Once the style frames are approved, this puts one
    placeholder clip per panel on the timeline, at cumulative frames from the
    panels' durations, carrying each panel's words and transitions. The words
    and durations are yours; the frame arithmetic — the thing an agent gets
@@ -365,8 +367,9 @@ board panel's slot. Building means filling slots.
 
 ## 7. Look — colour, type, layout
 
-Do this *after* the animatic is locked and *before* any beat is built for real:
-choose a look, build two or three hero frames to approval, then apply that look
+Do this *after* the storyboard is approved and *before* the animatic is laid:
+the boards say what pieces the film needs, so define every one of them as an
+element, build two or three hero frames to approval, then apply that look
 to everything. Design decided clip by clip during the build produces drift —
 five type sizes, four blues, no system.
 

@@ -54,16 +54,14 @@ describe("public/SKILL.md", () => {
     expect(parsed.success).toBe(true);
   });
 
-  it("shows an example whose clips are all drafts", () => {
-    // The document tells agents never to write "accepted". The example has to
-    // model that, or it teaches the opposite of what it says.
+  it("shows an example whose clips are accepted, the field being a legacy", () => {
     const parsed = ProjectFileSchema.parse(JSON.parse(jsonBlocks(SKILL)[0]!));
     const approvals = parsed.tracks.flatMap((track) =>
       track.clips.map((clip) => clip.approval),
     );
 
     expect(approvals.length).toBeGreaterThan(0);
-    expect(approvals.every((approval) => approval === "draft")).toBe(true);
+    expect(approvals.every((approval) => approval === "accepted")).toBe(true);
   });
 
   /**
@@ -147,7 +145,7 @@ describe("public/SKILL.md", () => {
   });
 
   it("states the approval boundary rather than leaving it implicit", () => {
-    expect(SKILL).toMatch(/cannot accept your own work/i);
-    expect(SKILL).toMatch(/always write `?draft`?/i);
+    expect(SKILL).toMatch(/cannot approve your own work/i);
+    expect(SKILL).toMatch(/approval.*per stage/i);
   });
 });

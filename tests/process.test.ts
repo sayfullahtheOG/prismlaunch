@@ -360,10 +360,11 @@ const PANELS = [
 ];
 
 describe("the storyboard", () => {
-  it("is its own stage, after the script and before the animatic", () => {
+  it("is its own stage, after the script; the elements come next, then the animatic", () => {
     const index = STAGES.indexOf("storyboard");
     expect(STAGES[index - 1]).toBe("script");
-    expect(STAGES[index + 1]).toBe("animatic");
+    expect(STAGES[index + 1]).toBe("style");
+    expect(STAGES[index + 2]).toBe("animatic");
   });
 
   it("refuses until the script is approved", async () => {

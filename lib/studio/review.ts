@@ -18,7 +18,7 @@ import type { RailTab } from "./store";
  */
 export const REVIEW_PAGES: readonly StageId[] = ["brief", "concept", "script", "sound", "polish"];
 
-export type MiddleView = "boards" | "review" | "editor" | "files";
+export type MiddleView = "boards" | "review" | "editor" | "files" | "screening";
 
 /** The stage under review: the one the person opened, else the one the film is at. */
 export function reviewedStage(openStage: StageId | null, process: Process): StageId | null {
@@ -52,6 +52,9 @@ export function middleView(
   if (tab !== "process" || !reviewing) return "editor";
   const stage = reviewedStage(openStage, process);
   if (stage === "storyboard") return "boards";
+  // An animatic is judged by watching it, so its review is a screening:
+  // the film large with a transport, and no layer panel in the way.
+  if (stage === "animatic") return "screening";
   if (stage && REVIEW_PAGES.includes(stage)) return "review";
   return "editor";
 }

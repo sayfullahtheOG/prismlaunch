@@ -4,7 +4,7 @@
 
 PrismLaunch is a canvas, a layer stack and a real renderer. It has no model of its own and no opinion about what makes a good video — it does not read your source, write copy, or impose a structure. Your agent already knows the product and is sitting in your editor. What PrismLaunch provides is the half an agent cannot do alone: a renderer, a timeline you can both see, and an approval gate the agent cannot open.
 
-Agents propose. Only a human accepts.
+Agents build. Only a human approves a stage, and only a human starts a render.
 
 ---
 
@@ -41,8 +41,8 @@ Each track holds clips — text, shapes, images, video, sound — with a start f
 1. You give your agent one line: `set up https://tryprismlaunch.vercel.app/SKILL.md`
 2. You open the studio and click **Link project folder**. (Your agent cannot — browsers only open that picker for a real click.)
 3. Your agent writes the film's files, either with its own file tools or through the WebMCP tools registered on the page. The studio picks up a change to any of them within a second.
-4. Its clips appear on your timeline as drafts. You accept or reject each one; the studio writes `"approval": "accepted"` back to disk, where your agent can read it.
-5. When everything is accepted, your agent proposes a render. You approve. The MP4 is encoded in your browser with WebCodecs and saved beside the project file.
+4. It works stage by stage — brief, concept, script, storyboard, style, animatic, build, sound, polish — and each stage opens for you to read. You approve it or send it back with a note; the decision is written to disk, where your agent reads it.
+5. When every stage is approved, your agent proposes a render. You approve. The MP4 is encoded in your browser with WebCodecs and saved beside the project file.
 
 **Nothing is uploaded.** Not the video, not the project file, not your code. The film is encoded on your machine and written to your folder.
 
@@ -50,8 +50,8 @@ Each track holds clips — text, shapes, images, video, sound — with a start f
 
 Most "AI video" tools are a chat box that emits a finished file. PrismLaunch puts the agent and the human on one artifact:
 
-- The agent adds a clip or saves `project.json`; it appears on your timeline immediately, with an amber draft badge.
-- You click **Accept** or **Reject**. There is no tool that clears that state — `acceptClip`, `rejectClip` and `approveRender` exist in the code and are deliberately never registered. A test walks the live tool surface to prove it.
+- The agent adds a clip or saves the film's files; it appears on your timeline immediately.
+- The approval boundary is the process: nine stages, each submitted by the agent and approved or sent back by you. There is no tool that approves a stage or a render — `approveStage` and `approveRender` exist in the code and are deliberately never registered. A test walks the live tool surface to prove it.
 - Rendering is gated by a **two-phase confirmation token**, not a boolean the agent fills in itself. The first call proposes and writes nothing; the second takes only the token and replays what the first recorded.
 - **Tools, not rules.** There is no `make_the_video` that takes a brief and returns a finished film. There is a canvas, layers, clips and a playhead. What gets built is the agent's call, and yours.
 

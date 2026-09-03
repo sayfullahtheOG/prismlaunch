@@ -546,7 +546,8 @@ export function clipFromElement(
     elementId: element.id,
     from: placement.from,
     durationInFrames: placement.durationInFrames,
-    approval: "draft" as const,
+    // The stage is the approval boundary; a placed clip is simply a clip.
+    approval: "accepted" as const,
     label: placement.label ?? element.name,
   };
 

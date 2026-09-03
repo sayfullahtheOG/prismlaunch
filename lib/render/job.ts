@@ -189,16 +189,10 @@ export function setStatus(id: string, status: RenderStatus): void {
 }
 
 /**
- * Only an all-accepted composition ever reaches a render. One draft clip means
- * the human has not signed off on something in the film, so there is nothing
- * legitimate to export (context/architecture.md invariant 4).
+ * The person's sign-off is the stages and the render confirmation itself;
+ * clips carry no gate of their own any more (invariant 4 lives there now).
  */
 export function snapshotAccepted(file: ProjectFile): RenderSnapshot | null {
-  const hasDraft = file.tracks.some((track) =>
-    track.clips.some((clip) => clip.approval === "draft"),
-  );
-  if (hasDraft) return null;
-
   // Structured-cloned so a later edit in the browser cannot reach back into
   // what the person approved. The snapshot is frozen at the moment of proposal.
   return { file: structuredClone(file) };

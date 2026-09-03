@@ -95,19 +95,21 @@ describe("the approval boundary", () => {
     }
   });
 
-  it("lands everything an agent adds as a draft", () => {
+  it("lands an agent's clip accepted, with the note kept as provenance", () => {
     const result = actions.createClip("track-1", AGENT_TEXT, "agent", "The payoff");
     expect(result.ok).toBe(true);
 
-    const added = clips().find((clip) => clip.approval === "draft");
+    const added = clips().find((clip) => clip.revisionNote === "The payoff");
     expect(added).toBeDefined();
-    expect(added!.revisionNote).toBe("The payoff");
+    // The approval boundary is the stage, not the clip.
+    expect(added!.approval).toBe("accepted");
   });
 
-  it("marks a clip a draft again when an agent changes it", () => {
+  it("keeps a clip accepted when an agent changes it, noting why", () => {
     actions.patchClip("clip-a", { from: 10 }, "agent", "Nudged it later");
     const clip = clips().find((entry) => entry.id === "clip-a")!;
-    expect(clip.approval).toBe("draft");
+    expect(clip.approval).toBe("accepted");
+    expect(clip.revisionNote).toBe("Nudged it later");
   });
 
   it("does not create a draft when a person edits their own film", () => {
@@ -117,70 +119,39 @@ describe("the approval boundary", () => {
     );
   });
 
-  it("accepting clears the draft and keeps the agent's work", () => {
-    actions.createClip("track-1", AGENT_TEXT, "agent", "The payoff");
+  it("still settles a legacy draft from an older film", () => {
+    // No action writes "draft" any more, but a film saved before the stage
+    // became the approval boundary may carry them. The human-only actions
+    // still clear them.
+    const store = useStudioStore.getState();
+    const project = readProject()!;
+    const legacy = structuredClone(project.file);
+    const track = legacy.tracks.find((entry) => entry.kind === "visual")!;
+    track.clips = track.clips.map((clip, index) =>
+      index === 0 ? { ...clip, approval: "draft" as const, revisionNote: "old" } : clip,
+    );
+    store.setProject({ ...project, file: legacy }, 0);
+
     const draft = clips().find((clip) => clip.approval === "draft")!;
-
     expect(actions.acceptClip(draft.id).ok).toBe(true);
-
     const settled = clips().find((clip) => clip.id === draft.id)!;
     expect(settled.approval).toBe("accepted");
     expect(settled.revisionNote).toBeUndefined();
+
+    // Nothing pending: resolving again says so.
+    const again = actions.acceptClip(draft.id);
+    expect(again.ok).toBe(false);
+    if (!again.ok) expect(again.code).toBe("no-draft");
   });
 
-  /**
-   * Rejecting removes it. There is no "previous version" to restore, because a
-   * draft is either something the agent added — where undoing is deletion — or
-   * a change, and the version before it is in the person's own git history.
-   */
-  it("rejecting removes the agent's clip entirely", () => {
-    actions.createClip("track-1", AGENT_TEXT, "agent", "The payoff");
-    const draft = clips().find((clip) => clip.approval === "draft")!;
-    const before = clips().length;
-
-    expect(actions.rejectClip(draft.id).ok).toBe(true);
-    expect(clips().length).toBe(before - 1);
-  });
-
-  it("refuses to resolve a clip with no pending draft", () => {
-    const result = actions.acceptClip("clip-a");
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("no-draft");
-  });
-
-  it("blocks a render while any clip is still a draft", async () => {
-    actions.createClip("track-1", AGENT_TEXT, "agent", "The payoff");
-
-    const result = await actions.requestRender("Looks good to me");
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.code).toBe("invalid-input");
-      expect(result.message).toMatch(/unreviewed draft/i);
-    }
-  });
-
-  it("accepts every draft at once when asked", () => {
-    actions.createClip("track-1", AGENT_TEXT, "agent", "One");
-    actions.createClip("audio-1", {
-      kind: "audio",
-      from: 0,
-      durationInFrames: 30,
-      approval: "draft",
-      src: "assets/sting.mp3",
-      startFrom: 0,
-      volume: 1,
-      fadeInFrames: 0,
-      fadeOutFrames: 0,
-      playbackRate: 1,
-    } as Omit<Clip, "id">, "agent", "Two");
-
-    // The audio clip lands on the track that already holds one, so it may be
-    // refused for overlap — only assert on what actually got in.
-    const drafts = clips().filter((clip) => clip.approval === "draft").length;
-    expect(drafts).toBeGreaterThan(0);
-
-    expect(actions.acceptAllDrafts().ok).toBe(true);
-    expect(clips().every((clip) => clip.approval === "accepted")).toBe(true);
+  it("renders regardless of clip approval; the stages and the confirmation are the gate", async () => {
+    const { snapshotAccepted } = await import("@/lib/render/job");
+    const file = structuredClone(readProject()!.file);
+    file.tracks[0]!.clips = file.tracks[0]!.clips.map((clip) => ({
+      ...clip,
+      approval: "draft" as const,
+    }));
+    expect(snapshotAccepted(file)).not.toBeNull();
   });
 });
 

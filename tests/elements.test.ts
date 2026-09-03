@@ -109,7 +109,7 @@ describe("pure edits", () => {
     if (made.ok) {
       expect(made.clip.kind).toBe("text");
       expect(made.clip.elementId).toBe("el-headline");
-      expect(made.clip.approval).toBe("draft");
+      expect(made.clip.approval).toBe("accepted");
       expect(made.clip.label).toBe("Headline");
       if (made.clip.kind === "text") {
         expect(made.clip.text).toBe("Ship on a Friday.");
@@ -169,8 +169,9 @@ describe("the actions", () => {
   });
 
   it("holds the agent to the process, and not the person", () => {
+    // Elements open with the style stage, right after the storyboard.
     useStudioStore.getState().setProject(
-      film({ process: approvedThrough("storyboard"), elements: [] }),
+      film({ process: approvedThrough("script"), elements: [] }),
       0,
     );
     const { id, ...draft } = HEADLINE;
@@ -179,12 +180,19 @@ describe("the actions", () => {
     const agent = actions.createElement(draft, "agent", "The headline face");
     expect(agent.ok).toBe(false);
     if (!agent.ok) expect(agent.code).toBe("stage-gated");
+    expect(!agent.ok && agent.message).toMatch(/after the storyboard is approved/);
 
     expect(actions.createElement(draft).ok).toBe(true);
-    expect(readProject()!.file.elements).toHaveLength(1);
+
+    useStudioStore.getState().setProject(
+      film({ process: approvedThrough("storyboard"), elements: [] }),
+      0,
+    );
+    const allowed = actions.createElement(draft, "agent", "The headline face");
+    expect(allowed.ok, allowed.message).toBe(true);
   });
 
-  it("places an element as a draft carrying the element's look and a link", () => {
+  it("places an element carrying the element's look and a link", () => {
     const result = actions.placeElement(
       "el-headline",
       "track-1",
@@ -196,7 +204,7 @@ describe("the actions", () => {
 
     const clip = clips()[0]!;
     expect(clip.elementId).toBe("el-headline");
-    expect(clip.approval).toBe("draft");
+    expect(clip.approval).toBe("accepted");
     expect(clip.revisionNote).toBe("The turn");
     expect(clip.kind === "text" && clip.fontFamily).toBe("display");
     expect(readProject()!.activity.at(-1)?.label).toBe("prism.place_element");
@@ -234,7 +242,7 @@ describe("the actions", () => {
     expect(inside.ok).toBe(true);
   });
 
-  it("propagates an agent's change to the element and re-drafts what it touched", () => {
+  it("propagates an agent's change to every placed clip, with the note as provenance", () => {
     actions.placeElement("el-headline", "track-1", { from: 0, durationInFrames: 30, text: "a" });
     actions.placeElement("el-headline", "track-1", { from: 60, durationInFrames: 30, text: "b" });
     expect(clips().every((clip) => clip.approval === "accepted")).toBe(true);
@@ -245,7 +253,7 @@ describe("the actions", () => {
 
     for (const clip of clips()) {
       expect(clip.kind === "text" && clip.fontSize).toBe(0.14);
-      expect(clip.approval).toBe("draft");
+      expect(clip.approval).toBe("accepted");
       expect(clip.revisionNote).toBe("Bigger");
     }
   });

@@ -118,7 +118,7 @@ import type { JsonSchema, ModelContextTool } from "./types";
  * Descriptions are authored here as literals and never built from user content
  * (invariant 6).
  *
- * Notably absent: any tool that accepts a draft or approves a render.
+ * Notably absent: any tool that approves a stage or a render.
  * `acceptClip`, `rejectClip`, `acceptAllDrafts` and `approveRender` exist as
  * actions but are deliberately never wrapped, so the agent has no function to
  * call (invariant 2).
@@ -205,7 +205,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.get_project_context",
       description:
-        "Where things stand: whether the person has linked a project folder, which compositions are in it, and — if one is open — its canvas, every track front to back, every clip with its id and timing, the playhead, and which clips are still unreviewed drafts. Call this first, and again after anything you are not sure landed.",
+        "Where things stand: whether the person has linked a project folder, which compositions are in it, and — if one is open — its canvas, every track front to back, every clip with its id and timing, the playhead, and where the process stands. Call this first, and again after anything you are not sure landed.",
       schema: EmptyInput,
       annotations: { readOnlyHint: true },
       execute: () => ({ ok: true, message: JSON.stringify(getProjectContext()) }),
@@ -289,7 +289,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_animatic",
       description:
-        "Stage 5 of 9. The animatic IS the timeline: the boards laid by prism.lay_animatic, adjusted to the beat grid, with the music underneath. Call this when it is laid out. Approving it LOCKS the timing — after that, visual clips must sit inside the approved beats. Refuses until the storyboard is approved. PRISM_METHOD.md §6.",
+        "Stage 6 of 9. The animatic IS the timeline: the boards laid by prism.lay_animatic, adjusted to the beat grid, with the music underneath. Call this when it is laid out. Approving it LOCKS the timing — after that, visual clips must sit inside the approved beats. Refuses until the storyboard is approved. PRISM_METHOD.md §6.",
       schema: SubmitAnimaticInput,
       execute: (input) => submitAnimatic(input.summary),
     }),
@@ -297,7 +297,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.submit_style_frames",
       description:
-        "Stage 6 of 9. Name the look and the two or three clips you built for real — the hook, the reveal, the endcard. Everything else will copy them. Refuses until the animatic is approved. PRISM_METHOD.md §7.",
+        "Stage 5 of 9. Name the look and the two or three clips you built for real — the hook, the reveal, the endcard. Everything else will copy them. Refuses until the storyboard is approved. PRISM_METHOD.md §7.",
       schema: SubmitStyleFramesInput,
       execute: ({ summary, ...style }) => submitStyleFrames(style, summary),
     }),
@@ -383,7 +383,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_text",
       description:
-        "Put words on screen. Position with `box` in canvas fractions — x/y are the CENTRE, so { x: 0.5, y: 0.5 } is centred. `fontSize` is a fraction of canvas height. Lands as a DRAFT for the person to accept; you cannot accept it yourself.",
+        "Put words on screen. Position with `box` in canvas fractions — x/y are the CENTRE, so { x: 0.5, y: 0.5 } is centred. `fontSize` is a fraction of canvas height.",
       schema: AddTextInput,
       execute: (input) =>
         createClip(
@@ -392,7 +392,6 @@ export function buildTools(): ModelContextTool[] {
             kind: "text",
             from: input.from,
             durationInFrames: input.durationInFrames,
-            approval: "draft",
             text: input.text,
             fontSize: input.fontSize ?? 0.09,
             fontFamily: input.fontFamily ?? "display",
@@ -415,7 +414,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_shape",
       description:
-        "Add a rectangle or ellipse — a colour block behind a title, a rule, a dot. Lands as a DRAFT.",
+        "Add a rectangle or ellipse — a colour block behind a title, a rule, a dot.",
       schema: AddShapeInput,
       execute: (input) =>
         createClip(
@@ -424,7 +423,6 @@ export function buildTools(): ModelContextTool[] {
             kind: "shape",
             from: input.from,
             durationInFrames: input.durationInFrames,
-            approval: "draft",
             shape: input.shape,
             fill: input.fill ?? "#FFFFFF",
             radius: input.radius ?? 0,
@@ -439,7 +437,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_image",
       description:
-        "Show an image from the project's own folder, e.g. 'assets/logo.png'. The file must already be there — put it in the folder with your file tools first, or ask the person to. Lands as a DRAFT.",
+        "Show an image from the project's own folder, e.g. 'assets/logo.png'. The file must already be there — put it in the folder with your file tools first, or ask the person to.",
       schema: AddImageInput,
       execute: (input) =>
         createClip(
@@ -448,7 +446,6 @@ export function buildTools(): ModelContextTool[] {
             kind: "image",
             from: input.from,
             durationInFrames: input.durationInFrames,
-            approval: "draft",
             src: input.src,
             fit: input.fit ?? "cover",
             radius: input.radius ?? 0,
@@ -463,7 +460,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_video",
       description:
-        "Show a video from the project's own folder, e.g. 'assets/demo.mp4'. `startFrom` trims its head. Silent by default — set `volume` if you want its sound. Lands as a DRAFT.",
+        "Show a video from the project's own folder, e.g. 'assets/demo.mp4'. `startFrom` trims its head. Silent by default — set `volume` if you want its sound.",
       schema: AddVideoInput,
       execute: (input) =>
         createClip(
@@ -472,7 +469,6 @@ export function buildTools(): ModelContextTool[] {
             kind: "video",
             from: input.from,
             durationInFrames: input.durationInFrames,
-            approval: "draft",
             src: input.src,
             fit: input.fit ?? "cover",
             radius: 0,
@@ -490,7 +486,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_audio",
       description:
-        "Add music, a voiceover or a sound effect from the project's own folder. Must go on an audio track. `fadeInFrames` and `fadeOutFrames` ramp the gain, which is how you duck music under a voiceover without editing the file. Lands as a DRAFT.",
+        "Add music, a voiceover or a sound effect from the project's own folder. Must go on an audio track. `fadeInFrames` and `fadeOutFrames` ramp the gain, which is how you duck music under a voiceover without editing the file.",
       schema: AddAudioInput,
       execute: (input) =>
         createClip(
@@ -499,7 +495,6 @@ export function buildTools(): ModelContextTool[] {
             kind: "audio",
             from: input.from,
             durationInFrames: input.durationInFrames,
-            approval: "draft",
             src: input.src,
             startFrom: input.startFrom ?? 0,
             volume: input.volume ?? 1,
@@ -518,7 +513,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_element",
       description:
-        "Define a piece of the look, to be placed later: a type style (kind 'text' — Headline, Support, Label; leave `text` empty, the words arrive when it is placed), a shape (an accent rule, a block), an image or video from the project folder (a device frame, the product shot), or a sound. Elements are the style stage's artifact: define them, build the two or three style frames by placing them, and submit_style_frames names them. Refuses until the animatic is approved. PRISM_METHOD.md §7.",
+        "Define a piece of the look, to be placed later: a type style (kind 'text' — Headline, Support, Label; leave `text` empty, the words arrive when it is placed), a shape (an accent rule, a block), an image or video from the project folder (a device frame, the product shot), or a sound. Elements are the style stage's artifact, right after the storyboard: the approved boards say what pieces the film needs. Define them, build the two or three style frames by placing them, and submit_style_frames names them. Refuses until the storyboard is approved. PRISM_METHOD.md §7.",
       schema: AddElementInput,
       execute: (input) => {
         const { kind, name, role, note, box, animation, motion, ...fields } = input;
@@ -613,7 +608,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.update_element",
       description:
-        "Change an element — and every clip placed from it follows. Send only the fields you are changing. This is how the look is adjusted: the Headline's size once, not once per headline. Clips that follow the element become DRAFTS again for the person to accept.",
+        "Change an element — and every clip placed from it follows. Send only the fields you are changing. This is how the look is adjusted: the Headline's size once, not once per headline. The clips that follow it keep your note as provenance.",
       schema: UpdateElementInput,
       execute: (input) => {
         const { elementId, note, box, animation, motion, ...rest } = input;
@@ -654,7 +649,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.add_from_library",
       description:
-        "Add one of the studio's prebuilt pieces as an element of this film, exactly as the person clicking it in the Text, Shapes, Motion or Audio section would: a cursor that glides to a spot and clicks, a tap ring, a typewriter line, a word-by-word headline, a counter, a highlight, the type styles, the shapes, the sound effects and the music beds. Then place it with prism.place_element and tune it with prism.update_element. Refuses until the animatic is approved, like add_element.",
+        "Add one of the studio's prebuilt pieces as an element of this film, exactly as the person clicking it in the Text, Shapes, Motion or Audio section would: a cursor that glides to a spot and clicks, a tap ring, a typewriter line, a word-by-word headline, a counter, a highlight, the type styles, the shapes, the sound effects and the music beds. Then place it with prism.place_element and tune it with prism.update_element. Refuses until the storyboard is approved, like add_element.",
       schema: AddFromLibraryInput,
       execute: (input) => {
         const item = LIBRARY.find((candidate) => candidate.id === input.itemId);
@@ -672,7 +667,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.place_element",
       description:
-        "Put an element on the timeline as a clip: the element supplies the look, you supply the track, the first frame, the length, and — for a text style — the words. Obeys the timing lock like add_text, and lands as a DRAFT. This is how the build should be done; add_text and friends are for things that are genuinely one-off.",
+        "Put an element on the timeline as a clip: the element supplies the look, you supply the track, the first frame, the length, and — for a text style — the words. Obeys the timing lock like add_text. This is how the build should be done; add_text and friends are for things that are genuinely one-off.",
       schema: PlaceElementInput,
       execute: (input) => {
         const { elementId, trackId, from, durationInFrames, label, note, text, box, animation, motion } =
@@ -697,7 +692,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.update_clip",
       description:
-        "Change one clip — its timing, position, animation, text or colour. Send only the fields you are changing. The clip becomes a DRAFT again for the person to accept.",
+        "Change one clip: any property it has, and trackId moves it to another layer. Send only the fields you are changing.",
       schema: UpdateClipInput,
       execute: (input) => {
         const { clipId, note, box, animation, motion, ...rest } = input;
@@ -813,7 +808,7 @@ export function buildTools(): ModelContextTool[] {
     tool({
       name: "prism.request_render",
       description:
-        "Propose exporting the composition as an MP4. This renders NOTHING: it records what would be rendered and raises a confirmation in the app. The person must approve it, and only then can confirm_render proceed. Fails while any clip is still an unreviewed draft.",
+        "Propose exporting the composition as an MP4. This renders NOTHING: it records what would be rendered and raises a confirmation in the app. The person must approve it, and only then can confirm_render proceed. The person's approval is the only thing that starts it.",
       schema: RequestRenderInput,
       execute: (input) => requestRender(input.reason),
     }),

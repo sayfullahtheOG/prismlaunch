@@ -102,8 +102,8 @@ to stop.
 5. The timeline opens up once the storyboard is approved. Approving the
    animatic locks the timing and opens the elements: define the look as
    elements, then build by placing them.
-6. Every clip you add is a draft the person accepts or rejects.
-   **You cannot accept your own work.** There is no tool for it, by design.
+6. The person approves each stage; nothing moves past one without them.
+   **You cannot approve your own work.** There is no tool that approves a stage or a render, by design.
 7. When polish is approved, call `prism.request_render`. That renders nothing;
    it raises a confirmation the person has to approve.
 
@@ -119,14 +119,14 @@ itself rather than by a document.
 | 1 Brief | `prism.submit_brief` | audience, message, feeling, length; the truth and the demo moment from immersion | lets you concept |
 | 2 Concept | `prism.submit_concepts` | 2 to 4 directions, one recommended | picks the idea |
 | 3 Script | `prism.submit_script` | beats with words and seconds; VO if any | lets you board |
-| 4 Storyboard | `prism.submit_storyboard` | one panel per beat: frame, action, frames, in/out, sound, words. Sent back? Submit the full corrected set again — it replaces what was there | opens the timeline |
-| 5 Animatic | `prism.lay_animatic`, then `prism.submit_animatic` | the boards on the timeline, music underneath, cut to the grid | **locks the timing** |
-| 6 Style frames | `prism.submit_style_frames` | the look, the elements it is made of, and the 2 to 3 frames built from them | fixes the look |
+| 4 Storyboard | `prism.submit_storyboard` | one panel per beat: frame, action, frames, in/out, sound, words. Sent back? Submit the full corrected set again — it replaces what was there | opens the elements |
+| 5 Style frames | `prism.submit_style_frames` | the look, defined as elements — every piece the boards need — and the 2 to 3 frames built from them | fixes the look |
+| 6 Animatic | `prism.lay_animatic`, then `prism.submit_animatic` | the boards on the timeline beside what you built, music underneath, cut to the grid | **locks the timing** |
 | 7 Build | `prism.submit_build` | every beat built, inside its window | lets you do sound |
 | 8 Sound | `prism.submit_sound` | the sound plan; effects, ducking, tone placed | lets you polish |
 | 9 Polish | `prism.submit_polish` | the §14 checklist, run, with verdicts | unblocks the render |
 
-**Laying the animatic.** Once the storyboard is approved, `prism.lay_animatic`
+**Laying the animatic.** Once the style frames are approved, `prism.lay_animatic`
 puts one placeholder clip per panel on a "Boards" track, at cumulative frames
 from the panels' durations, carrying each panel's words and transitions. The
 words and durations are yours; the frame arithmetic is the tool's. Then add the
@@ -162,9 +162,9 @@ arrive when it is placed.
 | Tool | What it does |
 | --- | --- |
 | `prism.add_element` | Define one. Refuses until the animatic is approved. |
-| `prism.place_element` | Put one on a track as a clip. You supply the track, the frame, the length, and the words; the element supplies the look. Lands as a draft, inside a locked beat. |
+| `prism.place_element` | Put one on a track as a clip. You supply the track, the frame, the length, and the words; the element supplies the look. Once the timing is locked, it lands inside a beat. |
 | `prism.add_from_library` | Add one of the studio's prebuilt pieces as an element, the ones the person sees in the Text, Shapes, Motion and Audio sections: type styles, shapes, the Motion pieces, the effects, the beds. Then place it. |
-| `prism.update_element` | Change one, and every clip placed from it. Send only what changes. Those clips become drafts again. |
+| `prism.update_element` | Change one, and every clip placed from it. Send only what changes; your note rides on every clip it touched. |
 | `prism.remove_element` | Delete one. Its clips stay, unlinked. |
 
 The order the method wants: at the style stage, define the elements (the
@@ -248,7 +248,7 @@ into parts the first time it saves.
           "id": "clip-hook",
           "from": 0,
           "durationInFrames": 70,
-          "approval": "draft",
+          "approval": "accepted",
           "elementId": "el-headline",
           "revisionNote": "Opening on the cost, not the product.",
           "text": "Six clicks to assign an issue.",
@@ -267,7 +267,7 @@ into parts the first time it saves.
           "id": "clip-name",
           "from": 80,
           "durationInFrames": 90,
-          "approval": "draft",
+          "approval": "accepted",
           "text": "Vector",
           "fontSize": 0.22,
           "fontFamily": "display",
@@ -294,7 +294,7 @@ into parts the first time it saves.
           "id": "clip-rule",
           "from": 96,
           "durationInFrames": 74,
-          "approval": "draft",
+          "approval": "accepted",
           "shape": "rect",
           "fill": "#7C6CFF",
           "radius": 0.5,
@@ -316,7 +316,7 @@ into parts the first time it saves.
           "id": "clip-music",
           "from": 0,
           "durationInFrames": 300,
-          "approval": "draft",
+          "approval": "accepted",
           "src": "assets/bed.mp3",
           "startFrom": 0,
           "volume": 0.7,
@@ -345,8 +345,9 @@ These are enforced. A file that breaks one is refused with the field named.
   up front. Writing the file by hand, set `durationInFrames` yourself.
 - **Ids are unique** across every track and clip in the file.
 - **Audio clips only on audio tracks**, and vice versa.
-- **`approval` is `draft` or `accepted`. Always write `draft`.** Only the person
-  can write `accepted`, through the studio.
+- **`approval` is per stage, not per clip.** The person approves the animatic,
+  the build, the polish; a clip's own `approval` field remains for older films
+  and may simply be written `accepted` (it is also the default when omitted).
 - **`elementId`, when present, names an entry in `elements`.** Element ids are
   unique alongside track and clip ids.
 - **A part file's `id` is what names it.** `tracks/<id>.json` and
@@ -455,7 +456,7 @@ rather than crashing the render. It is still a hole, so check.
 | `prism.request_render` | Propose the export. **Renders nothing.** |
 | `prism.confirm_render` | Start the render, and only after a human approves. |
 
-There is no tool to accept a draft, approve a stage, reopen the timing lock,
+There is no tool to approve a stage, reopen the timing lock,
 or approve a render. That is deliberate, and it is enforced in code rather
 than by a policy you could talk your way around: the functions exist in the
 app and are never registered. Asking the person is the only path.
@@ -535,13 +536,13 @@ Show it rather than describing it. After you build something, call
 you are discussing one moment, `prism.seek` to it first; it is much easier to
 agree about a frame you are both looking at.
 
-Then stop and let them review. Every clip you added is waiting on their screen
-with your `revisionNote` under it. They accept, or they reject and it is
-removed.
+Then stop and let them review the stage. Your `revisionNote` on each clip
+tells them what changed and why. They approve the stage, or send it back with
+a note you address.
 
-When everything is accepted, propose the render. Say why you think it is ready.
-Then wait. `prism.confirm_render` fails until they have clicked approve, and
-retrying will not change that.
+When every stage is approved, propose the render. Say why you think it is
+ready. Then wait. `prism.confirm_render` fails until they have clicked
+approve, and retrying will not change that.
 
 ## When something is wrong
 

@@ -23,9 +23,9 @@ import { currentStage } from "@/lib/studio/process";
 import { middleView, reviewedStage } from "@/lib/studio/review";
 import { selectedClipId } from "@/lib/studio/selection";
 import { useStudioStore } from "@/lib/studio/store";
-import { draftCount } from "@/lib/studio/timing";
 import { Timeline } from "@/components/timeline/Timeline";
 import { Canvas } from "./Canvas";
+import { Screening } from "./Screening";
 import { FileView } from "./FileView";
 import { IconRail } from "./IconRail";
 import { Inspector } from "./Inspector";
@@ -81,7 +81,6 @@ export function EditorShell() {
 
   const setupOpen = project === null;
   const file = project?.file ?? BLANK_FILE;
-  const drafts = draftCount(file.tracks);
   const compositions = workspace.kind === "linked" ? workspace.projects : [];
 
   // A stage waiting on the person is the same kind of thing as a draft clip:
@@ -137,13 +136,7 @@ export function EditorShell() {
                 },
               }
             : {})}
-          renderBlockedReason={
-            !project
-              ? "Open a composition to export one"
-              : drafts > 0
-                ? `${drafts} clip${drafts === 1 ? "" : "s"} still unreviewed`
-                : null
-          }
+          renderBlockedReason={!project ? "Open a composition to export one" : null}
           onRender={() => void exportFilm()}
           note={renderNote}
           busy={rendering}
@@ -153,7 +146,7 @@ export function EditorShell() {
           <IconRail
             active={tab}
             onChange={showTab}
-            agentPending={drafts > 0 || stageWaiting || Boolean(pendingRender)}
+            agentPending={stageWaiting || Boolean(pendingRender)}
             counts={file.elements.length > 0 ? { elements: file.elements.length } : {}}
           />
 
@@ -227,6 +220,8 @@ export function EditorShell() {
               <StageReview stage={reviewing} file={file} />
             ) : view === "files" ? (
               <FileView path={filePath} />
+            ) : view === "screening" ? (
+              <Screening file={file} />
             ) : (
               <>
                 <div className="flex min-h-0 flex-1">

@@ -138,7 +138,9 @@ describe("what the middle shows", () => {
     expect(middleView("process", "brief", process)).toBe("review");
     expect(middleView("process", "script", process)).toBe("review");
     expect(middleView("process", "storyboard", process)).toBe("boards");
-    expect(middleView("process", "animatic", process)).toBe("editor");
+    // The animatic is judged by watching it: a screening, not the editor.
+    expect(middleView("process", "animatic", process)).toBe("screening");
+    expect(middleView("process", "style", process)).toBe("editor");
     expect(middleView("process", "build", process)).toBe("editor");
     expect(middleView("elements", "brief", process)).toBe("editor");
     // The Storyboard section is the boards at full size, whatever stage is open.

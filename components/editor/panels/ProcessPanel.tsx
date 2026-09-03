@@ -20,7 +20,7 @@ import {
 import { REVIEW_PAGES } from "@/lib/studio/review";
 import { STAGES } from "@/lib/studio/schema";
 import { useStudioStore } from "@/lib/studio/store";
-import { clipCount, draftCount } from "@/lib/studio/timing";
+import { clipCount } from "@/lib/studio/timing";
 import type { Process, ProjectFile, StageId } from "@/types/prism";
 import { PanelShell } from "./PanelShell";
 import { STAGE_STATUS, StageDecision } from "./StageDecision";
@@ -191,7 +191,7 @@ function StageRow({
   );
 }
 
-/** What to look at for a stage whose artifact is the film: counts, beats, drafts. */
+/** What to look at for a stage whose artifact is the film: counts and beats. */
 function Artifact({
   stage,
   process,
@@ -274,18 +274,10 @@ function Artifact({
 
     case "build": {
       const clips = clipCount(file.tracks);
-      const drafts = draftCount(file.tracks);
       return (
         <p className="text-xs leading-[var(--ds-leading-body)] text-muted">
-          <span className="text-ink">{clips}</span> clips on the timeline
-          {drafts > 0 ? (
-            <>
-              , <span className="text-warning">{drafts} still unreviewed</span>.
-              Accept them in the timeline before approving the build.
-            </>
-          ) : (
-            ", all accepted."
-          )}
+          <span className="text-ink">{clips}</span> clip{clips === 1 ? "" : "s"} on the
+          timeline. Watch it through before approving; approving is the sign-off.
         </p>
       );
     }

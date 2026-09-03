@@ -247,10 +247,12 @@ const ClipBase = {
   from: z.number().int().min(0).max(MAX_FRAMES),
   durationInFrames: z.number().int().min(MIN_CLIP_FRAMES).max(MAX_FRAMES),
   /**
-   * Agent work arrives as `draft` and a person clears it. The approval boundary
-   * lives per clip so a review is about one change rather than the whole film.
+   * A leftover from when every clip carried its own review. The approval
+   * boundary lives per STAGE now — the person approves the animatic, the
+   * build, the polish — so new clips are simply accepted. The field stays
+   * so older films still read, and a legacy draft still shows its badge.
    */
-  approval: z.enum(["accepted", "draft"]).default("draft"),
+  approval: z.enum(["accepted", "draft"]).default("accepted"),
   /** What the agent changed, and why. Shown next to the accept button. */
   revisionNote: z.string().max(240).optional(),
   label: z.string().max(60).optional(),
@@ -515,8 +517,8 @@ export const STAGES = [
   "concept",
   "script",
   "storyboard",
-  "animatic",
   "style",
+  "animatic",
   "build",
   "sound",
   "polish",

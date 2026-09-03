@@ -246,7 +246,7 @@ function requireStageForElements(
   const stage = currentStage(project.file.process);
   return fail(
     "stage-gated",
-    `Elements come with the style frames, after the animatic is approved. The process is at ${stage ? STAGE_LABELS[stage] : "the end"}${stage ? `. ${nextInstruction(project.file.process).instruction}` : ""}`,
+    `Elements come with the style frames, after the storyboard is approved. The process is at ${stage ? STAGE_LABELS[stage] : "the end"}${stage ? `. ${nextInstruction(project.file.process).instruction}` : ""}`,
   );
 }
 
@@ -1343,9 +1343,9 @@ export function createClip(
   const parsed = ClipSchema.safeParse({
     ...clip,
     id: mintId(clip.kind),
-    // Agent work always arrives as a draft. There is no argument that makes
-    // this accept.
-    approval: origin === "agent" ? "draft" : "accepted",
+    // The approval boundary is the stage, not the clip: the person approves
+    // the animatic, the build, the polish. The note stays as provenance.
+    approval: "accepted",
     ...(origin === "agent" && note ? { revisionNote: note } : {}),
   });
   if (!parsed.success) {
@@ -1364,7 +1364,7 @@ export function createClip(
 
   select(parsed.data.id);
   return ok(
-    `Added ${parsed.data.kind} clip ${parsed.data.id} to “${track.name}” at frame ${parsed.data.from}${origin === "agent" ? " — it is a draft for the person to accept" : ""}.`,
+    `Added ${parsed.data.kind} clip ${parsed.data.id} to “${track.name}” at frame ${parsed.data.from}.`,
   );
 }
 
@@ -1434,9 +1434,7 @@ export function patchClip(
   const merged = {
     ...findClip(file, clipId)!.clip,
     ...patchRest,
-    ...(origin === "agent"
-      ? { approval: "draft" as const, revisionNote: note ?? "Changed by your agent" }
-      : {}),
+    ...(origin === "agent" ? { revisionNote: note ?? "Changed by your agent" } : {}),
   };
 
   const parsed = ClipSchema.safeParse(merged);
@@ -1461,7 +1459,7 @@ export function patchClip(
   );
   if (rejected) return rejected;
 
-  return ok(origin === "agent" ? "Proposed a change. It is a draft." : "Updated.");
+  return ok("Updated.");
 }
 
 /** Drag along the timeline, or across to another track. */
@@ -1649,6 +1647,8 @@ export function patchElement(
   let next = updateElement(project.file, elementId, patch);
   const uses = elementUses(project.file, elementId);
 
+  // The change reaches every placed clip already (updateElement); the note
+  // rides along as provenance. Nothing re-drafts: the stage is the boundary.
   if (origin === "agent" && uses > 0) {
     next = {
       ...next,
@@ -1656,7 +1656,7 @@ export function patchElement(
         ...track,
         clips: track.clips.map((clip) =>
           clip.elementId === elementId
-            ? { ...clip, approval: "draft" as const, revisionNote: note ?? `“${element.name}” changed` }
+            ? { ...clip, revisionNote: note ?? `“${element.name}” changed` }
             : clip,
         ),
       })),
@@ -1672,7 +1672,7 @@ export function patchElement(
 
   return ok(
     uses > 0
-      ? `Updated “${element.name}” and the ${uses} clip${uses === 1 ? "" : "s"} placed from it${origin === "agent" ? " — they are drafts again" : ""}.`
+      ? `Updated “${element.name}” and the ${uses} clip${uses === 1 ? "" : "s"} placed from it.`
       : `Updated “${element.name}”.`,
   );
 }
@@ -2727,11 +2727,6 @@ export function getProjectContext() {
       playheadFrame: playhead,
       selection: project.selection,
       ...(missingAssets.length > 0 ? { missingAssets } : {}),
-      pendingDraftClipIds: file.tracks.flatMap((track) =>
-        track.clips
-          .filter((clip) => clip.approval === "draft")
-          .map((clip) => clip.id),
-      ),
       // The library, with how often each element has been placed.
       elements: file.elements.map((element) => ({
         ...element,
@@ -2767,18 +2762,8 @@ async function proposeRenderOnServer(reason?: string): Promise<Proposal> {
   if (!guard.ok) return { ok: false, result: guard.result };
   const project = guard.value;
 
-  const drafts = project.file.tracks.flatMap((track) =>
-    track.clips.filter((clip) => clip.approval === "draft"),
-  );
-  if (drafts.length > 0) {
-    return {
-      ok: false,
-      result: fail(
-        "invalid-input",
-        `${drafts.length} clip${drafts.length === 1 ? " is" : "s are"} still an unreviewed draft. The person needs to accept or reject ${drafts.length === 1 ? "it" : "them"} first.`,
-      ),
-    };
-  }
+  // No per-clip gate here: the approval boundary is the stages, and the
+  // person still confirms the render itself before anything encodes.
 
   let body: {
     ok: boolean;

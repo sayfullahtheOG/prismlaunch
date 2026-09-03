@@ -36,18 +36,17 @@ is a timeline, and it is yours.
 
 **Elements** are clips without a place on the timeline: a Headline type
 style, an accent rule, a device frame, the product screenshot, the music bed.
-They live in `elements` in the file, and a clip placed from one carries its
+They live in `elements/<id>.json`, and a clip placed from one carries its
 `elementId` and follows it: change the element, and every clip placed from
 it changes. The style stage defines them; the build places them. See
 *Elements* below.
 
 ## How the two halves fit together
 
-**The folder.** A composition lives in `.prismlaunch/<slug>/project.json` inside
-whatever repository the person is working in. If you have file tools, write that
-file directly. It is the source of truth, and the studio picks up changes
-within a second of you saving. This is the fastest way to build anything with
-more than a few clips.
+**The folder.** A composition lives in `.prismlaunch/<slug>/` inside the
+repository. `project.json` is its small manifest. With file tools, edit the
+relevant file in `process/`, `elements/` or `tracks/`; the studio picks up
+changes within a second. Do not put the whole composition in the manifest.
 
 The slug follows the composition's name: renaming "Untitled composition" to
 "First video" in the studio moves the folder to `first-video/`. **So do not
@@ -135,8 +134,8 @@ to stop.
 
 ## The process
 
-The stages of PRISM_METHOD.md are eight fields in `project.json` and
-eight tools. Sound is not one of them: the music arrives with the animatic,
+The stages of PRISM_METHOD.md have one JSON file each in `process/` and
+eight submission tools. Sound is not one of them: the music arrives with the animatic,
 and the polish rethinks it against the person's notes before the build
 places it. The tool for a stage refuses until the person has approved every
 stage before it, so you cannot skip ahead. The order is enforced by the tool
@@ -205,8 +204,9 @@ stage naming both the elements and the clips. In the build, place elements
 rather than inventing new clips. `prism.add_text` and friends are for things
 that are one-off, and if you reach for one twice, it is an element.
 
-Writing the file by hand: `elements` is an array of these, each with a unique
-`id` and a `name`, and a clip's `elementId` must name one of them.
+Writing files by hand: put each element in `elements/<id>.json`, with its
+unique `id` and `name`. List its id in the manifest's `elements` array. A clip's
+`elementId` must name one of them.
 
 ## The file
 
@@ -214,7 +214,12 @@ Writing the file by hand: `elements` is an array of these, each with a unique
 your-repo/
 └── .prismlaunch/
     └── vector-launch/
-        ├── project.json     ← the film, the process, and the order of its parts
+        ├── project.json     ← canvas settings and references to parts
+        ├── process/         ← one file per stage: artifact, decision and notes
+        │   ├── brief.json
+        │   ├── script.json
+        │   └── storyboard.json
+        ├── activity.json    ← saved event history (managed by the app)
         ├── tracks/          ← one file per layer, with its clips
         │   ├── track-titles.json
         │   └── audio-music.json
@@ -225,8 +230,8 @@ your-repo/
 ```
 
 The film is a folder of small files, so a small change is a small edit.
-`project.json` holds what is about the film: the canvas, the background, the
-process, and `tracks` and `elements` as lists of ids, in order. Each id names
+`project.json` holds the canvas, background, camera, `process` as a map of
+stage names to file paths, and `tracks` and `elements` as ordered lists of ids. Each id names
 a file: `tracks/<id>.json` is one layer with its clips, `elements/<id>.json`
 is one element, each the same object it would be inline. To recolour a
 headline, edit its element's file; the studio picks up a change to any part
@@ -235,23 +240,42 @@ lists without a file is ignored, and a file it does not list is not part of
 the film, so removing a layer is removing its id. The studio deletes the
 file on its next save.
 
+Both linked folders and browser storage use this layout. The Files tab shows
+these same JSON parts in either mode. WebMCP edits save the relevant parts
+automatically; browser mode still requires tools, not local filesystem writes.
+Legacy projects migrate when opened without losing their stages, notes or media.
+
+Each `process/<stage>.json` holds that stage's status, artifact, summary and
+approval note: `brief`, `concept`, `script`, `storyboard`, `style`, `animatic`,
+`polish`, `build` (and the legacy `sound` stage). For example,
+`"process": { "brief": "process/brief.json" }` references the brief file.
+Omitted stages initialize as pending; the app writes all stage files on save.
+A referenced stage file must exist and contain a valid stage object.
+
+`activity.json` retains the most recent 200 events with unique ids and full
+timestamps. The app records submissions, decisions and edits; agents must not
+fabricate activity. Older projects show recovered saved stage states labelled
+as recovered, with "Time not recorded", because old event logs did not persist.
+
 **The rules, for an agent with file tools:**
 
 - **Never write the whole film into `project.json`.** It holds the canvas,
-  the background, the process, the camera, and `tracks` and `elements` as
-  lists of ids, in order — nothing else. A track or an element written
-  inline there is wrong, even though the studio still opens it (that
+  the background, the camera, process file references, and ordered track
+  and element ids. A stage, track or element written inline there is wrong, even though the studio still opens it (that
   tolerance exists for films made before the split, and the studio rewrites
   them as parts on its next save). One long file is a rewrite of the whole
   film for every change and a context window of JSON every time you read
   it, and a film written that way is the one that ends up with forty clips
   nobody can find.
+- **One file per process: `process/<stage>.json`.** Edit the script in
+  `process/script.json` and the boards in `process/storyboard.json`. Preserve
+  review notes; the person owns approval decisions.
 - **One file per layer: `tracks/<id>.json`.** The track object, with its
   clips. **One file per element: `elements/<id>.json`.** A new layer is a
   new file plus its id in `project.json`, in the position it should stack.
 - **Edit the part, never the whole.** To recolour every headline, edit
   `elements/el-headline.json`. To add a clip, edit its layer's file. To
-  change the length or the background, edit `project.json`. Read a part
+  change the script, edit `process/script.json`. For canvas settings, edit `project.json`. Read a part
   before you rewrite it; do not regenerate files you did not change.
 - **Keep parts small.** A layer with more than about forty clips is two
   layers by role (`Titles`, `Product`, `Cursor`, `Accent`, `Music`, `SFX`).
@@ -274,9 +298,16 @@ The example below is one film, written as the studio writes it: first
   "durationInFrames": 300,
   "background": { "kind": "gradient", "from": "#0A0A0C", "to": "#1B1B22", "angle": 160 },
   "camera": [],
+  "process": { "brief": "process/brief.json" },
   "elements": ["el-headline"],
   "tracks": ["track-titles", "track-rule", "audio-music"]
 }
+```
+
+`process/brief.json`:
+
+```json
+{ "status": "pending" }
 ```
 
 `elements/el-headline.json`:
@@ -938,7 +969,7 @@ approve, and retrying will not change that.
 ## What this never does
 
 PrismLaunch does not read the person's source code, run it, or send it
-anywhere. It reads one JSON file and the assets that file names, renders in the
+anywhere. It reads the composition's JSON parts and their referenced assets, renders in the
 browser with WebCodecs, and writes the MP4 back into the folder. No video,
 code or project file is uploaded. If you tell someone their repository was
 analysed, that is not true.

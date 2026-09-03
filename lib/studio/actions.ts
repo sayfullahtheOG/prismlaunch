@@ -58,6 +58,7 @@ import {
 } from "./schema";
 import { selectedClipId } from "./selection";
 import { slugForName } from "./slug";
+import { activityEvent, mergeActivity, recoverActivity } from "./activity";
 import { nowTimecode, useStudioStore, type RailTab } from "./store";
 import {
   boardNumber,
@@ -305,7 +306,7 @@ function withActivity(
     ...project,
     activity: [
       ...project.activity,
-      { ...event, id: `ev-${project.activity.length + 1}`, at: nowTimecode() },
+      activityEvent(event),
     ].slice(-200),
   };
 }
@@ -314,7 +315,7 @@ function withActivity(
 // Persistence
 // ---------------------------------------------------------------------------
 
-/** Only what the film IS reaches the file. Selection and history stay in the tab. */
+/** Assemble the film for rendering; activity is saved in its own file. */
 export function toProjectFile(project: FilmProject): ProjectFile {
   return project.file;
 }
@@ -322,56 +323,41 @@ export function toProjectFile(project: FilmProject): ProjectFile {
 const WRITE_DEBOUNCE_MS = 350;
 let writeTimer: ReturnType<typeof setTimeout> | null = null;
 let writePending: Promise<void> | null = null;
+let queuedSave: { project: FilmProject; workspace: Workspace } | null = null;
 
-/**
- * Queue a write of the current project.
- *
- * Debounced because dragging a clip emits a commit per pointer move, and that
- * file may be open in the agent's editor. The trailing write always carries the
- * latest state, so coalescing loses nothing.
- */
+/** Capture the save target now, so closing or switching projects cannot redirect it. */
 function schedulePersist(): void {
-  if (writeTimer) clearTimeout(writeTimer);
-  writeTimer = setTimeout(() => {
-    writeTimer = null;
-    writePending = persistNow();
-  }, WRITE_DEBOUNCE_MS);
-}
-
-async function persistNow(): Promise<void> {
   const { project, workspace } = useStudioStore.getState();
   if (!project || workspace.kind !== "linked") return;
-
-  const written = await writeProjectFile(
-    workspace.workspace,
-    project.slug,
-    project.file,
-  );
-
-  if (!written.ok) {
-    useStudioStore.getState().setLoadError(written.message);
-    return;
-  }
-
-  // Our own write moves the mtime. Record it, or the next poll reads the file
-  // back as an external change and announces the person's own edit to them.
-  useStudioStore.setState({
-    loadedAt: await modifiedAt(workspace.workspace, project.slug),
-  });
+  queuedSave = { project, workspace: workspace.workspace };
+  if (writeTimer) clearTimeout(writeTimer);
+  writeTimer = setTimeout(() => { void flushWrites(); }, WRITE_DEBOUNCE_MS);
 }
 
-/**
- * Force the queue and wait for it. Every tool executor awaits this before
- * returning, so an agent told a change landed can immediately read the file
- * back and find it there (invariant 3, extended to disk).
- */
-export async function flushWrites(): Promise<void> {
-  if (writeTimer) {
-    clearTimeout(writeTimer);
-    writeTimer = null;
-    writePending = persistNow();
+async function persistNow({ project, workspace }: NonNullable<typeof queuedSave>): Promise<void> {
+  const written = await writeProjectFile(workspace, project.slug, project.file, project.activity);
+  const state = useStudioStore.getState();
+  if (state.workspace.kind !== "linked" || state.workspace.workspace !== workspace || state.project?.slug !== project.slug) return;
+  if (!written.ok) {
+    state.setLoadError(written.message);
+    return;
   }
-  await writePending;
+  const at = await modifiedAt(workspace, project.slug);
+  // Never apply an older save's baseline to a project opened while it awaited I/O.
+  if (useStudioStore.getState().project === state.project) useStudioStore.setState({ loadedAt: at });
+}
+
+/** Serialize saves. Every tool waits until its parts and its activity are durable. */
+export async function flushWrites(): Promise<void> {
+  if (writeTimer) { clearTimeout(writeTimer); writeTimer = null; }
+  if (queuedSave) {
+    const save = queuedSave;
+    queuedSave = null;
+    const pending = writePending ? writePending.then(() => persistNow(save)) : persistNow(save);
+    writePending = pending;
+    try { await pending; }
+    finally { if (writePending === pending) writePending = null; }
+  } else await writePending;
 }
 
 /**
@@ -624,6 +610,7 @@ export async function startInBrowser(): Promise<ActionResult> {
 }
 
 export async function unlinkFolder(): Promise<ActionResult> {
+  await flushWrites();
   await forgetWorkspace();
   forgetBrowserMode();
   useStudioStore.getState().closeProject();
@@ -731,6 +718,7 @@ export async function removeAsset(path: string): Promise<ActionResult> {
 }
 
 export async function openProject(slug: string): Promise<ActionResult> {
+  await flushWrites();
   const guard = requireWorkspace();
   if (!guard.ok) return guard.result;
 
@@ -745,24 +733,23 @@ export async function openProject(slug: string): Promise<ActionResult> {
     return fail("disk-error", read.message);
   }
 
-  const project: FilmProject = {
+  const project = withActivity({
     file: read.value.file,
     slug: parsedSlug.data,
     selection: null,
-    activity: [
-      {
-        id: "ev-1",
-        origin: "disk",
-        label: guard.value.kind === "disk" ? "Opened from folder" : "Opened from this browser",
-        detail: locationOf(guard.value, parsedSlug.data),
-        at: nowTimecode(),
-      },
-    ],
-  };
+    activity: read.value.activity ?? recoverActivity(read.value.file),
+  }, {
+    origin: "disk",
+    label: guard.value.kind === "disk" ? "Opened from folder" : "Opened from this browser",
+    detail: locationOf(guard.value, parsedSlug.data),
+  });
 
   useStudioStore.getState().setProject(project, read.value.modifiedAt);
   useStudioStore.getState().setPendingRender(null);
   useStudioStore.getState().setPlayhead(0);
+  // Also migrates a valid legacy composition into the shared parts layout.
+  schedulePersist();
+  await flushWrites();
   await refreshAssets(guard.value, parsedSlug.data, read.value.file);
 
   const clips = read.value.file.tracks.reduce(
@@ -880,10 +867,10 @@ export async function createBlankProject(): Promise<ActionResult> {
  *
  * This is what makes the agent's own editor a first-class way to work: it
  * writes project.json, and the timeline updates without anyone calling a tool.
- * Selection, playhead and the session log survive, because those describe the
- * tab rather than the film.
+ * Selection and playhead survive. Saved activity is merged with the current log.
  */
 export async function reloadFromDisk(): Promise<ActionResult> {
+  await flushWrites();
   const workspaceGuard = requireWorkspace();
   if (!workspaceGuard.ok) return workspaceGuard.result;
   const projectGuard = requireProject();
@@ -898,11 +885,11 @@ export async function reloadFromDisk(): Promise<ActionResult> {
   }
 
   const next = withActivity(
-    { ...current, file: read.value.file },
+    { ...current, file: read.value.file, activity: mergeActivity(read.value.activity ?? [], current.activity) },
     {
       origin: "disk",
-      label: "Reloaded from folder",
-      detail: "project.json changed outside the app",
+      label: "Reloaded project files",
+      detail: "Project parts changed outside the app",
     },
   );
 
@@ -917,6 +904,8 @@ export async function reloadFromDisk(): Promise<ActionResult> {
   useStudioStore.getState().pushHistory(current.file);
   useStudioStore.getState().setProject(parsed.data, read.value.modifiedAt);
   useStudioStore.getState().setLoadError(null);
+  schedulePersist();
+  await flushWrites();
   await refreshAssets(workspaceGuard.value, current.slug, read.value.file);
   return ok("Reloaded from the folder.");
 }
@@ -926,6 +915,7 @@ export async function reloadFromDisk(): Promise<ActionResult> {
  * no read of the contents unless something moved.
  */
 export async function checkForDiskChanges(): Promise<boolean> {
+  if (writeTimer || writePending) return false;
   const { workspace, project, loadedAt } = useStudioStore.getState();
   if (workspace.kind !== "linked" || !project) return false;
 
@@ -937,6 +927,7 @@ export async function checkForDiskChanges(): Promise<boolean> {
 }
 
 export function closeProject(): ActionResult {
+  void flushWrites();
   useStudioStore.getState().closeProject();
   return ok("Closed the composition. The folder is untouched.");
 }
@@ -1178,6 +1169,8 @@ export async function captureFrames(input: CaptureInput): Promise<CaptureResult>
     }),
     loadedAt,
   );
+
+  schedulePersist();
 
   // One line per image, so the agent can match an image to its moments.
   const perSheet = outcome.sheets.map((sheet, index) => {
@@ -2607,6 +2600,9 @@ export async function renameProject(name: string): Promise<ActionResult> {
       );
   }
 
+  schedulePersist();
+  await flushWrites();
+
   // The move preserved the file's mtime but changed its path, so the poller's
   // baseline has to be re-read from the new location or the next tick sees a
   // change that never happened.
@@ -2807,10 +2803,12 @@ export function getProjectContext() {
        * that only sees `project.json` writes the whole film into it.
        */
       layout: {
-        main: "project.json — the canvas, background, process, camera, and `tracks` and `elements` as lists of ids in order. Never inline a track or an element here.",
+        main: "project.json — the canvas, background, camera, process file paths, and ordered track/element ids. Never inline stages, tracks or elements here.",
         tracks: "tracks/<id>.json — one file per layer, the track object with its clips.",
         elements: "elements/<id>.json — one file per element.",
-        rule: "Write and edit the part, never the whole: a new layer is a new file plus its id in project.json; a colour change is one element file.",
+        process: "process/<stage>.json — one file per process stage, including its artifact, decision, summary and note. project.json maps each stage to its file path.",
+        activity: "activity.json — the persisted event log. The app records this; do not invent past events.",
+        rule: "Write and edit the part, never the whole: a new layer is a new file plus its id in project.json; a colour change is one element file; a script revision is process/script.json. Browser storage uses the same parts through the tools.",
       },
       name: file.name,
       width: file.width,

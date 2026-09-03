@@ -16,6 +16,7 @@ import { preparedTools } from "./guide-setup";
  */
 
 beforeEach(async () => {
+  await actions.flushWrites();
   resetBrowserStore();
   resetStudio();
   await actions.startInBrowser();
@@ -37,6 +38,10 @@ describe("the files section", () => {
     const inside = await listDirectory(workspace, "compositions/vector");
     expect(inside.ok && inside.value.map((entry) => [entry.name, entry.kind])).toEqual([
       ["assets", "directory"],
+      ["elements", "directory"],
+      ["process", "directory"],
+      ["tracks", "directory"],
+      ["activity.json", "file"],
       ["project.json", "file"],
     ]);
 

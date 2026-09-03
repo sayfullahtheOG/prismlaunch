@@ -16,7 +16,9 @@ A film is a folder in your own repository:
 your-repo/
 └── .prismlaunch/
     └── vector-launch/
-        ├── project.json      ← the film, the process, and the order of its parts
+        ├── project.json      ← canvas settings and references to parts
+        ├── process/          ← one JSON file per stage, with its decision and notes
+        ├── activity.json     ← saved activity, including submissions and approvals
         ├── tracks/           ← one file per layer, with its clips
         ├── elements/         ← one file per element
         ├── assets/           ← images, video, audio it refers to
@@ -24,7 +26,7 @@ your-repo/
             └── vector-launch-video.mp4
 ```
 
-The film is a folder of small files, so a small change is a small edit: an agent recolouring a headline edits one element's file, not a file with every clip in it. `project.json` lists the layers and elements by id and decides what the film contains; a film written as one file still opens and is split on its next save.
+The film is a folder of small files, so a small change is a small edit: an agent recolouring a headline edits one element's file, not a file with every clip in it. `project.json` lists layers and elements by id and process files by path. Both linked folders and browser storage use this structure. Legacy projects migrate when opened. Activity persists in its own file; old saved stage states are recovered with explicit labels when no history was retained.
 
 A composition is a canvas, a background, and a stack of layers:
 
@@ -91,7 +93,7 @@ The studio is at [http://localhost:3000](http://localhost:3000).
 
 **`public/PRISM_METHOD.md`** is what to make with it. This is the product. It is the end-to-end craft of a promo film — concept, script, storyboard, timing locked to music before design, colour and type, motion in frame counts, sound in beats and gain, four rounds of review — synthesised from what Sandwich, Giant Ant, Buck, Ordinary Folk and the in-house teams at Apple, Linear and Raycast say they actually do, and from the perceptual research underneath. Every number in it is theirs. `tests/method.test.ts` checks that every transition, colour, font and tool it names is one the renderer really has, and that its tempo table is actually frame-locked at 30fps.
 
-The tool without the method produces the video everyone has seen. The method is why it doesn't — and it is not left as advice. The eight stages are eight fields in `project.json` and eight `submit_*` tools; each refuses until the person has approved the stage before it, and approving the animatic locks every visual clip's window so the agent can fill the beats but not move them. The Process panel is where the person reads each stage's artifact and approves it or sends it back with a note. `tests/process.test.ts` pins both rules.
+The tool without the method produces the video everyone has seen. The method is why it doesn't — and it is not left as advice. The eight stages live in separate `process/<stage>.json` files and have eight `submit_*` tools; each refuses until the person has approved the stage before it, and approving the animatic locks every visual clip's window so the agent can fill the beats but not move them. The Process panel is where the person reads each stage's artifact and approves it or sends it back with a note. `tests/process.test.ts` pins both rules.
 
 ## The tools
 
@@ -124,7 +126,7 @@ Three behaviours worth knowing if you are building on this:
 ## Architecture
 
 ```
-Your agent ──── file tools ────> .prismlaunch/<slug>/{project.json, tracks/, elements/}
+Your agent ──── file tools ────> .prismlaunch/<slug>/{project.json, process/, tracks/, elements/, activity.json}
     │                                      │
     │                                      │ File System Access API
     └──── WebMCP tools ────> Next.js studio ──> Remotion <Player>

@@ -1,5 +1,6 @@
 import {
   ASSETS_DIR,
+  ActivityLogSchema,
   explainZodError,
   PROJECT_FILE,
   PROJECT_FILE_VERSION,
@@ -9,13 +10,15 @@ import {
 } from "@/lib/studio/schema";
 import { isLibraryPath, libraryUrl, safeAssetName } from "@/lib/studio/files";
 import {
+  ACTIVITY_FILE,
   assembleProject,
+  PROCESS_DIR,
   ELEMENTS_DIR,
   splitProject,
   TRACKS_DIR,
   type LoosePart,
 } from "@/lib/studio/modular";
-import type { ProjectFile } from "@/types/prism";
+import type { ActivityEvent, ProjectFile } from "@/types/prism";
 import * as browser from "./browser-store";
 import {
   deleteAsset,
@@ -47,8 +50,8 @@ export const FRAMES_DIR = "frames";
  * actually implements its permission model. Chrome does. ChatGPT's built-in
  * browser opens the picker and then refuses the handle; Safari and Firefox
  * have no picker. So a workspace is one of two things: a `disk` one with real
- * handles, or a `browser` one where each composition is a `localStorage`
- * entry (see browser-store.ts). Every function here takes either and does
+ * handles, or a `browser` one with separately stored JSON parts and a small
+ * manifest (see browser-store.ts). Every function here takes either and does
  * the same job against whichever it is given, so the rest of the app never
  * asks which.
  */
@@ -231,7 +234,7 @@ export async function listProjects(
   return entries.sort((a, b) => b.modifiedAt - a.modifiedAt);
 }
 
-export type ReadProject = { file: ProjectFile; modifiedAt: number };
+export type ReadProject = { file: ProjectFile; modifiedAt: number; activity?: ActivityEvent[] };
 
 /**
  * Read and validate one project.
@@ -248,10 +251,13 @@ export async function readProjectFile(
   let modifiedAt: number;
 
   if (workspace.kind === "browser") {
-    const entry = browser.readRaw(slug);
-    if (!entry) return fail("not-found", `No composition “${slug}” in this browser.`);
-    text = entry.text;
-    modifiedAt = entry.modifiedAt;
+    try {
+      const entry = browser.readRaw(slug);
+      if (!entry) return fail("not-found", `No composition “${slug}” in this browser.`);
+      return finishRead(slug, JSON.parse(entry.text), entry.modifiedAt, entry.activity);
+    } catch (error) {
+      return fail("unreadable", `${slug}: ${error instanceof Error ? error.message : "Could not read stored files."}`);
+    }
   } else {
     let file: File;
     let dir: FileSystemDirectoryHandle;
@@ -275,24 +281,27 @@ export async function readProjectFile(
     const parts = await readParts(dir, slug);
     if (!parts.ok) return parts;
     modifiedAt = Math.max(modifiedAt, parts.value.modifiedAt);
+    let activity: unknown;
+    try {
+      const log = await dir.getFileHandle(ACTIVITY_FILE);
+      activity = JSON.parse(await (await log.getFile()).text());
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "NotFoundError")) {
+        return fail("unreadable", `${slug}/${ACTIVITY_FILE} could not be read as JSON.`);
+      }
+    }
     return finishRead(
       slug,
-      assembleProject(raw, parts.value.tracks, parts.value.elements),
+      assembleProject(raw, parts.value.tracks, parts.value.elements, parts.value.process),
       modifiedAt,
+      activity,
     );
   }
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    return fail("unreadable", `${slug}/${PROJECT_FILE} is not valid JSON.`);
-  }
-  return finishRead(slug, raw, modifiedAt);
 }
 
 /** The version check and the schema, shared by both workspaces. */
-function finishRead(slug: string, raw: unknown, modifiedAt: number): FsResult<ReadProject> {
+function finishRead(slug: string, raw: unknown, modifiedAt: number, activity?: unknown): FsResult<ReadProject> {
 
   // Check the version before the shape, so a file from the future gets an
   // explanation rather than a list of fields that moved. Older versions the
@@ -310,7 +319,9 @@ function finishRead(slug: string, raw: unknown, modifiedAt: number): FsResult<Re
     return fail("invalid", `${slug}/${PROJECT_FILE} — ${explainZodError(parsed.error)}`);
   }
 
-  return { ok: true, value: { file: parsed.data, modifiedAt } };
+  const history = activity === undefined ? undefined : ActivityLogSchema.safeParse(activity);
+  if (history && !history.success) return fail("invalid", `${slug}/${ACTIVITY_FILE} — ${explainZodError(history.error)}`);
+  return { ok: true, value: { file: parsed.data, modifiedAt, ...(history?.success ? { activity: history.data } : {}) } };
 }
 
 /** Every `.json` in a folder, parsed, with the newest change among them. */
@@ -343,17 +354,20 @@ async function readJsonDir(
 async function readParts(
   dir: FileSystemDirectoryHandle,
   slug: string,
-): Promise<FsResult<{ tracks: LoosePart[]; elements: LoosePart[]; modifiedAt: number }>> {
+): Promise<FsResult<{ tracks: LoosePart[]; elements: LoosePart[]; process: LoosePart[]; modifiedAt: number }>> {
   const tracks = await readJsonDir(dir, TRACKS_DIR, slug);
   if (!tracks.ok) return tracks;
   const elements = await readJsonDir(dir, ELEMENTS_DIR, slug);
   if (!elements.ok) return elements;
+  const process = await readJsonDir(dir, PROCESS_DIR, slug);
+  if (!process.ok) return process;
   return {
     ok: true,
     value: {
       tracks: tracks.value.parts,
       elements: elements.value.parts,
-      modifiedAt: Math.max(tracks.value.modifiedAt, elements.value.modifiedAt),
+      process: process.value.parts,
+      modifiedAt: Math.max(tracks.value.modifiedAt, elements.value.modifiedAt, process.value.modifiedAt),
     },
   };
 }
@@ -379,14 +393,14 @@ export async function modifiedAt(
   slug: string,
 ): Promise<number> {
   if (workspace.kind === "browser") {
-    return browser.readEntry(slug)?.modifiedAt ?? 0;
+    return browser.entryModifiedAt(slug);
   }
   try {
     const dir = await workspace.dir.getDirectoryHandle(slug);
     const handle = await dir.getFileHandle(PROJECT_FILE);
     const main = (await handle.getFile()).lastModified;
     // A change to any part is a change to the film.
-    return Math.max(main, await newestIn(dir, TRACKS_DIR), await newestIn(dir, ELEMENTS_DIR));
+    return Math.max(main, await newestIn(dir, TRACKS_DIR), await newestIn(dir, ELEMENTS_DIR), await newestIn(dir, PROCESS_DIR));
   } catch {
     return 0;
   }
@@ -407,6 +421,7 @@ export async function writeProjectFile(
   workspace: Workspace,
   slug: string,
   file: ProjectFile,
+  activity?: ActivityEvent[],
 ): Promise<FsResult<void>> {
   const parsed = ProjectFileSchema.safeParse(file);
   if (!parsed.success) {
@@ -414,9 +429,12 @@ export async function writeProjectFile(
     return fail("invalid", explainZodError(parsed.error));
   }
 
+  if (activity !== undefined && !ActivityLogSchema.safeParse(activity).success) {
+    return fail("invalid", "Invalid activity log.");
+  }
   if (workspace.kind === "browser") {
     try {
-      browser.writeEntry(slug, parsed.data);
+      browser.writeEntry(slug, parsed.data, activity);
       return { ok: true, value: undefined };
     } catch {
       return fail("write-failed", "This browser refused to store the composition (storage full or disabled).");
@@ -428,9 +446,12 @@ export async function writeProjectFile(
   const split = splitProject(parsed.data);
   try {
     const dir = await workspace.dir.getDirectoryHandle(slug, { create: true });
-    await writeJson(dir, PROJECT_FILE, split.main);
     await writeJsonDir(dir, TRACKS_DIR, split.tracks);
     await writeJsonDir(dir, ELEMENTS_DIR, split.elements);
+    await writeJsonDir(dir, PROCESS_DIR, split.process);
+    // Publish references only after their parts exist, especially during migration.
+    await writeJson(dir, PROJECT_FILE, split.main);
+    if (activity !== undefined) await writeJson(dir, ACTIVITY_FILE, activity);
     return { ok: true, value: undefined };
   } catch {
     return fail("write-failed", `Could not write ${WORKSPACE_DIR}/${slug}/${PROJECT_FILE}.`);
@@ -442,9 +463,11 @@ async function writeJson(
   name: string,
   body: unknown,
 ): Promise<void> {
+  const text = `${JSON.stringify(body, null, 2)}\n`;
   const handle = await dir.getFileHandle(name, { create: true });
+  if (await (await handle.getFile()).text() === text) return;
   const writable = await handle.createWritable();
-  await writable.write(`${JSON.stringify(body, null, 2)}\n`);
+  await writable.write(text);
   await writable.close();
 }
 
@@ -881,7 +904,8 @@ export async function listDirectory(
   path: string,
 ): Promise<FsResult<DirEntry[]>> {
   if (workspace.kind === "browser") {
-    return { ok: true, value: await listBrowserDirectory(path) };
+    try { return { ok: true, value: await listBrowserDirectory(path) }; }
+    catch { return fail("unreadable", `Could not read stored files in ${path}.`); }
   }
   try {
     const dir = await directoryAt(workspace.root, path);
@@ -926,17 +950,24 @@ async function listBrowserDirectory(path: string): Promise<DirEntry[]> {
   const slug = parts[1]!;
   if (!browser.hasEntry(slug)) return [];
   const base = `${COMPOSITIONS_DIR}/${slug}`;
-  if (parts.length === 2) {
-    const raw = browser.readRaw(slug);
-    return [
-      { name: ASSETS_DIR, path: `${base}/${ASSETS_DIR}`, kind: "directory" },
-      {
-        name: PROJECT_FILE,
-        path: `${base}/${PROJECT_FILE}`,
-        kind: "file",
-        size: raw ? new Blob([raw.text]).size : 0,
-      },
-    ];
+  const stored = browser.readStoredFiles(slug);
+  const relative = parts.slice(2).join("/");
+  if (relative !== ASSETS_DIR) {
+    const children = new Map<string, DirEntry>();
+    if (!relative) for (const dir of [ASSETS_DIR, ELEMENTS_DIR, PROCESS_DIR, TRACKS_DIR]) {
+      children.set(dir, { name: dir, path: `${base}/${dir}`, kind: "directory" });
+    }
+    const prefix = relative ? `${relative}/` : "";
+    for (const [path, text] of Object.entries(stored?.files ?? {})) {
+      if (!path.startsWith(prefix)) continue;
+      const tail = path.slice(prefix.length);
+      const name = tail.split("/")[0]!;
+      const childPath = `${base}/${prefix}${name}`;
+      children.set(name, tail.includes("/")
+        ? { name, path: childPath, kind: "directory" }
+        : { name, path: childPath, kind: "file", size: new Blob([text]).size });
+    }
+    return [...children.values()].sort(byKindThenName);
   }
   if (parts.length === 3 && parts[2] === ASSETS_DIR) {
     return (await getAssets(slug))
@@ -960,9 +991,12 @@ export async function readFileAt(workspace: Workspace, path: string): Promise<Fs
   if (workspace.kind === "browser") {
     const [top, slug, ...rest] = parts;
     if (top === COMPOSITIONS_DIR && slug) {
-      if (rest.length === 1 && rest[0] === PROJECT_FILE) {
-        const raw = browser.readRaw(slug);
-        if (raw) return { ok: true, value: new File([raw.text], PROJECT_FILE, { type: "application/json" }) };
+      try {
+        const stored = browser.readStoredFiles(slug);
+        const text = stored?.files[rest.join("/")];
+        if (text !== undefined) return { ok: true, value: new File([text], name, { type: "application/json", lastModified: stored!.modifiedAt }) };
+      } catch {
+        return fail("unreadable", `Could not read ${path}.`);
       }
       if (rest.length === 2 && rest[0] === ASSETS_DIR) {
         const wanted = `${ASSETS_DIR}/${name}`;

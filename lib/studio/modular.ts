@@ -1,4 +1,4 @@
-import type { Element, ProjectFile, Track } from "@/types/prism";
+import type { Element, Process, ProjectFile, Track } from "@/types/prism";
 
 /**
  * A film as a folder of small files.
@@ -8,7 +8,7 @@ import type { Element, ProjectFile, Track } from "@/types/prism";
  * colour read and wrote a file with every clip in it, and a large film
  * meant a large edit for a small change. So on disk the film is split.
  * `project.json` keeps what is about the film, the canvas, the background,
- * the process, and the order of its layers and elements by id; each layer
+ * the process file paths, and the order of its layers and elements by id; each layer
  * is `tracks/<id>.json` with its clips, and each element is
  * `elements/<id>.json`. To change one, edit its file.
  *
@@ -27,6 +27,8 @@ import type { Element, ProjectFile, Track } from "@/types/prism";
 
 export const TRACKS_DIR = "tracks";
 export const ELEMENTS_DIR = "elements";
+export const PROCESS_DIR = "process";
+export const ACTIVITY_FILE = "activity.json";
 
 export type SplitFile<T> = { name: string; body: T };
 
@@ -35,6 +37,7 @@ export type SplitProject = {
   main: Record<string, unknown>;
   tracks: SplitFile<Track>[];
   elements: SplitFile<Element>[];
+  process: SplitFile<Process[keyof Process]>[];
 };
 
 /** A file name an id can safely have. Ids are matched by their `id` field, so this is only storage. */
@@ -43,15 +46,17 @@ export function fileNameFor(id: string): string {
 }
 
 export function splitProject(file: ProjectFile): SplitProject {
-  const { tracks, elements, ...rest } = file;
+  const { tracks, elements, process, ...rest } = file;
   return {
     main: {
       ...rest,
       elements: elements.map((element) => element.id),
       tracks: tracks.map((track) => track.id),
+      process: Object.fromEntries(Object.keys(process).map((stage) => [stage, `${PROCESS_DIR}/${stage}.json`])),
     },
     tracks: tracks.map((track) => ({ name: fileNameFor(track.id), body: track })),
     elements: elements.map((element) => ({ name: fileNameFor(element.id), body: element })),
+    process: Object.entries(process).map(([stage, body]) => ({ name: `${stage}.json`, body })),
   };
 }
 
@@ -115,6 +120,7 @@ export function assembleProject(
   main: unknown,
   tracks: LoosePart[],
   elements: LoosePart[],
+  process: LoosePart[] = [],
 ): unknown {
   if (main === null || typeof main !== "object" || Array.isArray(main)) return main;
   const record = main as Record<string, unknown>;
@@ -122,12 +128,20 @@ export function assembleProject(
     ...record,
     tracks: resolve(record.tracks, tracks, byStackThenName),
     elements: resolve(record.elements, elements),
+    process: record.process && typeof record.process === "object" && !Array.isArray(record.process)
+      ? Object.fromEntries(Object.entries(record.process).map(([stage, value]) => [stage,
+          typeof value === "string"
+            ? process.find((part) => `${PROCESS_DIR}/${part.name}` === value)?.body ?? value
+            : value,
+        ]))
+      : record.process,
   };
 }
 
 /** Whether a main file keeps its parts in files, by id, rather than inline. */
 export function isSplit(main: unknown): boolean {
-  const record = main as { tracks?: unknown; elements?: unknown } | null;
+  const record = main as { tracks?: unknown; elements?: unknown; process?: Record<string, unknown> } | null;
   const lists = [record?.tracks, record?.elements];
-  return lists.some((list) => Array.isArray(list) && list.some((entry) => typeof entry === "string"));
+  return lists.some((list) => Array.isArray(list) && list.some((entry) => typeof entry === "string"))
+    || Object.values(record?.process ?? {}).some((entry) => typeof entry === "string");
 }

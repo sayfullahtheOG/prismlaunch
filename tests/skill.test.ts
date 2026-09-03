@@ -45,7 +45,9 @@ function assembledExample() {
   const [main, ...parts] = blocks;
   const tracks = parts.filter((part) => Array.isArray(part.clips)).map((body) => ({ name: `${body.id}.json`, body }));
   const elements = parts.filter((part) => typeof part.kind === "string").map((body) => ({ name: `${body.id}.json`, body }));
-  return { main: main!, tracks, elements, assembled: assembleProject(main!, tracks, elements) };
+  const process = [...SKILL.matchAll(/`process\/([a-z]+\.json)`:\n\n```json\n([\s\S]*?)```/g)]
+    .map((match) => ({ name: match[1]!, body: JSON.parse(match[2]!) }));
+  return { main: main!, tracks, elements, process, assembled: assembleProject(main!, tracks, elements, process) };
 }
 
 describe("public/SKILL.md", () => {

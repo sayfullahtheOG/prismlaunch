@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { checkForDiskChanges, restoreWorkspace } from "@/lib/studio/actions";
+import { checkForDiskChanges, flushWrites, restoreWorkspace } from "@/lib/studio/actions";
 
 /**
  * Keeps the page honest about the folder.
@@ -25,6 +25,15 @@ const POLL_MS = 1000;
 export function useDiskSync(): void {
   useEffect(() => {
     void restoreWorkspace();
+    const flush = () => { void flushWrites(); };
+    const hidden = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      flush();
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", hidden);
+    };
   }, []);
 
   useEffect(() => {

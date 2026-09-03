@@ -1,8 +1,10 @@
 "use client";
 
-import { AudioLines, Hand, LayoutTemplate, MousePointer2, Music, Sparkles } from "lucide-react";
+import { AudioLines, Film, ImageOff, LayoutTemplate, Music, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { HAND_SRC, isAnimated, previewFrames } from "@/lib/studio/library";
+import { CURSOR_SRC, HAND_SRC, isAnimated, previewFrames } from "@/lib/studio/library";
+import { isLibraryPath, libraryUrl } from "@/lib/studio/files";
+import { useStudioStore } from "@/lib/studio/store";
 import { Words } from "@/remotion/Film";
 import { drawProgress, ICON_PATHS } from "@/remotion/icons";
 import { clipStyle, motionState } from "@/remotion/motion";
@@ -27,6 +29,25 @@ export const FAMILY: Record<"display" | "body" | "mono", string> = {
 const PREVIEW_FPS = 30;
 /** Frames the last state holds before the loop starts again. */
 const HOLD = 20;
+
+/** Use the same asset URL as the canvas, including before an element is placed. */
+function MediaThumbnail({ draft }: { draft: Extract<ElementDraft, { kind: "image" | "video" }> }) {
+  const loaded = useStudioStore((state) => state.assets[draft.src]);
+  const src = loaded ?? (isLibraryPath(draft.src) ? libraryUrl(draft.src) : undefined);
+  const [failed, setFailed] = useState<string | null>(null);
+  if (!src || failed === src) return <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-[#F5F5F7]">
+    {draft.kind === "image" ? <ImageOff size={20} aria-hidden /> : <Film size={20} aria-hidden />}
+    <span className="text-2xs">{src ? "Preview unavailable" : "Asset unavailable"}</span>
+  </span>;
+  return draft.kind === "image"
+    // Object URLs and bundled library files are already resolved locally.
+    // eslint-disable-next-line @next/next/no-img-element
+    ? <img src={src} alt={draft.name} className="h-full w-full object-contain" onError={() => setFailed(src)} />
+    : <video src={src} aria-label={draft.name} muted playsInline preload="metadata" className="h-full w-full object-contain" onError={() => setFailed(src)} onLoadedMetadata={(event) => {
+        const video = event.currentTarget;
+        video.currentTime = Math.min(Math.max(.01, draft.startFrom / PREVIEW_FPS), Math.max(0, video.duration - .01));
+      }} />;
+}
 
 type VisualDraft = Extract<
   ElementDraft,
@@ -188,13 +209,7 @@ export function Preview({ draft, large = false }: { draft: ElementDraft; large?:
           Aa
         </span>
       ) : draft.kind === "image" || draft.kind === "video" ? (
-        <span className="absolute inset-0 flex items-center justify-center text-[#F5F5F7]">
-          {draft.src === HAND_SRC ? (
-            <Hand size={large ? 40 : 22} strokeWidth={1.6} />
-          ) : (
-            <MousePointer2 size={large ? 40 : 22} strokeWidth={1.6} />
-          )}
-        </span>
+        <span className="absolute inset-0 p-2"><MediaThumbnail draft={draft} /></span>
       ) : draft.kind === "icon" ? (
         <span className="absolute inset-0 flex items-center justify-center">
           <IconGlyph draft={draft} size={large ? 48 : 26} frame={999} />
@@ -393,10 +408,9 @@ function Playing({
     );
   }
 
-  // An image or a video: the cursor, as its icon, and the spot it is
-  // heading for, so the glide and the click have somewhere to land.
-  const heading = draft.motion.x !== 0 || draft.motion.y !== 0;
-  const Pointer = draft.src === HAND_SRC ? Hand : MousePointer2;
+  // Only actual cursor assets get a target hint. Other media show their own pixels.
+  const cursor = draft.src === HAND_SRC || draft.src === CURSOR_SRC;
+  const heading = cursor && (draft.motion.x !== 0 || draft.motion.y !== 0);
   return (
     <>
       {heading ? (
@@ -414,11 +428,8 @@ function Playing({
           }}
         />
       ) : null}
-      <span style={{ ...placed, display: "block", lineHeight: 0, color: "#F5F5F7" }}>
-        <Pointer
-          size={Math.max(Math.round(width * 0.11), draft.box.width * width * 1.4)}
-          strokeWidth={1.6}
-        />
+      <span style={{ ...placed, display: "block", width: Math.max(cursor ? 18 : 24, draft.box.width * width), height: Math.max(cursor ? 24 : 18, draft.box.height * height) }}>
+        <MediaThumbnail draft={draft} />
       </span>
     </>
   );

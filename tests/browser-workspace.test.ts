@@ -25,7 +25,8 @@ import { projectFile } from "./fixture";
  * with no folder anywhere.
  */
 
-beforeEach(() => {
+beforeEach(async () => {
+  await actions.flushWrites();
   resetBrowserStore();
   resetStudio();
 });

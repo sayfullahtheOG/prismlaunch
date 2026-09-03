@@ -18,6 +18,7 @@ import { boardVisual } from "./fixture";
  */
 
 beforeEach(async () => {
+  await actions.flushWrites();
   resetBrowserStore();
   resetStudio();
   // A blank composition in the browser workspace: every stage pending.

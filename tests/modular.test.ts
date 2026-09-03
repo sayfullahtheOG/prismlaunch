@@ -47,7 +47,7 @@ describe("splitting and assembling", () => {
     expect(isSplit(split.main)).toBe(true);
     expect(isSplit(original)).toBe(false);
 
-    const back = assembleProject(split.main, split.tracks, split.elements);
+    const back = assembleProject(split.main, split.tracks, split.elements, split.process);
     expect(ProjectFileSchema.parse(back)).toEqual(original);
   });
 
@@ -68,7 +68,7 @@ describe("splitting and assembling", () => {
 
   it("takes every file, by name, when the main file does not list them", () => {
     const split = splitProject(film());
-    const back = assembleProject({ ...split.main, tracks: undefined, elements: undefined }, split.tracks, split.elements);
+    const back = assembleProject({ ...split.main, tracks: undefined, elements: undefined }, split.tracks, split.elements, split.process);
     expect(ProjectFileSchema.safeParse(back).success).toBe(true);
   });
 
@@ -151,7 +151,7 @@ describe("on disk", () => {
     const { workspace } = fakeWorkspace();
     await writeProjectFile(workspace, "seen", film());
     const inside = await listDirectory(workspace, ".prismlaunch/seen");
-    expect(inside.ok && inside.value.map((entry) => entry.name)).toEqual(["elements", "tracks", "project.json"]);
+    expect(inside.ok && inside.value.map((entry) => entry.name)).toEqual(["elements", "process", "tracks", "project.json"]);
     const part = await readFileAt(workspace, ".prismlaunch/seen/elements/el-headline.json");
     expect(part.ok && JSON.parse(await part.value.text()).id).toBe("el-headline");
     void textClip;

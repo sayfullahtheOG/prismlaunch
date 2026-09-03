@@ -1121,27 +1121,23 @@ export const SelectionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("background") }),
 ]);
 
-/**
- * A composition as the app holds it: the file, plus where it came from and what
- * is selected. The extra fields never reach disk — see `toProjectFile`.
- */
+export const ActivityEventSchema = z.object({
+  id: z.string().min(1),
+  origin: z.enum(["human", "agent", "disk"]),
+  label: z.string().min(1).max(120),
+  detail: z.string().max(240),
+  at: z.string().min(1).max(40),
+  blocked: z.boolean().optional(),
+});
+export const ActivityLogSchema = z.array(ActivityEventSchema).max(200);
+
+/** Composition and transient selection. Activity is persisted separately. */
 export const FilmProjectSchema = z.object({
   file: ProjectFileSchema,
   /** The folder under `.prismlaunch` this was read from. */
   slug: z.string(),
   selection: SelectionSchema.nullable(),
-  activity: z
-    .array(
-      z.object({
-        id: z.string().min(1),
-        origin: z.enum(["human", "agent", "disk"]),
-        label: z.string().min(1).max(120),
-        detail: z.string().max(240),
-        at: z.string().min(1).max(40),
-        blocked: z.boolean().optional(),
-      }),
-    )
-    .max(200),
+  activity: ActivityLogSchema,
 });
 
 /**

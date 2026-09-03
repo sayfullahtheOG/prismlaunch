@@ -89,7 +89,9 @@ export function AgentPanel({ activity }: Props) {
                   {event.detail}
                 </span>
                 <span className="mt-0.5 block font-mono text-2xs text-subtle tabular-nums">
-                  {event.at}
+                  {event.at.includes("T") && !Number.isNaN(Date.parse(event.at))
+                    ? new Date(event.at).toLocaleString()
+                    : event.at}
                 </span>
               </span>
             </li>

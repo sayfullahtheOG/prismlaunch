@@ -1,16 +1,41 @@
 # PrismLaunch
 
-**An agent-native video editor.** Your agent builds the timeline; this page renders it, and you decide what ships.
+**A promo video editor for you and your AI agent.** Your agent builds the timeline through WebMCP; you review the work and decide what ships.
 
-PrismLaunch is a canvas, a layer stack and a real renderer. It has no model of its own and no opinion about what makes a good video — it does not read your source, write copy, or impose a structure. Your agent already knows the product and is sitting in your editor. What PrismLaunch provides is the half an agent cannot do alone: a renderer, a timeline you can both see, and an approval gate the agent cannot open.
+PrismLaunch has no model of its own. Bring a WebMCP-capable agent, give it your product and message, and direct it through a brief, concepts, script, visual storyboard, style frames, animatic, polish, and build. The agent follows the operating and filmmaking guides, and the result stays editable on a shared timeline.
 
-Agents build. Only a human approves a stage, and only a human starts a render.
+- **[Open the live app](https://tryprismlaunch.vercel.app/)** — no PrismLaunch account or API key required.
+- **[Watch the judges' demo (2:12)](https://youtu.be/OmZCLNlXz0E)** — the product, its WebMCP workflow, and the creator's narration.
+- **[Watch the promo made with PrismLaunch](https://youtu.be/ujY44vg1I9c)** — the app's own launch video.
+- **[Devpost project](https://devpost.com/software/prismlaunch)** · **[MIT license](LICENSE)**
+
+Stage and render approvals are human controls in the studio. No registered WebMCP tool grants those approvals.
+
+## Why WebMCP
+
+Video editing requires precise operations: placing a clip at a frame, changing its duration, arranging layers, or updating every use of a reusable element. WebMCP exposes those operations as structured tools in the same browser page that renders the film.
+
+The agent can inspect the current composition, make an edit, preview it, and capture exact frames. The person sees the result in the same editor and can approve it or send it back with a note. That feedback stays with the project, so the agent can revise the existing film instead of starting over.
+
+## Try it with your agent
+
+1. Open the [live studio](https://tryprismlaunch.vercel.app/) in ChatGPT's in-app browser or desktop Chrome with native WebMCP enabled. In Chrome, enable `chrome://flags/#enable-webmcp-testing` if needed and restart the browser. Your agent/client must support discovering and calling WebMCP tools.
+2. Choose **Start in the browser** for browser storage. Alternatively, click **Link project folder** in a supported browser and choose a folder yourself. Folder access requires your click and permission.
+3. Give the agent this prompt:
+
+   > Help me make a 15-second promo for PrismLaunch, a video editor my AI agent can use. Read its operating and filmmaking guides, work through the creative stages with me, and wait for my review after each stage.
+
+4. The agent calls `prism.read_guide` separately for `SKILL.md` and `PRISM_METHOD.md`, then reads `prism.get_project_context`. Installing the skill or reading its URL outside the tool does not satisfy the page's guide-delivery requirement.
+5. Review the brief. Try **Send back** with a specific note, let the agent revise it, then approve the revision. Continue through the remaining stages. The Activity panel records tool activity and review decisions.
+6. After reviewing the final build, let the agent propose a render. Approve the request in the studio; the agent can then confirm it. The browser encodes the MP4 and downloads it or saves it to the linked folder.
+
+For a quick connection check, open **Files → Folder and connection** in the editor or run the [WebMCP probe](https://tryprismlaunch.vercel.app/spike). See [Testing WebMCP](#testing-webmcp) for the difference between native support and the in-page fallback.
 
 ---
 
 ## How it works
 
-A film is a folder in your own repository:
+A film can live in a linked local folder or in browser storage. Both use the same modular layout. With a repository linked, it looks like this:
 
 ```
 your-repo/
@@ -40,35 +65,36 @@ tracks[3]      audio
 
 Each track holds clips — text, shapes, images, video, sound — with a start frame and a length. Clips on one track cannot overlap; that is what a track is. Two things on screen at once means two tracks, and the track order decides which is in front.
 
-1. You give your agent one line: `set up https://tryprismlaunch.vercel.app/SKILL.md`
-2. You open the studio and click **Link project folder**. (Your agent cannot — browsers only open that picker for a real click.)
-3. Your agent writes the film's files, either with its own file tools or through the WebMCP tools registered on the page. The studio picks up a change to any of them within a second.
-4. It works stage by stage — brief, concept, script, storyboard, style, animatic, polish, build — and each stage opens for you to read. You approve it or send it back with a note; the decision is written to disk, where your agent reads it.
+With a linked folder, an agent can edit the film's JSON parts with file tools or use WebMCP; the studio watches for file changes. In browser-storage mode, the agent must use the page's WebMCP tools. Files in the agent's own filesystem do not reach a browser-stored composition.
 
 The storyboard is a visual composition for each shot: screenshots, product
 frames, subjects, text, arrows and cursors, with timed keyframes. Each board
 shows one frame with a corner play button to preview that shot's animation.
-**Edit layout** lets you scrub, add, position and reorder layers inline.
+Storyboard and style-frame reviews are read-only. Manual editing tools live in **Editor**.
 New agent submissions must include visual scenes; older text-only
 boards remain readable and are marked as needing a layout. The same visuals
-and movement carry into the animatic through `prism.lay_animatic`.
-5. When every stage is approved, your agent proposes a render. You approve. The MP4 is encoded in your browser with WebCodecs and saved beside the project file.
+and movement can become timing scaffolding through `prism.lay_animatic`. The agent
+must replace those rough boards with styled shots before submitting the animatic;
+visible storyboard placeholders are refused. Approving the animatic saves a timing
+snapshot for polish and build.
 
-**Nothing is uploaded.** Not the video, not the project file, not your code. The film is encoded on your machine and written to your folder.
+**Storage and rendering:** project parts and media are kept in the linked folder or browser storage, and video encoding happens in the browser. A render proposal sends the composition JSON to `/api/render`, where a temporary snapshot and confirmation are kept in server memory. The approved snapshot is returned for browser encoding.
 
-## Why this is not another AI video generator
+## Human review and render approval
 
-Most "AI video" tools are a chat box that emits a finished file. PrismLaunch puts the agent and the human on one artifact:
+PrismLaunch puts the agent and the person on one editable artifact:
 
 - The agent adds a clip or saves the film's files; it appears on your timeline immediately.
 - The approval boundary is the process: eight stages, each submitted by the agent and approved or sent back by you. There is no tool that approves a stage or a render — `approveStage` and `approveRender` exist in the code and are deliberately never registered. A test walks the live tool surface to prove it.
-- Rendering is gated by a **two-phase confirmation token**, not a boolean the agent fills in itself. The first call proposes and writes nothing; the second takes only the token and replays what the first recorded.
-- **Tools, not rules.** There is no `make_the_video` that takes a brief and returns a finished film. There is a canvas, layers, clips and a playhead. What gets built is the agent's call, and yours.
+- Rendering follows **propose → human approval → confirm**. The proposal records a snapshot; confirmation accepts its token and returns that approved snapshot for encoding.
+- The agent works with canvas, layer, clip, element and playhead tools. You provide direction and decide whether each stage is ready.
 
 ## Requirements
 
-- **Node 24+** (`engines` targets `24.x`)
-- **A Chromium browser** — Chrome, Edge, Arc, or ChatGPT's browser. PrismLaunch needs the File System Access API to read and write your folder, which Safari and Firefox do not have. Since nothing is uploaded, there is no server-side fallback to offer.
+- **Node.js 24** for local development (tested with 24.11.1).
+- **A browser and agent/client with native WebMCP support** for agent-driven editing. The tested paths are ChatGPT's in-app browser and Chrome with WebMCP enabled; see the test scope below.
+- **File System Access API support** if you want a linked local folder. Browser storage is available when folder access is unavailable, including in ChatGPT's in-app browser.
+- **Supported WebCodecs/MP4 encoding** for export. Availability and performance depend on the browser and device.
 
 ## Running locally
 
@@ -91,15 +117,15 @@ The studio is at [http://localhost:3000](http://localhost:3000).
 
 **`public/SKILL.md`** is how the tool works — the file format, the tools, the folder. `lib/studio/schema.ts` enforces it, and `tests/skill.test.ts` parses the example out of the document and validates it against the live schema, so the two cannot drift without the suite failing.
 
-**`public/PRISM_METHOD.md`** is what to make with it. This is the product. It is the end-to-end craft of a promo film — concept, script, storyboard, timing locked to music before design, colour and type, motion in frame counts, sound in beats and gain, four rounds of review — synthesised from what Sandwich, Giant Ant, Buck, Ordinary Folk and the in-house teams at Apple, Linear and Raycast say they actually do, and from the perceptual research underneath. Every number in it is theirs. `tests/method.test.ts` checks that every transition, colour, font and tool it names is one the renderer really has, and that its tempo table is actually frame-locked at 30fps.
+**`public/PRISM_METHOD.md`** covers the craft: concept, script, visual storyboards, style frames, an animatic timed to music, polish, and build. It gives the agent guidance for typography, motion, sound, pacing, and visual continuity, with references for further reading. `tests/method.test.ts` checks supported names and frame-based timing examples against the implementation.
 
-The tool without the method produces the video everyone has seen. The method is why it doesn't — and it is not left as advice. The eight stages live in separate `process/<stage>.json` files and have eight `submit_*` tools; each refuses until the person has approved the stage before it, and approving the animatic locks every visual clip's window so the agent can fill the beats but not move them. The Process panel is where the person reads each stage's artifact and approves it or sends it back with a note. `tests/process.test.ts` pins both rules.
+The eight stages live in separate `process/<stage>.json` files and have eight `submit_*` tools; each requires the person to approve the preceding stage. Animatic approval snapshots the timing. Later agent edits may move visual clips across section boundaries, but they must fit within the approved film's end. The Process panel is where the person reviews each stage and approves it or sends it back with a note. `tests/process.test.ts` covers these rules.
 
 ## The tools
 
 PrismLaunch exposes five compact WebMCP toolsets, switched with `use_toolset`. The operations cover the guides (`read_guide`), the process (`submit_brief` through `submit_build`, `lay_animatic`, `wait_for_decision`), the canvas (`create_project`, `open_project`, `set_background`, `set_duration`, `set_camera`), the stack (`add_track`, `update_track`, `move_track`, `remove_track`), the elements (`add_element`, `update_element`, `remove_element`, `add_from_library`, `place_element`), the clips (`add_text`, `add_shape`, `add_image`, `add_video`, `add_audio`, `add_icon`, `add_particles`, `add_device`, `add_html`, `update_clip`, `remove_clip`), the view (`seek`, `preview`, `capture_frames`, `get_project_context`) and the gate (`request_render`, `confirm_render`).
 
-The clip tools exist so an agent *without* file access is not locked out. An agent with file tools should edit the film's files directly, one element or layer at a time — it is the same composition either way, and far fewer round trips.
+The clip tools let an agent work without local file access. When a folder is linked and accessible to the agent, it can edit the relevant JSON parts directly. Browser-stored projects require WebMCP edits.
 
 `public/SKILL.md` documents all of them, and `tests/skill.test.ts` asserts the documented list matches the registered one exactly.
 
@@ -109,13 +135,24 @@ Before an agent can change a film, `prism.read_guide` delivers `SKILL.md` and `P
 
 Visit **`/spike`** — a one-tool probe page that proves the full round-trip (register → discover → execute → unregister) and reports which implementation it found.
 
+### Tested on the live app
+
+- **ChatGPT's in-app browser with Codex:** real WebMCP edits, creative-stage revisions, timeline work, and the creation of PrismLaunch's own promo. The completed 45-second composition was exported through the app.
+- **Desktop Chrome with WebMCP enabled:** the editor registered all 15 workflow tools with no reported registration failures. The native `/spike` check discovered and executed `prism.echo`; a missing required input returned the expected validation error. This verifies native registration and the probe round-trip, not a full timeline edit through every Chrome agent/client.
+
+The probe can also run against the fallback, so check its badge. A successful in-page self-test alone does not establish compatibility with an external agent. Agent clients must expose WebMCP discovery and execution; ordinary browser automation support is not sufficient.
+
+### Tool discovery and input validation
+
 | Badge | Meaning |
 | --- | --- |
 | `native modelContext` | The browser implements WebMCP. External agents can discover these tools. |
 | `fallback registry` | No native implementation. A same-page shim lets the app call its own tools so the page still works — **invisible to external agents**. |
 | `no modelContext` | Neither is available. |
 
-**ChatGPT's browser implements WebMCP natively — no origin-trial token is required.** For desktop Chrome, enable `chrome://flags/#enable-webmcp-testing` and restart.
+The tested ChatGPT in-app browser exposed native WebMCP without an origin-trial token. For desktop Chrome, enable `chrome://flags/#enable-webmcp-testing` if needed and restart.
+
+The studio starts with the `workflow` toolset. Call `prism.use_toolset` to switch to `graphics`, `media`, `elements`, or `edit`, then refresh the available tool list. Some hosts retain old catalogues during long sessions; reconnect the agent if discovery stops. If the page reloads, deliver both guides through `prism.read_guide` again.
 
 Three behaviours worth knowing if you are building on this:
 
@@ -131,9 +168,11 @@ Your agent ──── file tools ────> .prismlaunch/<slug>/{project.js
     │                                      │ File System Access API
     └──── WebMCP tools ────> Next.js studio ──> Remotion <Player>
                                    │
+                                   ├── browser storage (alternative to linked folder)
+                                   │
                                    ├── /api/render ── two-phase gate ── snapshot
                                    │
-                                   └── WebCodecs ──> MP4 ──> back into the folder
+                                   └── WebCodecs ──> MP4 ──> download or linked folder
 ```
 
 `lib/studio/edits.ts` holds every timeline operation — move, trim, split, duplicate, reorder — as pure functions from one composition to another. That is what makes the hard parts testable: "does dragging a clip left past its neighbour do the right thing" is a question about data, and answering it does not require a browser.
@@ -144,22 +183,30 @@ Your agent ──── file tools ────> .prismlaunch/<slug>/{project.js
 | Styling | Tailwind v4, CSS-first `@theme` tokens |
 | Validation | Zod — one schema drives the file format, the WebMCP `inputSchema`, and the runtime guard |
 | State | Zustand — a single mutation path shared by human handlers and tool executors |
-| Storage | The user's own filesystem. No database, no accounts, no sessions, no OAuth. |
+| Storage | Linked local folders or browser storage; no app account required. Temporary render confirmations and composition snapshots live in server memory. |
 | Film | Remotion — one component for both the preview and the export |
 | Timeline | Hand-rolled. The maintained packages either fight the design tokens or model scheduling rather than video layering. |
-| Render | `@remotion/web-renderer` — WebCodecs in the browser, no server CPU |
+| Render | `@remotion/web-renderer` — WebCodecs in the browser, no server-side video encoding |
 
 Two constraints worth stating up front:
 
-- **The File System Access API is Chromium-only**, and `showDirectoryPicker` requires a user gesture. That is why an agent cannot link a folder for you, and why the app asks for permission again after every reload — a stored handle survives, its permission does not.
+- **Linking a folder requires browser support and permission.** `showDirectoryPicker` requires a user gesture; a remembered handle may need permission again after a reload. Use browser storage when folder access is unavailable.
 - **No COOP/COEP or `Origin-Agent-Cluster` headers.** WebMCP needs the default origin-keyed agent cluster; cross-origin isolation is a different mechanism it does not require.
 
 ## Deploying
 
-Deploys to Vercel as a single project with **no environment variables**. Rendering happens in the visitor's browser, so there is no render budget to protect and no unauthenticated endpoint spending CPU.
+Deploys to Vercel as a single project with **no environment variables**. Video encoding happens in the visitor's browser. The server handles render proposals, human approvals, and temporary composition snapshots.
+
+## Contributors and AI assistance
+
+- **[Khalid Sayfullah](https://github.com/sayfullahtheOG)** — product idea, direction, review, testing, and final creative decisions.
+- **Claude Code (Anthropic)** — assisted with the core implementation.
+- **[Codex (OpenAI)](https://openai.com/codex/)** — assisted with WebMCP testing, debugging, workflow and UI improvements, documentation, and creating the PrismLaunch promo through the app.
+
+PrismLaunch is a solo hackathon entry by Khalid. Claude Code and Codex are credited as AI development tools.
 
 ## Licence
 
 [MIT](LICENSE).
 
-Built with [Remotion](https://remotion.dev), which is free for individuals and organisations of up to three people. Larger organisations need a [company licence](https://remotion.pro/license).
+Built with [Remotion](https://remotion.dev), which has its own [licensing terms](https://remotion.pro/license).
